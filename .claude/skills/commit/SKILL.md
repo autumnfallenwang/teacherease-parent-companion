@@ -18,7 +18,7 @@ Message must use conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `t
 Append to the commit body:
 
 ```
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 ```
 
 ## Never commit

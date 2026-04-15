@@ -12,9 +12,11 @@ Generate tests for code that lacks coverage. Match existing test patterns in the
 
 ## TypeScript tests (Vitest)
 
-- Place in `tests/` mirroring the source structure (e.g. `src/scraper/teacherease.ts` → `tests/scraper/teacherease.test.ts`).
-- **Unit tests**: `.test.ts`. Pure functions, parsers, formatters. No network, no FS beyond fixtures.
-- **Integration tests**: `.integration.test.ts`. Real SQLite (temp file), real HTTP if needed. Gated behind an env var when they hit live TeacherEase (never hit the live portal in CI by default).
+Vitest is configured to pick up tests from both `tests/**/*.test.ts` and `scraper/**/*.test.ts` (see `vitest.config.ts`).
+
+- **Scraper unit tests** are colocated next to the source: `scraper/teacherease.ts` → `scraper/teacherease.test.ts`. Pure parser/logic tests against fixtures. No network, no FS beyond fixtures.
+- **Frontend / cross-cutting unit tests** live under `tests/` mirroring the source (e.g. `src/lib/format-grade.ts` → `tests/lib/format-grade.test.ts`).
+- **Integration tests**: `.integration.test.ts`, under `tests/integration/`. Real SQLite (temp file), real HTTP if needed. Gated behind an env var when they hit live TeacherEase (never hit the live portal in CI by default). Excluded from `pnpm test:fast`.
 - **Fixtures** for HTML parsing live in `tests/fixtures/` — save real HTML snapshots once, commit them, and parse against the fixtures. Do not re-hit the live portal on every test run.
 - Mock external dependencies (network, keychain) at the module boundary using `vi.mock()`.
 - Keep tests deterministic. No flaky timeouts, no real clocks (use `vi.useFakeTimers()` for scheduler tests).

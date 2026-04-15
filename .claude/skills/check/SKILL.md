@@ -21,8 +21,7 @@ Run all checks and report results. Stop on first failure.
 
 Skip if `src-tauri/` doesn't exist or `which cargo` fails. Note what's missing and continue with TS checks only.
 
-1. Run `/lint rust`
-2. Build check: `cd src-tauri && cargo check --all-targets`
-3. Run `/test rust`
+1. Run `/lint rust` (clippy handles type-check + lint in one pass; no separate `cargo check` needed)
+2. Run `/test rust`
 
 If no arguments provided, default to fast tests.

@@ -2,7 +2,7 @@
 
 A cross-platform desktop app that keeps track of your child's grades and homework from TeacherEase. Everything stays on your computer — no accounts, no servers, no cloud.
 
-> **Status:** early development. See `docs/decisions.md` in the planning repo for architectural decisions.
+> **Status:** early development. See `docs/design-plan.md` for architecture and locked decisions.
 
 ## What it does
 

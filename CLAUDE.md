@@ -33,8 +33,7 @@ Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + 
 
 ## Docs
 
-- [docs/decisions.md](docs/decisions.md) — locked architectural decisions (the "why")
-- [docs/design-plan.md](docs/design-plan.md) — design plan, data model, build phases (the "what")
+- [docs/design-plan.md](docs/design-plan.md) — design plan, locked decisions, data model, build phases
 - [docs/progress.md](docs/progress.md) — current task tracker
 - [docs/lessons.md](docs/lessons.md) — corrections and patterns to avoid repeating
 

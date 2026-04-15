@@ -8,11 +8,10 @@ Pick up the next task from the development plan and implement it. The goal is to
 ## Phase 1: Understand current state
 
 1. Read `docs/progress.md` to see what's done, what's partial, what's next.
-2. Read `docs/design-plan.md` for design decisions and architectural context.
-3. Read `docs/decisions.md` for the "why" behind locked decisions. **Never contradict a locked decision without explicitly raising it with the user first.**
-4. Read `docs/lessons.md` for past corrections — avoid repeating known mistakes.
-5. Identify the next task to work on — follow the phase order; earlier phases must be done before later ones.
-6. If $ARGUMENTS is provided, treat it as the specific task to work on (e.g. "task 9" or "grade overview parser") instead of auto-detecting.
+2. Read `docs/design-plan.md` for design context AND the "Locked Decisions" section (the "why" behind each choice). **Never contradict a locked decision without explicitly raising it with the user first.**
+3. Read `docs/lessons.md` for past corrections — avoid repeating known mistakes.
+4. Identify the next task to work on — follow the phase order; earlier phases must be done before later ones.
+5. If $ARGUMENTS is provided, treat it as the specific task to work on (e.g. "task 9" or "grade overview parser") instead of auto-detecting.
 
 ## Phase 2: Explore and plan (the most important phase)
 
@@ -24,7 +23,7 @@ This phase is cheap in tokens and prevents expensive rework. Take your time here
    - Existing test files to understand testing conventions
 8. Determine which platform(s) this task targets:
    - **TypeScript frontend** (`src/`): Next.js App Router, React, Tailwind + shadcn/ui patterns.
-   - **TypeScript scraper** (`scraper/` or `src-tauri/sidecar/`): pure Node, `fetch` + `cheerio`, no DOM APIs.
+   - **TypeScript scraper** (`scraper/`): `fetch` + `cheerio`, bundled into the Next.js frontend and imported from React per Q11. Invoked via Tauri's `http` allowlist. Not a separate Node process.
    - **Rust Tauri core** (`src-tauri/src/`): `#[tauri::command]` handlers, plugin wiring, state management.
    - Cross-cutting tasks may touch all three.
 9. For scraper work: **always work from saved HTML fixtures in `tests/fixtures/`**, never hit the live portal during development. If no fixture exists, mine one from `ref/teacherease_parents_helper/logs/` or ask the user to capture a fresh sample.
@@ -32,7 +31,7 @@ This phase is cheap in tokens and prevents expensive rework. Take your time here
 
 ### Plan Round 1 — Draft
 
-11. Enter plan mode and write a detailed implementation plan:
+11. Write a detailed implementation plan in a chat message (do not start editing code yet):
     - Files to create/modify (with exact paths)
     - Types and interfaces to define
     - Functions to implement (with signatures and key logic)

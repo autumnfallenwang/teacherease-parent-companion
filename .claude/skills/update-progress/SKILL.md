@@ -8,8 +8,7 @@ Update `docs/progress.md` to reflect the current state of the project.
 ## Rules
 
 - `docs/progress.md` tracks **only**: task table, what's working, what's next.
-- Design decisions and architectural choices go in `docs/design-plan.md`.
-- Locked "why" decisions go in `docs/decisions.md` (append-only, never edit past entries without user approval).
+- Design decisions, architectural choices, and locked "why" decisions all go in `docs/design-plan.md` (the "Locked Decisions" section is append-only — never edit past entries without user approval).
 - Keep "What's Working" as a concise bullet list.
 - Keep "What's Next" to one line pointing at the next task.
 
@@ -29,4 +28,4 @@ Update `docs/progress.md` to reflect the current state of the project.
 
 If $ARGUMENTS is provided, treat it as additional context about what was just completed (e.g. "finished task 9 grade overview parser").
 
-Only update `docs/progress.md`. Do NOT change `decisions.md`, `design-plan.md`, or any code files.
+Only update `docs/progress.md`. Do NOT change `design-plan.md` or any code files.

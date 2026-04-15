@@ -4,12 +4,12 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Repo + planning docs | ✅ Done | GitHub repo, MIT license, .gitignore, CLAUDE.md, decisions.md, design-plan.md, .claude/ scaffold |
-| 2 | pnpm workspace + package.json | Not started | Root package.json, pnpm-lock, Biome + Vitest + TS deps |
-| 3 | Next.js static-export setup | Not started | `src/app/`, static export config, Tailwind + shadcn/ui |
-| 4 | Tauri 2 shell init | Not started | `src-tauri/` with Cargo.toml, tauri.conf.json, main.rs minimal, builds on Linux |
-| 5 | Cross-platform CI | Not started | GitHub Actions matrix (Windows / macOS / Linux), artifact upload |
-| 6 | Biome + Vitest + tsc wiring | Not started | `pnpm lint`, `pnpm test`, `pnpm typecheck` all green on empty project |
+| 1 | Repo + planning docs | ✅ Done | GitHub repo, MIT license, .gitignore, CLAUDE.md, design-plan.md (merged with locked decisions), .claude/ scaffold |
+| 2 | pnpm workspace + package.json | ✅ Done | Root package.json, Biome 2.4 + Vitest 4 + TS 5.9 + Next 15 + Tauri CLI 2 |
+| 3 | Next.js static-export setup | ✅ Done | `src/app/{layout,page}.tsx`, `next.config.mjs` with `output: "export"`, static build to `out/` verified |
+| 4 | Tauri 2 shell init | ✅ Done | `src-tauri/` scaffolded via `tauri init`, bundle id `dev.autumnfallenwang.teacherease-parent-companion`, `rust-toolchain.toml` pins stable, clippy+fmt+test green |
+| 5 | Cross-platform CI | ✅ Done | `.github/workflows/ci.yml` with ts/rust jobs + Windows/macOS/Linux build matrix, bundle artifact upload |
+| 6 | Biome + Vitest + tsc wiring | ✅ Done | `pnpm lint` / `pnpm typecheck` / `pnpm test` / `pnpm check` all green; Rust side via `cargo fmt --check` + `cargo clippy -D warnings` + `cargo test` |
 
 ## Phase 1: Core scraper
 
@@ -43,7 +43,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 20 | Welcome screen | Not started | Per decisions Q7 |
+| 20 | Welcome screen | Not started | Per design-plan Q7 |
 | 21 | Add-child screen + live login validation | Not started | Refuse to advance unless login succeeds |
 | 22 | Notification permission pre-prompt | Not started | Our copy, then OS prompt |
 | 23 | Inline first scrape + summary | Not started | Run scrape inside wizard, show results before handoff |
@@ -70,7 +70,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 32 | Dashboard UX design (separate question) | Not started | Parked in decisions — pick up when implementing |
+| 32 | Dashboard UX design (separate question) | Not started | Parked — pick up when implementing Phase 7 |
 | 33 | Grade trend charts | Not started | Per-class over time |
 | 34 | Assignment drilldown | Not started | Per-class detail view with history |
 
@@ -101,10 +101,15 @@
 
 ## What's Working
 
-- Planning docs committed and locked (decisions.md Q1–Q10, design-plan.md, progress.md).
-- GitHub repo created, MIT licensed, .gitignore covers Tauri + Next.js + Node.
+- Phase 0 scaffolding complete. Repo builds end-to-end on Linux.
+- Planning docs committed (design-plan.md with Q1–Q12 locked decisions, progress.md).
+- `pnpm check` (lint + typecheck + test) green — 10 files Biome-clean, tsc clean, 1/1 Vitest smoke test passing.
+- `next build` produces static export to `out/`.
+- `src-tauri/` scaffolded and compiles — `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` all green.
+- GitHub Actions CI with ts + rust jobs and 3-OS build matrix at `.github/workflows/ci.yml`.
+- Dev env verified: node 25.9, pnpm 10.29, rustup + rustc 1.94.1 (rust-analyzer component), webkit2gtk-4.1, typescript-language-server.
 - Reference Python project archived at `../ref/teacherease_parents_helper/` for HTML fixture mining.
 
 ## What's Next
 
-**Task 2**: pnpm workspace + package.json scaffold (root-only, no src yet).
+**Task 7**: Copy HTML fixtures from `ref/teacherease_parents_helper/logs/` into `tests/fixtures/` — kicks off Phase 1 scraper work.
