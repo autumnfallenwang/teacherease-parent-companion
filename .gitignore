@@ -67,6 +67,11 @@ debug/
 *_debug.html
 scraper-fixtures/*.html
 
+# ---------- Reference predecessor project (local-only, not for commit) ----------
+# Python + Playwright predecessor, copied here for HTML fixture mining and
+# parser reference. See docs/design-plan.md "Predecessor" section.
+ref/
+
 # ---------- OS ----------
 .DS_Store
 .DS_Store?

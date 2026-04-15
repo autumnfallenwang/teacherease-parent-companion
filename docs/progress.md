@@ -108,7 +108,7 @@
 - `src-tauri/` scaffolded and compiles — `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` all green.
 - GitHub Actions CI with ts + rust jobs and 3-OS build matrix at `.github/workflows/ci.yml`.
 - Dev env verified: node 25.9, pnpm 10.29, rustup + rustc 1.94.1 (rust-analyzer component), webkit2gtk-4.1, typescript-language-server.
-- Reference Python project archived at `../ref/teacherease_parents_helper/` for HTML fixture mining.
+- Reference Python predecessor checked out at `ref/teacherease_parents_helper/` (gitignored) for HTML fixture mining and parser cross-checks.
 
 ## What's Next
 

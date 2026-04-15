@@ -39,4 +39,4 @@ Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + 
 
 ## Predecessor
 
-Rewrite of [`teacherease_parents_helper`](https://github.com/autumnfallenwang/teacherease_parents_helper) (Python + Playwright + cron). Reference copy at `../ref/teacherease_parents_helper/` during development.
+Rewrite of [`teacherease_parents_helper`](https://github.com/autumnfallenwang/teacherease_parents_helper) (Python + Playwright + cron). Local reference copy at `ref/teacherease_parents_helper/` (gitignored, not committed) — mine HTML fixtures from `ref/teacherease_parents_helper/logs/` and cross-check parser logic against `ref/teacherease_parents_helper/src/`.
