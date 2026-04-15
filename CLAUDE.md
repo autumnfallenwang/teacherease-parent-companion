@@ -4,15 +4,16 @@ Cross-platform desktop app that monitors a child's TeacherEase portal and notifi
 
 ## Stack
 
-Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + React + TypeScript | Node scraper via `fetch` + `cheerio` | SQLite (`tauri-plugin-sql`) | OS keychain (`tauri-plugin-stronghold` / `keytar`) | Biome + Vitest | `tauri-plugin-updater`
+Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + React + TypeScript | `fetch` + `cheerio` scraper bundled into the frontend | SQLite (`tauri-plugin-sql`) | OS keychain via `keyring` Rust crate (wrapped in Tauri commands) | Biome + Vitest | `tauri-plugin-updater`
 
 ## Structure (planned)
 
 - `src/` — Next.js frontend (pages/components/hooks)
 - `src-tauri/` — Rust shell, `tauri.conf.json`, `Cargo.toml`, plugin wiring
-- `src-tauri/sidecar/` or `scraper/` — TypeScript scraper module (TeacherEase HTTP client + HTML parser)
+- `scraper/` — TypeScript scraper module (TeacherEase HTTP client + HTML parser), bundled into the frontend per design-plan Q11
 - `docs/` — design docs and decision log
 - `.claude/` — agents, hooks, skills for this project
+- `sandbox/` — gitignored scratch space for POCs and live-credential smoke tests (see "Security constraints" below)
 
 ## Commands (planned, once scaffolded)
 
@@ -30,6 +31,15 @@ Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + 
 - **No server, no cloud, no accounts.** Everything local.
 - **No OS-level code branches** — per-OS behavior lives inside Tauri plugins.
 - **Unsigned binaries in v1.** First-launch Gatekeeper/SmartScreen warnings are documented, not avoided.
+
+## Security constraints (non-negotiable)
+
+- **Never put real credentials, real portal URLs, real student names, real teacher names, or any real PII in the codebase.** This includes source, tests, fixtures, config files, comments, commit messages, and docs. Use dummy values for all smoke tests and unit tests: `test@example.com` / `hunter2`, `https://school.example.teacherease.com`, `"Test Student"`, `"Instructor Name"`, etc.
+- **HTML fixtures must be scrubbed before committing.** Before any file from `ref/teacherease_parents_helper/logs/` or a live capture lands in `tests/fixtures/`, replace student name, teacher names, school name, subdomain, and any email addresses with dummy values. Class names like "English 7" are fine.
+- **Live-credential work belongs in `sandbox/`.** Anything that touches a real TeacherEase account — POC scripts, end-to-end tests, debug captures, throwaway spikes — goes under `sandbox/`, which is gitignored. Never commit, never upload, never include in a PR.
+- **`.env` files are never committed.** Only `.env.example` at repo root with dummy values. A real `.env` belongs in `sandbox/.env` (gitignored). The pre-tool hook blocks `.env*` edits and `check-secrets.sh` blocks them at commit time — treat those as safety nets, not primary defenses.
+- **The shipped app reads NO env vars for configuration** (design-plan Q13). All runtime config flows through UI → SQLite (`settings` table for user settings, `children` table for per-child data) or OS keychain (for secrets). If you find yourself writing `process.env.WHATEVER` in `src/`, `scraper/`, or `src-tauri/src/`, stop and route it through SQLite/keychain instead.
+- **Credentials belong in the OS keychain at runtime** (design-plan Q3), never in SQLite, env files, or JS memory beyond one operation.
 
 ## Docs
 

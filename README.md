@@ -37,7 +37,7 @@ Because the v1 builds are unsigned, Windows SmartScreen and macOS Gatekeeper wil
 - **Frontend:** Next.js (static export) + React + TypeScript
 - **Scraper:** Node `fetch` + `cheerio` (plain HTTP, no headless browser)
 - **Storage:** SQLite via `tauri-plugin-sql`
-- **Credentials:** OS keychain via `tauri-plugin-stronghold` / `keytar`
+- **Credentials:** OS keychain via the `keyring` Rust crate (Keychain / Credential Manager / Secret Service)
 - **Updater:** `tauri-plugin-updater` with signed update payloads
 
 ## Predecessor

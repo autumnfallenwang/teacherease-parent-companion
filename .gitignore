@@ -72,6 +72,11 @@ scraper-fixtures/*.html
 # parser reference. See docs/design-plan.md "Predecessor" section.
 ref/
 
+# ---------- Sandbox: POCs, live-credential smoke tests, spikes ----------
+# Anything that touches real TeacherEase accounts or real PII lives here
+# and is NEVER committed. See CLAUDE.md "Security constraints" section.
+sandbox/
+
 # ---------- OS ----------
 .DS_Store
 .DS_Store?

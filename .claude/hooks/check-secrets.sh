@@ -13,12 +13,24 @@ PATTERNS=$(git diff --cached --diff-filter=ACM -G '(sk-[a-zA-Z0-9]{20,}|ghp_[a-z
 # Check for .env files being committed
 ENVFILES=$(git diff --cached --name-only 2>/dev/null | grep -E '\.env$|\.env\.' | grep -v '\.example$')
 
-FOUND="${SECRETS}${PATTERNS}${ENVFILES}"
+# Check for sandbox/ paths being staged (they should never be committed — see CLAUDE.md)
+SANDBOX=$(git diff --cached --name-only 2>/dev/null | grep -E '^sandbox/')
+
+# Check for real TeacherEase hostnames (e.g. myschool.teacherease.com).
+# Allow the dummy example domain used in tests/docs.
+TEACHEREASE_URLS=$(git diff --cached --diff-filter=ACM -G '[a-zA-Z0-9-]+\.teacherease\.(com|net|org)' --name-only 2>/dev/null | while read -r f; do
+  # If the only match in this file is an example/dummy, skip it.
+  if git diff --cached -- "$f" | grep -E '\+.*[a-zA-Z0-9-]+\.teacherease\.(com|net|org)' | grep -qv 'example\.teacherease\|school\.example'; then
+    echo "$f"
+  fi
+done)
+
+FOUND="${SECRETS}${PATTERNS}${ENVFILES}${SANDBOX}${TEACHEREASE_URLS}"
 
 if [ -n "$FOUND" ]; then
-  echo "BLOCKED: Potential secrets detected in staged files:" >&2
+  echo "BLOCKED: Potential secrets, sandbox files, or real portal URLs detected in staged files:" >&2
   echo "$FOUND" | sort -u >&2
-  echo "Review these files before committing." >&2
+  echo "Review these files before committing. See CLAUDE.md 'Security constraints'." >&2
   exit 2
 fi
 

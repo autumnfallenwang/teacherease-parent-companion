@@ -5,10 +5,15 @@ Review code changes for security vulnerabilities. Focus on the areas most releva
 ## What to check
 
 ### Credential handling (OS keychain)
-- Portal credentials (TeacherEase username/password) must go to the OS keychain via `tauri-plugin-stronghold` / `keytar` — never to SQLite, never to a plain file, never to env vars.
-- SMTP credentials (if the user enables optional email) also live in the keychain.
+- Portal credentials (TeacherEase username/password) must go to the OS keychain via the `keyring` Rust crate, wrapped in Tauri commands — never to SQLite, never to a plain file, never to env vars. Keying convention (per Q3): service = `"teacherease-parent-companion"`, user = `"child-{db_id}"` for portal passwords, user = `"smtp-main"` for optional SMTP password. Flag any code that calls `keyring` directly from the frontend (must go through Rust commands) or uses a different keying scheme.
+- SMTP credentials (if the user enables optional email) also live in the keychain. The non-secret SMTP fields (host/port/user/from/to) live in the `settings` table per Q13, but the password MUST go to the keychain.
 - Credentials must never appear in logs, debug HTML dumps, or error messages.
 - Credentials must not flow through the Rust/JS bridge in plaintext more than once per operation — fetch from keychain on-demand, don't cache in JS memory.
+
+### Configuration boundaries (Q13)
+- **The shipped app must not read `process.env` for configuration.** Any `process.env.*` access in `src/`, `scraper/`, or `src-tauri/src/` (outside `#[cfg(test)]` and the build script) is a finding.
+- User settings go to the SQLite `settings` table. Non-secret per-child data (`base_url`, `username`, `display_name`) goes to the `children` table. Flag any settings or credentials stored in JSON files, localStorage, or env vars.
+- Anything under `sandbox/` is dev-only and out of scope for security review of shipped code — but flag any import from `sandbox/` into committed code (it would break for every other dev and indicates a wiring mistake).
 
 ### Scraper input handling
 - TeacherEase HTML is untrusted input. Cheerio selectors must not assume structure; every `.text()` / `.attr()` should be null-safe.

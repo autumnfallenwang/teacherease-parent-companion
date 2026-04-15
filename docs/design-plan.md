@@ -40,7 +40,26 @@ Target: under 0.1% battery per day.
 
 ### Q3 — Multi-child from v1
 
-**Support multiple children on the same portal type (TeacherEase) from v1. No in-app login — whoever opens the app sees all children.** Single-child is a degenerate case of multi-child (child-switcher hidden when only one). Not in v1: multi-portal, multi-parent sharing, cloud sync, accounts, in-app auth. Rationale: retrofitting multi-child later means data migration + UI rewrite; doing it now is near-zero cost. Credentials live in OS keychain keyed by `child.id`, never in SQLite.
+**Support multiple children on the same portal type (TeacherEase) from v1. No in-app login — whoever opens the app sees all children.** Single-child is a degenerate case of multi-child (child-switcher hidden when only one). Not in v1: multi-portal, multi-parent sharing, cloud sync, accounts, in-app auth. Rationale: retrofitting multi-child later means data migration + UI rewrite; doing it now is near-zero cost.
+
+**Credential storage: OS keychain via the `keyring` Rust crate.** One crate, one API, three backends picked at compile time: Keychain (macOS, `Security.framework`), Credential Manager (Windows, DPAPI), Secret Service (Linux, libsecret via D-Bus). **Zero per-OS code** in our source — the `keyring` crate handles all target-specific dispatch internally. Rejected: `tauri-plugin-stronghold` (requires a user-remembered master password, breaks Q7's 90-second wizard flow — Stronghold is an encrypted file vault, NOT the OS keychain) and `keytar` (Node-library, doesn't fit Q11's webview-bundled scraper architecture).
+
+**Keying convention (locks the DB ↔ keychain mapping):**
+- **Service name:** `"teacherease-parent-companion"` (constant across all entries, our app's identifier)
+- **Per-child portal password:** `user = "child-{id}"` where `{id}` is the SQLite `children.id` integer primary key. Stable across display-name or username edits; guaranteed unique; maps 1:1 to a DB row.
+- **Optional SMTP password (Q4):** `user = "smtp-main"`. Flat, one entry, app-level not per-child.
+- **Future multi-portal (Q3 v2):** prefix with portal type — `"teacherease-child-1"`, `"powerschool-child-1"`. Not needed day one.
+
+**Atomicity pattern (SQLite and keychain are not one transaction):**
+All keychain ops live behind Rust `#[tauri::command]` handlers that also touch the DB, with compensation on failure. Frontend never calls `keyring` directly. `add_child` inserts the DB row first, uses the returned id to write to the keychain; if keychain write fails, rolls back the DB insert. `delete_child` deletes the keychain entry first, then the DB row (orphaned keychain entry is harmless; orphaned DB row is not). `update_password` overwrites the keychain entry with no DB touch. The three commands total ~40 lines of Rust.
+
+**User-visible behavior (all transparent):**
+- No install-time dialog, no "enable keychain" toggle, no Settings panel to pre-configure. The vault already exists because the user is logged into their OS account.
+- On macOS and Windows: zero prompts, ever.
+- On Linux desktop (GNOME/KDE): zero prompts for any user who has ever used Chrome/Firefox/Slack/VS Code on the machine (the login keyring is already initialized). On a truly fresh GNOME account the very first keychain write can trigger a one-time "create default keyring?" dialog with a pre-filled login-matching password — click OK, done forever. This is a libsecret thing, not ours to fix; document in Q10 alongside the other first-launch OS prompts.
+- Orphan-cleanup (scan keychain for `child-*` entries with no matching DB row on app startup) is a v1.1 nice-to-have, not day-one scope.
+
+**Credentials never appear in SQLite, plain files, env vars, logs, error messages, or the Rust↔JS bridge more than once per operation** — fetch from keychain on-demand, never cache in JS memory. This is enforced by the security-reviewer agent.
 
 ### Q4 — Notifications & email
 
@@ -54,7 +73,7 @@ Target: under 0.1% battery per day.
 |---|---|---|
 | Notifications | `tauri-plugin-notification` | Toast / UserNotifications / libnotify |
 | Tray | built-in `TrayIconBuilder` | Notification area / menu bar / AppIndicator |
-| Credentials | `tauri-plugin-stronghold` or `keytar` | Credential Manager / Keychain / libsecret |
+| Credentials | `keyring` Rust crate | Credential Manager (DPAPI) / Keychain (Security.framework) / Secret Service (libsecret) |
 | Autostart | `tauri-plugin-autostart` | Registry Run / LaunchAgent / `.desktop` |
 | App-data folder | Tauri `appDataDir()` | `%APPDATA%` / Application Support / `~/.config` |
 | Updater | `tauri-plugin-updater` | MSI / DMG / AppImage or deb |
@@ -137,6 +156,39 @@ The existing `.claude/skills/check`, `/lint`, `/test` skills already cover both 
 
 ---
 
+### Q13 — Configuration storage
+
+**A shipped desktop app has no `.env` at runtime.** `.env` is dev-only. All configuration in the installed app flows through UI → SQLite / OS keychain. Config splits into five categories, each with exactly one home:
+
+| Category | Examples | Home |
+|---|---|---|
+| **Baked-in constants** | URL path templates (`/App/Parents/StandardGrade/GradeViewAllWithProgress`), grade letter mapping, default scrape interval, retry limits, status codes | `scraper/constants.ts` — hardcoded in source, shipped in the binary. Changes require a release. |
+| **Per-child data** | Display name, portal username, portal `base_url`, grade, school | SQLite `children` table (see Q8 schema, extended below) |
+| **Per-child secrets** | TeacherEase password, SMTP password | OS keychain, keyed by `child.id` or service name |
+| **User settings** | Autostart, scrape interval, "only on AC power," notification toggles, updater auto-check, email SMTP host/port/user/from/to | SQLite `settings` table (key-value, see Q8 schema, extended below) |
+| **Dev-only environment** | Real TeacherEase URL, real credentials for POCs and live e2e tests | `sandbox/.env` (gitignored, only read by scripts under `sandbox/`, never touched by shipped code) |
+
+**Key insight: the TeacherEase base URL is per-school, not global.** TeacherEase uses per-school subdomains (e.g. `myschool.teacherease.com`). Sibling children at different schools will have different base URLs. So `base_url` lives on the `children` row — the URL **path** templates are constants, but the **host** is per-child.
+
+**Why SQLite (not `tauri-plugin-store` JSON) for user settings:**
+- `tauri-plugin-sql` is already wired — one dependency, not two.
+- One file to back up / export — matches the Q8 "Settings → Export dumps the full `.db`" promise.
+- Transactional: a half-written settings change can't corrupt on crash.
+- Settings are all flat primitives — no nesting needed, so key-value is trivial.
+
+**What `.env` becomes:**
+- **No root `.env` is read by the shipped app.** Delete that mental model from the old Python repo.
+- **`.env.example`** at repo root with dummy values, committed, for devs setting up a sandbox.
+- **`sandbox/.env`** — real credentials, gitignored (via `sandbox/`), read only by scripts under `sandbox/`.
+- Shipped code never reads `process.env` for configuration. Ever.
+
+**Dummy values (use these in all non-sandbox code):**
+- Portal URL: `https://school.example.teacherease.com`
+- Email: `test@example.com`
+- Password: `hunter2`
+- Student name: `"Test Student"`
+- Instructor: `"Instructor Name"`
+
 ### Project name & repo
 
 "TeacherEase Parent Companion." Repo: `github.com/autumnfallenwang/teacherease-parent-companion`, MIT license. Local working copy: `/home/aaronwang/agentic/homework/teacherease-parent-companion/`. Predecessor (`teacherease_parents_helper`, Python + Playwright) stays as-is; the new repo is the rewrite. A local reference copy of the predecessor lives at `ref/teacherease_parents_helper/` (gitignored) for HTML fixture mining and parser cross-checks — never committed because it contains real portal dumps with PII.
@@ -152,7 +204,7 @@ The existing `.claude/skills/check`, `/lint`, `/test` skills already cover both 
 | Styling | Tailwind + shadcn/ui (planned) | — |
 | Scraper | `fetch` + `cheerio`, bundled into frontend | Q1, Q11 |
 | Storage | SQLite via `tauri-plugin-sql` | Q8 |
-| Credentials | OS keychain via `tauri-plugin-stronghold` or `keytar` | Q3, Q5 |
+| Credentials | OS keychain via the `keyring` Rust crate (wrapped in Tauri commands) | Q3, Q5 |
 | Scheduler | In-process `setTimeout` timer | Q2 |
 | Notifications | `tauri-plugin-notification` | Q4, Q5 |
 | Autostart | `tauri-plugin-autostart` | Q5 |
@@ -172,10 +224,22 @@ CREATE TABLE children (
   id            INTEGER PRIMARY KEY,
   display_name  TEXT NOT NULL,
   portal_type   TEXT NOT NULL DEFAULT 'teacherease',
+  base_url      TEXT NOT NULL,          -- per-school subdomain, e.g. https://myschool.teacherease.com (Q13)
   username      TEXT NOT NULL,          -- portal login email, not a secret
   grade         TEXT,
   school        TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Key-value user settings (Q13). Everything editable in the UI lives here:
+-- autostart, scrape_interval_hours, only_on_ac_power, notifications_enabled,
+-- updater_auto_check, email_enabled, email_smtp_host, email_smtp_port,
+-- email_smtp_user, email_from, email_to, etc.
+-- Secrets (SMTP password, portal passwords) NOT here — they live in the OS keychain.
+CREATE TABLE settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- One row per scrape run.
@@ -301,7 +365,7 @@ BYO SMTP form in Settings → Advanced. Tutorial copy, not wizard.
 `tauri-plugin-updater` wired up, GitHub Actions building per-OS installers, signed update payloads, first release.
 
 ### Phase 10 — First-launch warning docs
-Screenshots and walkthrough for Windows SmartScreen / macOS Gatekeeper bypass.
+Screenshots and walkthrough for Windows SmartScreen / macOS Gatekeeper bypass. Brief mention of the Linux GNOME "create default keyring" one-time dialog for fresh user accounts (per Q3) — not our bug, but worth pre-warning users who see it.
 
 See [progress.md](progress.md) for the concrete task list tracking these phases.
 
