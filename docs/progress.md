@@ -113,10 +113,10 @@
 | U3 | ProgressBar component | ✅ Done | Thin 4px bar with teal/amber segments. Label "5/20". |
 | U4 | GradesTable: progress bars + instructor + sort | ✅ Done | ProgressBar + instructor per row. Sorted by urgency via `sortClassesByUrgency()`. |
 | U5 | RecentActivity component + core logic | Not started | `computeRecentActivity()` in `core/activity.ts`. Time-based (24h). |
-| U6 | MissingWork: group by urgency | ✅ Done | `MissingWork` component replaces `NeedsAttention`. Groups by overdue duration (3+ weeks / 1-3 weeks / recent). `groupMissingByUrgency()` in core with 4 tests. |
+| U6 | AttentionSection: missing + low scores | Partial | `MissingWork` done (urgency groups). Needs: rename to `AttentionSection`, add low-score section (assignments below M/3.0). `getLowScoreAssignments()` in `core/attention.ts`. |
 | U7 | Dashboard wiring | ✅ Done | StatusHero + ChildTabs wired. Auto-selects attention child on load. Hero loads all children's grades. Header simplified (no children slot). `getClasses()` IPC query for instructor map. |
 | U8 | StandardsTree: full detail for all classes | ✅ Done | Empty state updated to "No standards data available." |
-| U9 | Seed script: update for v2 schema | Not started | Generate classes, standards, assignments with v2 columns. Multi-child data. |
+| U9 | Seed script: v2 schema + time-varying data | Partial | v2 schema done. Needs: evolving scores over time, assignments appearing/resolving, status transitions across days. |
 
 ## Phase 8: Optional email (advanced)
 
@@ -156,4 +156,4 @@
 
 ## What's Next
 
-**U1–U4, U6–U8 done.** Dashboard redesigned: StatusHero (family-wide), ChildTabs, ProgressBar, MissingWork (urgency groups), sorted classes, instructor display. Next: U5 (RecentActivity) then U9 (seed script).
+**U1–U4, U7–U8 done.** Dashboard redesigned. Next: U6 (AttentionSection: add low scores) + U9 (seed: time-varying data) → then U5 (RecentActivity).

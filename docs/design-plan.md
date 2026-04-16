@@ -502,24 +502,51 @@ Positioned directly below the Status Hero. Only visible when 2+ children.
 
 **IPC query:** `getScrapeBefore(childId, isoDate)` — `SELECT * FROM scrapes WHERE child_id = $1 AND run_at < $2 AND status = 'success' ORDER BY run_at DESC LIMIT 1`
 
-#### Layer 3: Missing Work (per-child, grouped by urgency)
+#### Layer 3: Attention (per-child — missing work + low scores)
 
-Only renders if the selected child has missing assignments. Groups by how overdue.
+Replaces the former "Missing Work" section. Shows two categories of attention items in one section. Only renders if there are any items.
+
+**Two categories, different urgency:**
+
+| Category | Condition | Meaning | Visual weight |
+|---|---|---|---|
+| Missing work | `isMissing === true` | Needs action — turn it in | Red/amber tinted, grouped by overdue duration |
+| Low scores | `gradeNumeric > 0 && gradeNumeric < 3.0` | Awareness — parent should know | Lighter amber, sorted by score ascending |
+
+**Missing work urgency groups (same as before):**
 
 | Group | Condition | Visual |
 |---|---|---|
-| Overdue (3+ weeks) | `dueDate < now - 21d` | `bg-attention/10`, `border-attention/30`, bold name, `text-attention-foreground` label |
+| Overdue (3+ weeks) | `dueDate < now - 21d` | `bg-attention/10`, `border-attention/30`, bold |
 | Overdue (1–3 weeks) | `dueDate < now - 7d` | `bg-attention/5`, `border-attention/20` |
-| Recent (< 1 week) | `dueDate >= now - 7d` | `border border-attention/15` only, no fill |
-| No due date | `dueDate` is null | `text-muted-foreground`, no border color |
+| Recent (< 1 week) | `dueDate >= now - 7d` | `border border-attention/15` only |
 
-| Element | Detail |
-|---|---|
-| Section header | Same style as current NeedsAttention: `BookX` icon + "Missing Work" + count badge |
-| Group header | DM Sans 11px, `uppercase tracking-wider text-muted-foreground`, `pt-2 pb-1` |
-| Item row | Same as current: name (13px medium) + class (11px muted) + due date with clock icon |
+**Low scores display:**
+- Listed after missing work (lower visual priority)
+- Each row: assignment name + class + score (e.g., "1=B" or "2=P") + due date
+- Background: `bg-amber-50/50` (very subtle) with `border-border`
+- Score below 2.0 (Beginning/Not Yet): amber text. Score 2.0-2.99 (Progressing): muted text.
 
-**Data source:** Pure function `groupMissingByUrgency()` in `core/missing.ts`. Input: `AssignmentRecord[]`. Output: `{ overdue3w: [], overdue1w: [], recent: [], noDueDate: [] }`.
+**Layout:**
+```
+⚠ Attention                                   5
+
+  Missing (3)
+  ├ Gandhi Article · Social Studies · 3 wks overdue     ← deep amber
+  ├ Geography Quiz · Social Studies · 2 wks             ← medium amber
+  └ Fitness Log Week 9 · PE · 1 day                    ← light amber
+
+  Low scores (2)
+  ├ Current Events · Social Studies · 1=B               ← amber text (Beginning)
+  └ Fraction Practice · Mathematics · 2.5=P             ← muted text (Progressing)
+```
+
+**Threshold:** `gradeNumeric < 3.0` (below Meeting). This matches the M/P/B/NY scale where only M (3.0) = meeting expectations. P (2.0), B (1.0), and NY (0.5) are all flagged.
+
+**Data source:**
+- Missing: `AssignmentRecord[]` where `isMissing`, grouped by `groupMissingByUrgency()`
+- Low scores: `AssignmentRecord[]` where `!isMissing && scoreNumeric > 0 && scoreNumeric < 3.0`, sorted by scoreNumeric ascending
+- Pure function `getLowScoreAssignments()` in `core/attention.ts`
 
 #### Layer 4: All Classes (per-child)
 
@@ -582,10 +609,10 @@ Already built in T34. Now available for ALL classes. One class expanded at a tim
 
 | Component | Change |
 |---|---|
-| `GradesTable` | Add `ProgressBar`, instructor name, sort by status. Accept grades with progress data. |
-| `NeedsAttention` | Rename to `MissingWork`. Group by overdue urgency. |
-| `Dashboard` | Replace `ChildSwitcher` with `ChildTabs`. Add `StatusHero` (family-wide) + `RecentActivity`. Fetch 24h-ago scrape. Load all children's grades for hero. |
-| `Header` | Remove children slot (tabs move below hero). Simplify to logo + timestamp + refresh + settings. |
+| `GradesTable` | Add `ProgressBar`, instructor name, sort by status. |
+| `MissingWork` → `AttentionSection` | Show missing work (grouped by urgency) + low scores (below M/3.0) in one section. |
+| `Dashboard` | Replace `ChildSwitcher` with `ChildTabs`. Add `StatusHero` + `RecentActivity`. Load all children's grades for hero. Pass low-score assignments to AttentionSection. |
+| `Header` | Remove children slot (tabs move below hero). |
 | `StandardsTree` | Remove needs-attention-only empty state. |
 
 #### New IPC queries
@@ -593,15 +620,35 @@ Already built in T34. Now available for ALL classes. One class expanded at a tim
 | Query | Purpose |
 |---|---|
 | `getScrapeBefore(childId, isoDate)` | Nearest successful scrape before timestamp (for 24h activity comparison) |
-| `getGradesSummaryAllChildren()` | Meeting/attention/not-assessed counts per child (for family-wide hero) |
 
 #### New pure functions (in `core/`, no platform imports)
 
 | Function | File | Purpose |
 |---|---|---|
 | `computeRecentActivity()` | `core/activity.ts` | Diff two scrape snapshots → `ActivityItem[]` with type/icon/text |
-| `groupMissingByUrgency()` | `core/missing.ts` | Group `AssignmentRecord[]` by overdue duration → urgency buckets |
+| `groupMissingByUrgency()` | `core/missing.ts` | Group missing `AssignmentRecord[]` by overdue duration |
+| `getLowScoreAssignments()` | `core/attention.ts` | Filter assignments where `scoreNumeric > 0 && scoreNumeric < 3.0`, sorted by score ascending |
 | `sortClassesByUrgency()` | `core/sort.ts` | Sort grades: attention → meeting → not_assessed |
+
+#### Seed data requirements
+
+The seed script must generate **time-varying data** to exercise all dashboard features:
+
+| Day | Event | Tests |
+|---|---|---|
+| -7 to -5 | All classes meeting, few assignments | Baseline state |
+| -4 | New assignment appears (not graded yet) | RecentActivity: "new assignment" |
+| -3 | Assignment marked missing. Low score (2=P) graded. | Attention: missing + low score appear |
+| -2 | Social Studies drops to needs_attention | StatusHero changes, status dots shift |
+| -1 | Student turns in one missing assignment (→ graded 2=P) | RecentActivity: "resolved" + "new score" |
+| 0 | Current state: mix of meeting, attention, missing, low scores | Full dashboard exercise |
+
+This gives:
+- Status dots with visible color transitions (green → amber)
+- Trend arrows (↓ for declining classes)
+- RecentActivity with real change data
+- Attention section with both missing and low-score items
+- Progress bars with non-trivial ratios
 
 #### Explicit non-goals
 
