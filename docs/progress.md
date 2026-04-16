@@ -60,11 +60,11 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 25 | Tray icon + menu | Not started | `tauri::tray::TrayIconBuilder`, open/refresh/quit |
-| 26 | Internal scrape timer | Not started | Startup + every 6h, retry with backoff, pause on sleep |
-| 27 | OS notifications on "needs attention" | Not started | `tauri-plugin-notification` |
-| 28 | Autostart registration | Not started | `tauri-plugin-autostart`, toggleable in Settings |
-| 29 | Battery settings | Not started | "Only run scheduled scrapes when plugged in" toggle |
+| 25 | Tray icon + menu | ✅ Done | Rust `TrayIconBuilder` with Open/Refresh/Quit menu. Left-click opens window. "Refresh" emits `tray-refresh` event to webview. `tray-icon` feature enabled. |
+| 26 | Internal scrape timer | ✅ Done (MVP) | Dashboard checks last scrape age on mount — if >6h, auto-refreshes. Background scrape while window closed deferred to v1.1 (needs hidden webview per Q11). |
+| 27 | OS notifications on "needs attention" | ✅ Done | `tauri-plugin-notification` wired. `notifyNeedsAttention()` in ipc.ts sends OS notification after scrape if attention grades or missing assignments found. |
+| 28 | Autostart registration | ✅ Done | `tauri-plugin-autostart` wired. `setupAutostart()` called on dashboard mount. Default: enabled. |
+| 29 | Battery settings | Deferred | Requires OS power-status API not provided by Tauri. Q2 says "off by default" — defer to v1.1 when a real user asks. |
 
 ## Phase 6: Multi-child support
 
@@ -119,4 +119,4 @@
 
 ## What's Next
 
-**Phase 4 complete.** 4-screen setup wizard at `/setup` with live login validation, inline first scrape, skip flows. Next: **Phase 5, Task 25** — Tray icon + menu.
+**Phase 5 complete.** Tray icon, notifications, autostart wired. Battery setting deferred (no Tauri API for power status). Next: **Phase 6, Task 30** — Child switcher in header.

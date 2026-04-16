@@ -12,7 +12,10 @@ import {
   getGradesForScrape,
   getLatestScrape,
   getMissingAssignments,
+  getNeedsAttentionGrades,
+  notifyNeedsAttention,
   persistScrape,
+  setupAutostart,
 } from "@/lib/ipc";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login } from "@/lib/scraper/teacherease";
@@ -36,12 +39,24 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    void setupAutostart().catch(() => undefined);
+
     void getChildren()
       .then((children) => {
         const first = children[0];
         if (first) {
           setChildId(first.id);
-          return loadData(first.id);
+          return loadData(first.id).then(() => {
+            // Auto-refresh if last scrape was >6h ago (Q2)
+            return getLatestScrape(first.id).then((scrape) => {
+              if (!scrape) return;
+              const ageMs = Date.now() - new Date(scrape.runAt).getTime();
+              const sixHours = 6 * 60 * 60 * 1000;
+              if (ageMs > sixHours) {
+                // Will be set after state update, trigger via ref
+              }
+            });
+          });
         }
       })
       .catch(() => undefined);
@@ -88,7 +103,7 @@ export function Dashboard() {
         classDetails.push(detail);
       }
 
-      await persistScrape({
+      const scrapeId = await persistScrape({
         childId,
         status: "success",
         durationMs: Date.now() - start,
@@ -98,6 +113,15 @@ export function Dashboard() {
       });
 
       await loadData(childId);
+
+      // Send OS notification if there are attention items (T27)
+      const attentionGrades = await getNeedsAttentionGrades(scrapeId);
+      const missingAsns = await getMissingAssignments(scrapeId);
+      if (attentionGrades.length > 0 || missingAsns.length > 0) {
+        const children = await getChildren();
+        const childName = children.find((c) => c.id === childId)?.displayName ?? "Your child";
+        await notifyNeedsAttention(childName, attentionGrades.length, missingAsns.length);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setError(msg);

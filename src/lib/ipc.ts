@@ -6,6 +6,15 @@
 // and every React component keeps working.
 
 import { invoke } from "@tauri-apps/api/core";
+import {
+  enable as enableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import Database from "@tauri-apps/plugin-sql";
 import type { ChildRecord, ClassDetails, GradesOverview, Standard } from "./scraper/types";
 
@@ -377,3 +386,51 @@ export async function getMissingAssignments(scrapeId: number): Promise<Assignmen
     dueDate: r.due_date,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Notifications (T27)
+// ---------------------------------------------------------------------------
+
+export async function ensureNotificationPermission(): Promise<boolean> {
+  let granted = await isPermissionGranted();
+  if (!granted) {
+    const result = await requestPermission();
+    granted = result === "granted";
+  }
+  return granted;
+}
+
+export async function notifyNeedsAttention(
+  childName: string,
+  attentionCount: number,
+  missingCount: number,
+): Promise<void> {
+  const granted = await ensureNotificationPermission();
+  if (!granted) return;
+
+  const parts: string[] = [];
+  if (attentionCount > 0)
+    parts.push(`${attentionCount} class${attentionCount > 1 ? "es" : ""} need attention`);
+  if (missingCount > 0)
+    parts.push(`${missingCount} missing assignment${missingCount > 1 ? "s" : ""}`);
+  if (parts.length === 0) return;
+
+  sendNotification({
+    title: `${childName}: Grade update`,
+    body: parts.join(", "),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Autostart (T28)
+// ---------------------------------------------------------------------------
+
+export async function setupAutostart(): Promise<void> {
+  const enabled = await isAutostartEnabled();
+  if (!enabled) {
+    await enableAutostart();
+  }
+}
+
+export { disable as disableAutostart } from "@tauri-apps/plugin-autostart";
+export { isAutostartEnabled };
