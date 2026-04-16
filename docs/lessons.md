@@ -36,6 +36,30 @@ The **grade pages may still be ASP.NET WebForms** — to verify in T9 when we ac
 2. Don't conflate "the site is ASP.NET" with "every form is WebForms postback." Modern ASP.NET apps mix WebForms, MVC, and plain HTML forms on different pages of the same site.
 3. When porting from a Playwright-based reference, the reference tells you almost nothing about the HTTP shape — Playwright abstracts away the form mechanics entirely. Treat the Python code as documentation of *intent* (what to scrape, what to parse), not *mechanism* (how to send it over the wire).
 
+## 2026-04-15 — WebKitGTK on Linux needs GPU workarounds for Tauri dev
+
+**Context:** First `pnpm tauri dev` run — window opens but renders completely white.
+
+**Mistake:** Assumed `pnpm tauri dev` would just work after installing `webkit2gtk-4.1` system deps.
+
+**Correction:** Two issues:
+1. **Wayland protocol error** — WebKitGTK crashes on native Wayland. Fix: `GDK_BACKEND=x11` forces XWayland.
+2. **GBM buffer allocation failure** — WebKitGTK can't create GPU rendering buffers, so the webview paints nothing. Fix: `WEBKIT_DISABLE_DMABUF_RENDERER=1` disables DMA-BUF rendering and falls back to a compatible path.
+
+Both env vars are baked into `pnpm tauri:dev` so they don't need to be typed manually. These are Linux-specific — macOS and Windows don't need them.
+
+**How to avoid next time:** On Linux with Wayland + WebKitGTK, always set `GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1` for Tauri dev. Check the window renders content before writing any UI code.
+
+## 2026-04-15 — Next.js dynamic import with ssr:false needed for Tauri APIs
+
+**Context:** Dashboard page imports `@tauri-apps/api/core` and `@tauri-apps/plugin-sql` via `src/lib/ipc.ts`. Page renders white.
+
+**Mistake:** Imported Tauri APIs at the top level of a page component. Next.js dev server does SSR even for `"use client"` components — the server-side render tries to execute `@tauri-apps/api` which fails because there's no Tauri runtime on the server.
+
+**Correction:** Move all Tauri-dependent code into a separate component (`src/components/dashboard.tsx`), then load it in `page.tsx` with `next/dynamic` + `ssr: false`. This ensures Tauri APIs only execute in the webview, never during SSR.
+
+**How to avoid next time:** Any component that imports from `@/lib/ipc` (which imports `@tauri-apps/*`) must be loaded with `ssr: false` in a Next.js App Router page. Direct top-level imports of ipc.ts from page.tsx will always break SSR.
+
 ## 2026-04-15 — Fixtures from ref/logs are NOT from the same scrape session
 
 **Context:** T9/T10 — writing grade overview and class detail parsers. Tests compared parser output against `full-data.json` expecting them to match.

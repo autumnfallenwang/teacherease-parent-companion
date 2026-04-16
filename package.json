@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "WEBKIT_DISABLE_DMABUF_RENDERER=1 GDK_BACKEND=x11 tauri dev",
     "tauri:build": "tauri build",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
