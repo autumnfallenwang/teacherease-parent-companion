@@ -11,6 +11,24 @@ import { WizardWelcome } from "./wizard-welcome";
 
 type Step = "welcome" | "add-child" | "notifications" | "done";
 
+const STEPS: Step[] = ["welcome", "add-child", "notifications", "done"];
+
+function StepIndicator({ current }: { current: Step }) {
+  const idx = STEPS.indexOf(current);
+  return (
+    <div className="flex items-center gap-1.5">
+      {STEPS.map((step, i) => (
+        <div
+          key={step}
+          className={`h-1 rounded-full transition-all duration-300 ${
+            i <= idx ? "w-5 bg-primary" : "w-2 bg-border"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function SetupWizard() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("welcome");
@@ -28,14 +46,14 @@ export function SetupWizard() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-3">
-        <span className="text-sm font-medium text-muted-foreground">Setup</span>
+      <div className="flex items-center justify-between border-b px-5 py-3">
+        <StepIndicator current={step} />
         <button
           type="button"
-          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          className="text-[12px] text-muted-foreground underline-offset-4 hover:underline"
           onClick={goToDashboard}
         >
-          Skip setup
+          Skip
         </button>
       </div>
 

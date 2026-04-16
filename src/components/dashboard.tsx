@@ -175,9 +175,11 @@ export function Dashboard() {
       >
         <ChildSwitcher items={allChildren} selectedId={childId} onSelect={handleChildSwitch} />
       </Header>
-      <main className="flex-1 space-y-6 p-6">
+      <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-5 py-5">
         {error && (
-          <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
+          <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-[13px] text-destructive">
+            {error}
+          </div>
         )}
         <GradesTable grades={grades} />
         <NeedsAttention missingAssignments={missing} />

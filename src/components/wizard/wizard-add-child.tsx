@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,14 +28,12 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
 
     try {
       await login(baseUrl, { username, password });
-
       const childId = await addChild({
         displayName: displayName || "My Child",
         baseUrl,
         username,
         password,
       });
-
       onNext(childId);
     } catch (err) {
       if (err instanceof Error) {
@@ -55,55 +53,72 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
   };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-12">
+    <div className="flex flex-1 flex-col items-center justify-center px-8 py-12">
       <div className="w-full max-w-sm space-y-6">
-        <div className="space-y-2 text-center">
-          <h2 className="text-2xl font-semibold">Add your first child</h2>
-          <p className="text-sm text-muted-foreground">
-            Stored securely on this computer and never sent anywhere else.
-          </p>
+        <div className="space-y-2">
+          <h2
+            className="text-[22px] font-medium tracking-tight"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Add your child
+          </h2>
+          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            Stored securely on this computer
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Child&apos;s name</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="displayName" className="text-[13px]">
+              Child&apos;s name
+            </Label>
             <Input
               id="displayName"
               placeholder="e.g. Alex"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              className="h-10 rounded-lg"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="username">TeacherEase email</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="username" className="text-[13px]">
+              TeacherEase email
+            </Label>
             <Input
               id="username"
               type="email"
-              placeholder="Email Address"
+              placeholder="parent@email.com"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              className="h-10 rounded-lg"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">TeacherEase password</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-[13px]">
+              Password
+            </Label>
             <Input
               id="password"
               type="password"
-              placeholder="Password"
+              placeholder="••••••••"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="h-10 rounded-lg"
             />
           </div>
 
           {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-[13px] text-destructive">
+              {error}
+            </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={isValidating}>
+          <Button type="submit" className="h-10 w-full rounded-xl" disabled={isValidating}>
             {isValidating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isValidating ? "Verifying login..." : "Continue"}
           </Button>
@@ -112,7 +127,7 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
         <div className="text-center">
           <button
             type="button"
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            className="text-[12px] text-muted-foreground underline-offset-4 hover:underline"
             onClick={onSkip}
           >
             Skip setup

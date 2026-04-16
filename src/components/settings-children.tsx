@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Plus, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,48 +31,68 @@ export function SettingsChildren() {
   );
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+    <div className="mx-auto max-w-lg px-5 py-6">
+      <div className="mb-6 flex items-center gap-3">
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-xl font-semibold">Settings — Children</h1>
+        <h1
+          className="text-xl font-medium tracking-tight"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          Children
+        </h1>
       </div>
 
       {children.length === 0 && !showAdd && (
-        <p className="text-muted-foreground">No children added yet.</p>
+        <div className="rounded-lg border border-dashed py-8 text-center">
+          <p className="text-sm text-muted-foreground">No children added yet.</p>
+        </div>
       )}
 
-      <ul className="space-y-3">
+      <div className="space-y-2">
         {children.map((child) => (
-          <li key={child.id} className="flex items-center justify-between rounded-md border p-4">
-            <div>
-              <p className="font-medium">{child.displayName}</p>
-              <p className="text-sm text-muted-foreground">{child.username}</p>
+          <div
+            key={child.id}
+            className="group flex items-center gap-3 rounded-lg bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <User className="h-4 w-4 text-primary" />
             </div>
-            <Button variant="ghost" size="icon" onClick={() => handleRemove(child.id)}>
-              <Trash2 className="h-4 w-4 text-destructive" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-medium">{child.displayName}</p>
+              <p className="truncate text-[12px] text-muted-foreground">{child.username}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={() => handleRemove(child.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </Button>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
 
-      {showAdd ? (
-        <AddChildForm
-          onDone={async () => {
-            setShowAdd(false);
-            await refresh();
-          }}
-          onCancel={() => setShowAdd(false)}
-        />
-      ) : (
-        <Button variant="outline" onClick={() => setShowAdd(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add another child
-        </Button>
-      )}
+      <div className="mt-4">
+        {showAdd ? (
+          <AddChildForm
+            onDone={async () => {
+              setShowAdd(false);
+              await refresh();
+            }}
+            onCancel={() => setShowAdd(false)}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowAdd(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            Add another child
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -107,44 +127,66 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-md border p-4">
-      <div className="space-y-2">
-        <Label htmlFor="add-name">Child&apos;s name</Label>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+    >
+      <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+        <Lock className="h-3 w-3" />
+        Credentials stored securely on this computer
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="add-name" className="text-[13px]">
+          Child&apos;s name
+        </Label>
         <Input
           id="add-name"
           placeholder="e.g. Alex"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
+          className="h-9 rounded-lg"
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="add-email">TeacherEase email</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="add-email" className="text-[13px]">
+          TeacherEase email
+        </Label>
         <Input
           id="add-email"
           type="email"
           required
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          className="h-9 rounded-lg"
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="add-pass">Password</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="add-pass" className="text-[13px]">
+          Password
+        </Label>
         <Input
           id="add-pass"
           type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          className="h-9 rounded-lg"
         />
       </div>
+
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-[13px] text-destructive">
+          {error}
+        </div>
       )}
+
       <div className="flex gap-2">
-        <Button type="submit" disabled={isValidating}>
+        <Button type="submit" size="sm" disabled={isValidating}>
+          {isValidating && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
           {isValidating ? "Verifying..." : "Add child"}
         </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
       </div>
