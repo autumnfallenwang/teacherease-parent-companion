@@ -26,7 +26,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 12 | SQLite schema + migrations | Not started | `tauri-plugin-sql` wiring, schema per design-plan.md |
+| 12 | SQLite schema + migrations | ✅ Done | `tauri-plugin-sql` with `sqlite` feature wired in Rust; migration v1 creates 6 tables (children, settings, scrapes, raw_payloads, grades, assignments) + 3 indexes; plugin registered in `lib.rs`, `sql:default` permission added; JS bindings installed (`@tauri-apps/plugin-sql`). Schema matches design-plan Q8/Q13. |
 | 13 | Child CRUD (Rust command layer) | Not started | Add/edit/remove child, store credentials in OS keychain |
 | 14 | Scrape persistence | Not started | Store scrape runs + normalized rows + raw payload |
 | 15 | Read queries for UI | Not started | Latest scrape, per-child history, needs-attention filter |
@@ -113,4 +113,4 @@
 
 ## What's Next
 
-**Phase 1 complete.** All scraper tasks done (T7–T11b). Next: **Phase 2, Task 12** — SQLite schema + migrations (`tauri-plugin-sql` wiring, schema per design-plan.md Q8/Q13).
+**Task 13**: Child CRUD (Rust command layer) — `#[tauri::command]` handlers for add/edit/remove child + OS keychain credential storage via `keyring` crate (Q3). First real Rust application code beyond plugin wiring.
