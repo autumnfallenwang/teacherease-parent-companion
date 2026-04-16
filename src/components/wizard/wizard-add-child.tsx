@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addChild } from "@/lib/ipc";
+import { addChild, log, logErr } from "@/lib/ipc";
 import { login } from "@/lib/scraper/teacherease";
 
 interface WizardAddChildProps {
@@ -27,7 +27,9 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
     setError(null);
 
     try {
+      await log("wizard: login validation started");
       await login(baseUrl, { username, password });
+      await log("wizard: login validation succeeded");
       const childId = await addChild({
         displayName: displayName || "My Child",
         baseUrl,
@@ -36,6 +38,9 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
       });
       onNext(childId);
     } catch (err) {
+      await logErr(
+        `wizard: login validation failed ${err instanceof Error ? err.message : "unknown"}`,
+      );
       if (err instanceof Error) {
         if (/double-check|invalid|incorrect|wrong/i.test(err.message)) {
           setError("Couldn't log in. Double-check your email and password.");

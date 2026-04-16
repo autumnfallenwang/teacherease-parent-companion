@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addChild, getChildren, removeChild } from "@/lib/ipc";
+import { addChild, getChildren, log, logErr, removeChild } from "@/lib/ipc";
 import { login } from "@/lib/scraper/teacherease";
 import type { ChildRecord } from "@/lib/scraper/types";
 
@@ -24,6 +24,7 @@ export function SettingsChildren() {
 
   const handleRemove = useCallback(
     async (childId: number) => {
+      await log(`settings: removing childId=${childId}`);
       await removeChild(childId);
       await refresh();
     },
@@ -110,6 +111,7 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
     setError(null);
 
     try {
+      await log("settings: add child validation started");
       const baseUrl = "https://www.teacherease.com";
       await login(baseUrl, { username, password });
       await addChild({
@@ -118,8 +120,10 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
         username,
         password,
       });
+      await log(`settings: add child succeeded name=${displayName || "My Child"}`);
       await onDone();
     } catch (err) {
+      await logErr(`settings: add child failed ${err instanceof Error ? err.message : "unknown"}`);
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setIsValidating(false);

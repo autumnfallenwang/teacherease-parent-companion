@@ -87,13 +87,20 @@ export async function addChild(params: AddChildParams): Promise<number> {
     await keychainSet(childKeychainKey(childId), params.password);
   } catch (e) {
     await d.execute("DELETE FROM children WHERE id = $1", [childId]);
+    await invoke("log_error", {
+      message: `addChild: keychain failed, rolled back childId=${childId}`,
+    });
     throw new Error("Failed to store credentials", { cause: e });
   }
 
+  await invoke("log_info", {
+    message: `addChild: id=${childId} name=${params.displayName}`,
+  });
   return childId;
 }
 
 export async function removeChild(childId: number): Promise<void> {
+  await invoke("log_info", { message: `removeChild: id=${childId}` });
   await keychainDelete(childKeychainKey(childId));
   const d = await getDb();
   await d.execute("DELETE FROM children WHERE id = $1", [childId]);
@@ -200,6 +207,9 @@ export async function persistScrape(result: ScrapeResult): Promise<number> {
     }
   }
 
+  await invoke("log_info", {
+    message: `persistScrape: scrapeId=${scrapeId} childId=${result.childId} status=${result.status} duration=${result.durationMs}ms`,
+  });
   return scrapeId;
 }
 
@@ -406,7 +416,10 @@ export async function notifyNeedsAttention(
   missingCount: number,
 ): Promise<void> {
   const granted = await ensureNotificationPermission();
-  if (!granted) return;
+  if (!granted) {
+    await invoke("log_warn", { message: "notification: permission not granted, skipping" });
+    return;
+  }
 
   const parts: string[] = [];
   if (attentionCount > 0)
@@ -415,6 +428,9 @@ export async function notifyNeedsAttention(
     parts.push(`${missingCount} missing assignment${missingCount > 1 ? "s" : ""}`);
   if (parts.length === 0) return;
 
+  await invoke("log_info", {
+    message: `notification: sent attention=${attentionCount} missing=${missingCount}`,
+  });
   sendNotification({
     title: `${childName}: Grade update`,
     body: parts.join(", "),

@@ -74,6 +74,7 @@ export function Dashboard() {
 
   const handleRefresh = useCallback(async () => {
     if (!childId) return;
+    await log(`scrape: started childId=${childId}`);
     setIsRefreshing(true);
     setError(null);
     const start = Date.now();
@@ -122,6 +123,9 @@ export function Dashboard() {
         rawPayload: JSON.stringify({ overview, classDetails }),
       });
 
+      await log(
+        `scrape: complete childId=${childId} duration=${Date.now() - start}ms classes=${overview.classes.length} details=${classDetails.length}`,
+      );
       await loadData(childId);
 
       // Send OS notification if there are attention items (T27)
@@ -149,6 +153,7 @@ export function Dashboard() {
 
   const handleChildSwitch = useCallback(
     (newChildId: number) => {
+      void log(`dashboard: switched to childId=${newChildId}`);
       setChildId(newChildId);
       setGrades([]);
       setMissing([]);

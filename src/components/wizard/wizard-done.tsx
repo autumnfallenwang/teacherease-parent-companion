@@ -3,7 +3,14 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getChildPassword, getGradesForScrape, getLatestScrape, persistScrape } from "@/lib/ipc";
+import {
+  getChildPassword,
+  getGradesForScrape,
+  getLatestScrape,
+  log,
+  logErr,
+  persistScrape,
+} from "@/lib/ipc";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login } from "@/lib/scraper/teacherease";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
@@ -24,6 +31,7 @@ export function WizardDone({ child, onFinish }: WizardDoneProps) {
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: linear async pipeline, not genuinely complex
     async function runFirstScrape() {
       const start = Date.now();
+      await log(`wizard: first scrape started childId=${child.id}`);
       try {
         const password = await getChildPassword(child.id);
         if (!password) throw new Error("No stored password");
@@ -65,10 +73,15 @@ export function WizardDone({ child, onFinish }: WizardDoneProps) {
         setSummary(
           `${overview.classes.length} classes — ${meeting} meeting expectations${attention > 0 ? `, ${attention} need attention` : ""}`,
         );
+        await log(
+          `wizard: first scrape complete childId=${child.id} duration=${Date.now() - start}ms classes=${overview.classes.length}`,
+        );
         setStatus("done");
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Something went wrong");
+        const msg = e instanceof Error ? e.message : "Something went wrong";
+        await logErr(`wizard: first scrape failed childId=${child.id} err=${msg}`);
+        setError(msg);
         setStatus("error");
       }
     }
