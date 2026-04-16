@@ -27,7 +27,7 @@
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 12 | SQLite schema + migrations | ✅ Done | `tauri-plugin-sql` with `sqlite` feature wired in Rust; migration v1 creates 6 tables (children, settings, scrapes, raw_payloads, grades, assignments) + 3 indexes; plugin registered in `lib.rs`, `sql:default` permission added; JS bindings installed (`@tauri-apps/plugin-sql`). Schema matches design-plan Q8/Q13. |
-| 13 | Child CRUD (Rust command layer) | Not started | Add/edit/remove child, store credentials in OS keychain |
+| 13 | Child CRUD (Rust + TS) | ✅ Done | 3 Rust `#[tauri::command]` keychain handlers (`keychain_set/get/delete`) via `keyring` crate; `src/lib/ipc.ts` with `addChild()`, `removeChild()`, `getChildren()`, `getChild()`, `updateChildPassword()`, `getChildPassword()` — DB + keychain orchestration with rollback on keychain failure (Q3 atomicity in TS layer). |
 | 14 | Scrape persistence | Not started | Store scrape runs + normalized rows + raw payload |
 | 15 | Read queries for UI | Not started | Latest scrape, per-child history, needs-attention filter |
 
@@ -113,4 +113,4 @@
 
 ## What's Next
 
-**Task 13**: Child CRUD (Rust command layer) — `#[tauri::command]` handlers for add/edit/remove child + OS keychain credential storage via `keyring` crate (Q3). First real Rust application code beyond plugin wiring.
+**Task 14**: Scrape persistence — store scrape runs + normalized rows (grades, assignments) + raw payload JSON in SQLite via `src/lib/ipc.ts`. Wire up the scraper output types → DB insert pipeline.

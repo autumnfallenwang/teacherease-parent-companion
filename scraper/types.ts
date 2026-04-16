@@ -37,6 +37,21 @@ export class LoginError extends Error {
 }
 
 // ---------------------------------------------------------------------------
+// Child record (T13) — DB row shape, no password (lives in OS keychain)
+// ---------------------------------------------------------------------------
+
+export interface ChildRecord {
+  readonly id: number;
+  readonly displayName: string;
+  readonly portalType: string;
+  readonly baseUrl: string;
+  readonly username: string;
+  readonly grade: string | null;
+  readonly school: string | null;
+  readonly createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Grades overview (T9)
 // ---------------------------------------------------------------------------
 
