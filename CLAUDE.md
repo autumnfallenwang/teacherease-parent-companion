@@ -43,6 +43,8 @@ Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + 
 - **`.env` files are never committed.** Only `.env.example` at repo root with dummy values. A real `.env` belongs in `sandbox/.env` (gitignored). The pre-tool hook blocks `.env*` edits and `check-secrets.sh` blocks them at commit time — treat those as safety nets, not primary defenses.
 - **The shipped app reads NO env vars for configuration** (design-plan Q13). All runtime config flows through UI → SQLite (`settings` table for user settings, `children` table for per-child data) or OS keychain (for secrets). If you find yourself writing `process.env.WHATEVER` in `src/`, `scraper/`, or `src-tauri/src/`, stop and route it through SQLite/keychain instead.
 - **Credentials belong in the OS keychain at runtime** (design-plan Q3), never in SQLite, env files, or JS memory beyond one operation.
+- **Never log secrets or PII** (design-plan Q14). Log files ship in release builds and may be shared for bug reports. Never log: passwords, cookies, session tokens, SMTP credentials, raw HTML from TeacherEase, student names, grades, scores, or assignment details. Log only operational metadata: DB path, scrape timing, class counts, error messages.
+- **Legal disclaimer is shown in-app, not just the repo** (design-plan Q15). The single source of truth is `src/lib/legal.ts`. Update that file — the wizard, About page, `DISCLAIMER.md`, and README all reference it.
 
 ## Docs
 

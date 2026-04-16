@@ -43,6 +43,15 @@ Enforces the "portable core" rules from design-plan.md "Forward compatibility" s
 - `.env` files must not be committed (already enforced by `.gitignore` + pre-tool hook, but double-check PRs).
 - Flag any `console.log` / `println!` / `eprintln!` that might leak credentials or portal HTML with PII.
 
+### Logging (Q14)
+- Log files ship in release builds and may be shared by users for bug reports. They must NEVER contain:
+  - Passwords, cookies, session tokens, SMTP credentials
+  - Raw HTML from TeacherEase (may contain PII)
+  - Student names, grades, scores, assignment details
+  - Any value retrieved from the OS keychain
+- Finding: any `log::info!`, `log::debug!`, `console.log`, `info()`, `warn()`, or `error()` call that outputs a secret or PII value. Logging the KEY name for a keychain operation is fine; logging the VALUE is a High finding.
+- Log only operational metadata: DB path, scrape timing/duration, class counts, error messages, app version.
+
 ### Data-at-rest
 - SQLite DB in the OS app-data folder is unencrypted by design for v1. That's acceptable because credentials are in the keychain and the DB itself contains only the child's grades — same threat model as any other local app file.
 - Flag any proposal to store credentials or auth cookies in the DB.

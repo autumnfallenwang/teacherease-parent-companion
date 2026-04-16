@@ -73,6 +73,16 @@
 | 30 | Child switcher in header | ✅ Done | `ChildSwitcher` dropdown in header, hidden when ≤1 child. Dashboard loads all children on mount, switching clears grades and re-fetches. |
 | 31 | Settings → Children CRUD page | ✅ Done | `/settings` page with child list (name + email), trash-to-remove, "+ Add another child" form with live login validation. Back arrow to dashboard. |
 
+## Phase 6b: Logging + Legal
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| L1 | Configure `tauri-plugin-log` properly | Not started | File + console targets, rotation (5×2MB), level by build mode (DEBUG dev, INFO release), log DB path + app version on startup. Q14 locked. |
+| L2 | Add TS logging to scraper + IPC | Not started | `@tauri-apps/plugin-log` JS API at key points: scrape lifecycle, child CRUD, errors. Never log PII/secrets. |
+| L3 | "View logs" in Settings → About | Not started | Button opens log directory in OS file manager. For user bug reports. |
+| L4 | Document logging rules | ✅ Done | Q14 in design-plan, CLAUDE.md security constraint, progress tasks. |
+| L5 | Legal disclaimer — single source of truth | ✅ Done | `src/lib/legal.ts` → wizard, /about, Settings, DISCLAIMER.md, README. Q15 locked. |
+
 ## Phase 7: Dashboard UI (full)
 
 | # | Task | Status | Notes |
@@ -119,4 +129,4 @@
 
 ## What's Next
 
-**Phase 6 complete.** Multi-child support: child switcher in header + Settings → Children CRUD page. Next: **Phase 7** — Dashboard UI (full) with trends, charts, drilldowns. This is where `frontend-design` skill comes in.
+**Phase 6 complete.** Next: **Phase 6b, Task L1** — configure `tauri-plugin-log` with file targets + rotation + build-mode level control. This will also reveal the DB path for fixing the seed script.

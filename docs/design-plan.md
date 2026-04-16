@@ -189,6 +189,72 @@ The existing `.claude/skills/check`, `/lint`, `/test` skills already cover both 
 - Student name: `"Test Student"`
 - Instructor: `"Instructor Name"`
 
+### Q14 — Logging architecture
+
+**One unified log stream (Rust + TS → one file), file-based with rotation, level controlled by build mode.**
+
+All writable data lives in the OS app-data directory (not inside the app binary). This is the universal desktop app convention — the installed binary is read-only (`/Applications/`, `C:\Program Files\`, AppImage). Logs, the SQLite database, and any other writable files go to:
+- Linux: `~/.local/share/<identifier>/`
+- macOS: `~/Library/Application Support/<identifier>/`
+- Windows: `%APPDATA%/<identifier>/`
+
+Tauri manages these paths via `appDataDir()` and `appLogDir()`. We never hardcode OS-specific paths in application code.
+
+**Log targets:**
+
+| Mode | File | Console | Level |
+|---|---|---|---|
+| Dev (`debug_assertions`) | Yes (rotation) | Yes (stdout) | `DEBUG` |
+| Release | Yes (rotation) | No | `INFO` |
+
+File rotation: 5 files × 2 MB max. `tauri-plugin-log` handles this automatically.
+
+**Cross-language logging:**
+- Rust: `log::info!()`, `log::warn!()`, etc. — captured by `tauri-plugin-log`.
+- TypeScript: `import { info, warn, error } from "@tauri-apps/plugin-log"` — routes through Tauri IPC into the same log file as Rust. Both languages produce one interleaved chronological stream.
+- The app logs its DB path and version on startup so developers always know where files are.
+
+**What to log:**
+- App version + DB path on startup
+- Plugin registration success/failure
+- Keychain operations (which key — NOT the password value)
+- Scrape lifecycle: start, login success/fail, pages fetched, class count, missing count, scrape ID, duration
+- Errors with context (message + stack)
+
+**What to NEVER log (security constraint):**
+- Passwords, cookies, session tokens, SMTP credentials
+- Raw HTML from TeacherEase (may contain PII)
+- Student names, grades, scores, assignment details (PII)
+- Any value from the OS keychain
+
+**User access (release):**
+- Settings → About → "View logs" button opens the OS log directory in the file manager.
+- For bug reports: user sends the log file. Contains only operational metadata, no PII.
+
+**User-configurable level (future):**
+- Settings → Advanced → Log Level dropdown (stored in `settings` table). Not in v1 — compile-time level is sufficient.
+
+### Q15 — Legal disclaimer
+
+**Single source of truth: `src/lib/legal.ts`.** All legal text (disclaimer, privacy notice, responsible use) lives in one TypeScript file. Every other location references or mirrors it:
+
+| Location | What it shows | How |
+|---|---|---|
+| Wizard welcome screen | Short disclaimer (1 sentence) | Imports `DISCLAIMER_SHORT` from `legal.ts` |
+| `/about` page | Full disclaimer + privacy + responsible use | Imports `DISCLAIMER_FULL`, `PRIVACY_NOTICE`, `RESPONSIBLE_USE` |
+| Settings page | "About & Legal" link → `/about` | Navigation link |
+| `DISCLAIMER.md` (repo root) | Mirror of full text | Manual mirror, header says "update `legal.ts`, not this file" |
+| `README.md` | Points to `DISCLAIMER.md` | One-line reference, no duplication |
+
+**Why the app shows it, not just the repo:** parents who download the installer never see the README. The disclaimer must be visible before they enter credentials (wizard step 1) and accessible anytime (Settings → About).
+
+**Key legal positions (from TeacherEase TOS review 2026-04-16):**
+- TeacherEase TOS has no anti-scraping clause, no bot prohibition, no third-party app ban.
+- Data is owned by schools (not TeacherEase). FERPA gives parents the right to access it.
+- The app uses authorized access (parent's own credentials), not security bypasses.
+- MIT license provides "as is" + "no warranty" protection for the developer.
+- The in-app disclaimer establishes informed consent: user acknowledges the tool is unofficial and accepts responsibility.
+
 ### Project name & repo
 
 "TeacherEase Parent Companion." Repo: `github.com/autumnfallenwang/teacherease-parent-companion`, MIT license. Local working copy: `/home/aaronwang/agentic/homework/teacherease-parent-companion/`. Predecessor (`teacherease_parents_helper`, Python + Playwright) stays as-is; the new repo is the rewrite. A local reference copy of the predecessor lives at `ref/teacherease_parents_helper/` (gitignored) for HTML fixture mining and parser cross-checks — never committed because it contains real portal dumps with PII.
