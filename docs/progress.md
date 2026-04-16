@@ -42,9 +42,9 @@
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 16 | Layout + header + empty state | ✅ Done | Tailwind 4 + shadcn/ui bootstrapped. Layout with globals.css + theme vars. `Header` component (title + Refresh button + timestamp). `EmptyState` component (CTA to add child). Dashboard page wired with `"use client"`. `next build` produces static export. |
-| 17 | Current-grades view | Not started | One row per class, color-coded status |
-| 18 | Needs-attention section | Not started | Missing assignments, low scores |
-| 19 | Refresh-now wiring | Not started | Frontend button → Rust command → scraper → persist → UI refresh |
+| 17 | Current-grades view | ✅ Done | `GradesTable` component with color-coded status badges (Meeting/Needs Attention/Not Assessed). shadcn Table + Badge. |
+| 18 | Needs-attention section | ✅ Done | `NeedsAttention` component showing missing assignments list with class name + due date. shadcn Card. |
+| 19 | Refresh-now wiring | Not started | Frontend button → IPC → scraper → persist → UI refresh. Needs `tauri dev` for testing (IPC only works inside the Tauri webview). |
 
 ## Phase 4: First-run wizard
 
@@ -119,4 +119,4 @@
 
 ## What's Next
 
-**Phase 2 complete.** All persistence tasks done (T12–T15). Next: **Phase 3, Task 16** — Layout + header + empty state (first real UI).
+**Task 19**: Refresh-now wiring — the "glue" that connects the Refresh button to the full pipeline: login → scrape → parse → persist → re-read → re-render. Requires `tauri dev` for testing (IPC calls only work inside the Tauri webview).
