@@ -55,6 +55,10 @@ describe("real-fixture: class details", () => {
     "health_education_7_details.html",
     "science_7_details.html",
     "social_studies_7_details.html",
+    "mathematics_7_details.html",
+    "computer_science_7_details.html",
+    "music_7_details.html",
+    "physical_education_7_details.html",
   ];
 
   for (const file of detailFiles) {
