@@ -506,47 +506,44 @@ Positioned directly below the Status Hero. Only visible when 2+ children.
 
 Replaces the former "Missing Work" section. Shows two categories of attention items in one section. Only renders if there are any items.
 
-**Two categories, different urgency:**
+**Recency-first layout.** Items grouped by time (this week vs older), not by category. Within each time group, missing work appears before low scores. Older items collapsed by default.
 
-| Category | Condition | Meaning | Visual weight |
-|---|---|---|---|
-| Missing work | `isMissing === true` | Needs action — turn it in | Red/amber tinted, grouped by overdue duration |
-| Low scores | `gradeNumeric > 0 && gradeNumeric < 3.0` | Awareness — parent should know | Lighter amber, sorted by score ascending |
+**Time groups:**
 
-**Missing work urgency groups (same as before):**
-
-| Group | Condition | Visual |
+| Group | Condition | Default state |
 |---|---|---|
-| Overdue (3+ weeks) | `dueDate < now - 21d` | `bg-attention/10`, `border-attention/30`, bold |
-| Overdue (1–3 weeks) | `dueDate < now - 7d` | `bg-attention/5`, `border-attention/20` |
-| Recent (< 1 week) | `dueDate >= now - 7d` | `border border-attention/15` only |
+| This week | `dueDate >= now - 7d` or missing for < 7d | **Expanded** — what's new and actionable |
+| Older | Everything else | **Collapsed** — parent already knows about these |
 
-**Low scores display:**
-- Listed after missing work (lower visual priority)
-- Each row: assignment name + class + score (e.g., "1=B" or "2=P") + due date
-- Background: `bg-amber-50/50` (very subtle) with `border-border`
-- Score below 2.0 (Beginning/Not Yet): amber text. Score 2.0-2.99 (Progressing): muted text.
+**Within each time group, two categories:**
+- Missing work: amber-tinted rows with overdue indicators
+- Low scores: lighter rows with score badge. Threshold: `gradeNumeric > 0 && gradeNumeric < 3.0` (below Meeting)
 
 **Layout:**
 ```
 ⚠ Attention                                   5
 
-  Missing (3)
-  ├ Gandhi Article · Social Studies · 3 wks overdue     ← deep amber
-  ├ Geography Quiz · Social Studies · 2 wks             ← medium amber
-  └ Fitness Log Week 9 · PE · 1 day                    ← light amber
+  This week                                        ← expanded
+  ├ Missing: Fitness Log Week 9 · PE · 1 day
+  ├ Low: Gandhi Article · Social Studies · 2=P
 
-  Low scores (2)
-  ├ Current Events · Social Studies · 1=B               ← amber text (Beginning)
-  └ Fraction Practice · Mathematics · 2.5=P             ← muted text (Progressing)
+  ▸ Older (3)                                      ← collapsed, click to expand
+    ├ Missing: Geography Quiz · Social Studies · 2 wks
+    ├ Low: Current Events · Social Studies · 1=B
+    └ Low: Fraction Practice · Math · 2.5=P
 ```
 
-**Threshold:** `gradeNumeric < 3.0` (below Meeting). This matches the M/P/B/NY scale where only M (3.0) = meeting expectations. P (2.0), B (1.0), and NY (0.5) are all flagged.
+**Visual spec:**
+- "This week" header: DM Sans 11px, uppercase, `text-muted-foreground`
+- "Older (N)" header: same style + chevron, clickable to toggle
+- Missing rows: `border-attention/20 bg-attention/5` with clock icon + due date
+- Low score rows: `border-border bg-amber-50/30` with score badge (amber if < 2.0, muted if 2.0-2.99)
 
 **Data source:**
-- Missing: `AssignmentRecord[]` where `isMissing`, grouped by `groupMissingByUrgency()`
-- Low scores: `AssignmentRecord[]` where `!isMissing && scoreNumeric > 0 && scoreNumeric < 3.0`, sorted by scoreNumeric ascending
-- Pure function `getLowScoreAssignments()` in `core/attention.ts`
+- Pure function `groupAttentionByRecency()` in `core/attention.ts`
+- Input: missing `AssignmentRecord[]` + all `AssignmentRecord[]`
+- Output: `{ thisWeek: AttentionItem[], older: AttentionItem[] }`
+- `AttentionItem = { type: "missing" | "lowScore", assignment: AssignmentRecord }`
 
 #### Layer 4: All Classes (per-child)
 

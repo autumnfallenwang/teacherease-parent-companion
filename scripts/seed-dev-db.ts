@@ -714,12 +714,17 @@ function evolveAssignment(
   // Not visible yet (before due date)
   if (day < asn.dueOffset - 1) return { score: "", isMissing: false, visible: false };
 
-  // For assignments that start as missing: resolve them on day -1
+  // For assignments that start as missing: only SOME resolve on day -1
   if (asn.isMissing) {
-    // Stays missing until day -1, then gets a low score
-    if (day < -1) return { score: "", isMissing: true, visible: true };
-    // Day -1 onward: student turned it in, got a low grade
-    return { score: "2=P", isMissing: false, visible: true };
+    // Use testNameId to deterministically decide which ones resolve
+    const resolves = asn.testNameId % 3 === 0; // ~1/3 of missing work gets turned in
+    if (resolves) {
+      if (day < -1) return { score: "", isMissing: true, visible: true };
+      // Day -1 onward: student turned it in, got a low grade
+      return { score: "2=P", isMissing: false, visible: true };
+    }
+    // Stays missing forever
+    return { score: "", isMissing: true, visible: true };
   }
 
   // For graded assignments: scores can evolve
