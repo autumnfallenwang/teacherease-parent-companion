@@ -7,7 +7,16 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!node_modules", "!dist", "!.next", "!src-tauri", "!out", "!coverage"]
+    "includes": [
+      "**",
+      "!node_modules",
+      "!dist",
+      "!.next",
+      "!src-tauri",
+      "!out",
+      "!coverage",
+      "!tests/fixtures"
+    ]
   },
   "css": {
     "parser": {
@@ -118,6 +127,22 @@
         "noNegationElse": "warn",
         "noNestedTernary": "error",
         "noCommonJs": "error",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "@tauri-apps/api": "Import Tauri APIs through src/lib/ipc.ts, not directly. See design-plan.md 'Forward compatibility'.",
+              "@tauri-apps/api/core": "Import Tauri APIs through src/lib/ipc.ts, not directly. See design-plan.md 'Forward compatibility'.",
+              "@tauri-apps/api/event": "Import Tauri APIs through src/lib/ipc.ts, not directly. See design-plan.md 'Forward compatibility'.",
+              "@tauri-apps/api/window": "Import Tauri APIs through src/lib/ipc.ts, not directly. See design-plan.md 'Forward compatibility'.",
+              "@tauri-apps/plugin-sql": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
+              "@tauri-apps/plugin-notification": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
+              "@tauri-apps/plugin-autostart": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
+              "@tauri-apps/plugin-updater": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
+              "@tauri-apps/plugin-store": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable."
+            }
+          }
+        },
         "useFilenamingConvention": {
           "level": "error",
           "options": { "requireAscii": true, "filenameCases": ["kebab-case", "export"] }
@@ -153,5 +178,27 @@
   },
   "assist": {
     "enabled": true
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/lib/ipc.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.test.ts", "tests/**"],
+      "linter": {
+        "rules": {
+          "security": {
+            "noSecrets": "off"
+          }
+        }
+      }
+    }
+  ]
 }

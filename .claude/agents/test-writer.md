@@ -16,8 +16,12 @@ Vitest is configured to pick up tests from both `tests/**/*.test.ts` and `scrape
 
 - **Scraper unit tests** are colocated next to the source: `scraper/teacherease.ts` → `scraper/teacherease.test.ts`. Pure parser/logic tests against fixtures. No network, no FS beyond fixtures.
 - **Frontend / cross-cutting unit tests** live under `tests/` mirroring the source (e.g. `src/lib/format-grade.ts` → `tests/lib/format-grade.test.ts`).
-- **Integration tests**: `.integration.test.ts`, under `tests/integration/`. Real SQLite (temp file), real HTTP if needed. Gated behind an env var when they hit live TeacherEase (never hit the live portal in CI by default). Excluded from `pnpm test:fast`.
-- **Fixtures** for HTML parsing live in `tests/fixtures/` — save real HTML snapshots once, commit them, and parse against the fixtures. Do not re-hit the live portal on every test run.
+- **Integration tests**: `.integration.test.ts`, under `tests/integration/`. Two flavors:
+  - **Real-fixture tests** — load unscrubbed HTML from `sandbox/captures/` (NOT from `tests/fixtures/`, which is scrubbed). Use `fs.existsSync()` to skip gracefully if the file doesn't exist on this machine. These catch PII-scrub artifacts that might silently break parsers (e.g., a replaced teacher name inside an assignment title that the scrubber shouldn't have touched).
+  - **Live e2e tests** — hit the real TeacherEase portal. Read credentials from `sandbox/.env` via `dotenv`. Gated behind `TEACHEREASE_LIVE=1` env var. Never run in CI.
+  - Both flavors are excluded from `pnpm test:fast` by the `--exclude '**/*.integration.test.ts'` pattern.
+  - The test **code** is committed under `tests/integration/` (it's just TS with import paths). The test **data** (unscrubbed HTML, `.env` with real creds) lives in `sandbox/` and is gitignored.
+- **Committed fixtures** for unit-test HTML parsing live in `tests/fixtures/` — scrubbed of PII per CLAUDE.md "Security constraints." These are the primary parser test inputs. Real-fixture integration tests are a secondary safety net.
 - Mock external dependencies (network, keychain) at the module boundary using `vi.mock()`.
 - Keep tests deterministic. No flaky timeouts, no real clocks (use `vi.useFakeTimers()` for scheduler tests).
 

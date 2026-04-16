@@ -28,4 +28,8 @@ Skip if `src-tauri/` doesn't exist or `which cargo` fails. Note what's missing a
 
 Integration tests that require the real TeacherEase portal are gated behind `TEACHEREASE_LIVE=1`. Do not set this env var in default runs. Only set it when the user explicitly asks for a live integration test.
 
+## Sandbox-loaded tests
+
+Some integration tests load unscrubbed HTML from `sandbox/captures/` or credentials from `sandbox/.env`. These files are gitignored and may not exist on every machine. The tests use `fs.existsSync()` to skip gracefully when the data is missing — a skip is NOT a failure. When reporting results, distinguish skips from actual passes/fails so the user knows what was covered.
+
 Report results from both platforms when running all.

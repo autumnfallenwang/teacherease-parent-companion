@@ -1,0 +1,1027 @@
+{
+  "overview": {
+    "classes": [
+      {
+        "name": "Mathematics 7",
+        "instructor": "Instructor Two",
+        "status": "Meeting",
+        "status_code": 1,
+        "needs_attention": false,
+        "targets_meeting": 5,
+        "targets_not_meeting": 0,
+        "total_targets": 74,
+        "class_id": 1446158,
+        "cgp_id": 6293350
+      },
+      {
+        "name": "French 7",
+        "instructor": "Instructor Six",
+        "status": "Click on Details",
+        "status_code": 2,
+        "needs_attention": true,
+        "targets_meeting": 5,
+        "targets_not_meeting": 1,
+        "total_targets": 8,
+        "class_id": 1446276,
+        "cgp_id": 6293610
+      },
+      {
+        "name": "Science 7",
+        "instructor": "Instructor Eight",
+        "status": "Meeting",
+        "status_code": 1,
+        "needs_attention": false,
+        "targets_meeting": 5,
+        "targets_not_meeting": 0,
+        "total_targets": 33,
+        "class_id": 1446369,
+        "cgp_id": 6293845
+      },
+      {
+        "name": "Social Studies 7",
+        "instructor": "Instructor Four",
+        "status": "Click on Details",
+        "status_code": 2,
+        "needs_attention": true,
+        "targets_meeting": 3,
+        "targets_not_meeting": 2,
+        "total_targets": 20,
+        "class_id": 1446437,
+        "cgp_id": 6294031
+      },
+      {
+        "name": "English 7",
+        "instructor": "Instructor Seven",
+        "status": "Click on Details",
+        "status_code": 2,
+        "needs_attention": true,
+        "targets_meeting": 4,
+        "targets_not_meeting": 3,
+        "total_targets": 17,
+        "class_id": 1446487,
+        "cgp_id": 6294171
+      },
+      {
+        "name": "Art 7",
+        "instructor": "Instructor One",
+        "status": "Not Assessed",
+        "status_code": 0,
+        "needs_attention": false,
+        "targets_meeting": 0,
+        "targets_not_meeting": 0,
+        "total_targets": 7,
+        "class_id": 1446562,
+        "cgp_id": 6294362
+      },
+      {
+        "name": "Physical Education 7",
+        "instructor": "Instructor Five",
+        "status": "Meeting",
+        "status_code": 1,
+        "needs_attention": false,
+        "targets_meeting": 3,
+        "targets_not_meeting": 0,
+        "total_targets": 6,
+        "class_id": 1446647,
+        "cgp_id": 6294563
+      },
+      {
+        "name": "Health Education 7",
+        "instructor": "Instructor Three",
+        "status": "Meeting",
+        "status_code": 1,
+        "needs_attention": false,
+        "targets_meeting": 6,
+        "targets_not_meeting": 0,
+        "total_targets": 7,
+        "class_id": 1446710,
+        "cgp_id": 6294718
+      }
+    ],
+    "missing_work": [],
+    "summary": {
+      "total_classes": 8,
+      "meeting_expectations": 4,
+      "needs_attention": 3,
+      "not_assessed": 1,
+      "total_targets_meeting": 31,
+      "total_targets_not_meeting": 6,
+      "missing_count": 0
+    }
+  },
+  "detailed_classes": [
+    {
+      "class_name": "French 7",
+      "standards": [
+        {
+          "name": "Reading: Identifies the general topic, basic information and some details from text. Can provide evidence to support conclusions.",
+          "score": "3=M",
+          "score_numeric": 3.0,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [],
+          "assignments": [
+            {
+              "due_date": "10/14",
+              "name": "Famille moderne",
+              "weight": "512",
+              "grade": "3=M",
+              "grade_numeric": 3.0,
+              "grade_letter": "M",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            }
+          ],
+          "missing_count": 0,
+          "low_score_count": 0
+        },
+        {
+          "name": "Listening/Viewing: Identifies the general topic, basic information and some details from audio.",
+          "score": "2.71=M",
+          "score_numeric": 2.71,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [],
+          "assignments": [
+            {
+              "due_date": "10/16",
+              "name": "Edpuzzle - adjectifs possessifs",
+              "weight": "512",
+              "grade": "3=M",
+              "grade_numeric": 3.0,
+              "grade_letter": "M",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            },
+            {
+              "due_date": "10/3",
+              "name": "Edpuzzle - famille",
+              "weight": "256",
+              "grade": "3=M",
+              "grade_numeric": 3.0,
+              "grade_letter": "M",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            },
+            {
+              "due_date": "9/5",
+              "name": "Poster - partenaire",
+              "weight": "128",
+              "grade": "1=B",
+              "grade_numeric": 1.0,
+              "grade_letter": "B",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            }
+          ],
+          "missing_count": 0,
+          "low_score_count": 1
+        },
+        {
+          "name": "Writing: Produces written information, with accuracy, using words, phrases, and simple sentences with connecting ideas and details.",
+          "score": "3=M",
+          "score_numeric": 3.0,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [],
+          "assignments": [
+            {
+              "due_date": "10/14",
+              "name": "Famille moderne",
+              "weight": "512",
+              "grade": "3=M",
+              "grade_numeric": 3.0,
+              "grade_letter": "M",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            },
+            {
+              "due_date": "9/19",
+              "name": "Penpal letter",
+              "weight": "256",
+              "grade": "3=M",
+              "grade_numeric": 3.0,
+              "grade_letter": "M",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            }
+          ],
+          "missing_count": 0,
+          "low_score_count": 0
+        },
+        {
+          "name": "Speaking: Produces spoken information and/or communicates in spontaneous language with accuracy, using words, phrases, and simple sentences with connecting ideas and details.",
+          "score": "3=M",
+          "score_numeric": 3.0,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [],
+          "assignments": [
+            {
+              "due_date": "10/24",
+              "name": "Famille - adjectifs possessifs",
+              "weight": "",
+              "grade": "",
+              "grade_numeric": 0,
+              "grade_letter": "",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            },
+            {
+              "due_date": "9/5",
+              "name": "Poster - partenaire",
+              "weight": "512",
+              "grade": "3=M",
+              "grade_numeric": 3.0,
+              "grade_letter": "M",
+              "is_missing": false,
+              "is_late": false,
+              "feedback": ""
+            }
+          ],
+          "missing_count": 0,
+          "low_score_count": 0
+        },
+        {
+          "name": "Completes activities and assignments in a timely manner in order to engage as a learner.",
+          "score": "2.72=M",
+          "score_numeric": 2.72,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [
+            {
+              "name": "Cycle 1-4 Learning Habits",
+              "score": "2.43=P",
+              "score_numeric": 2.43,
+              "score_letter": "P",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "9/17",
+                  "name": "Conjuguemos/ Gimkit - letter practice",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/11",
+                  "name": "Gimkit - avoir",
+                  "weight": "256",
+                  "grade": "Missing",
+                  "grade_numeric": 0,
+                  "grade_letter": "",
+                  "is_missing": true,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/9",
+                  "name": "Gimkit - expressions",
+                  "weight": "128",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 1,
+              "low_score_count": 0
+            },
+            {
+              "name": "Cycle 5-7 Learning Habits",
+              "score": "3=M",
+              "score_numeric": 3.0,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/23",
+                  "name": "Gimkit - adjectifs possessifs",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/16",
+                  "name": "Lingco - adjectifs possessifs",
+                  "weight": "256",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/16",
+                  "name": "Edpuzzle - adjectifs possessifs",
+                  "weight": "128",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/7",
+                  "name": "Conjuguemos - adjectifs possessifs",
+                  "weight": "64",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/7",
+                  "name": "Gimkit - adjectifs possessifs",
+                  "weight": "32",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/3",
+                  "name": "Edpuzzle - famille",
+                  "weight": "16",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/3",
+                  "name": "Lingco - famille",
+                  "weight": "8",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 0
+            }
+          ],
+          "assignments": [],
+          "missing_count": 1,
+          "low_score_count": 0
+        }
+      ],
+      "summary": {
+        "missing_assignments": 1
+      }
+    },
+    {
+      "class_name": "Social Studies 7",
+      "standards": [
+        {
+          "name": "Geography",
+          "score": "2.35=P",
+          "score_numeric": 2.35,
+          "score_letter": "P",
+          "is_meeting": false,
+          "children": [
+            {
+              "name": "Reads and interprets maps",
+              "score": "2.73=M",
+              "score_numeric": 2.73,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/6",
+                  "name": "Study Guide #2",
+                  "weight": "512",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/2",
+                  "name": "Intro Unit Assessment",
+                  "weight": "256",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/2",
+                  "name": "Study Guide #1",
+                  "weight": "128",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/12",
+                  "name": "Maps vs. Globes Packet",
+                  "weight": "64",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/9",
+                  "name": "US Latitude & Longitude Practice",
+                  "weight": "",
+                  "grade": "Missing",
+                  "grade_numeric": 0,
+                  "grade_letter": "",
+                  "is_missing": true,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 1,
+              "low_score_count": 1
+            },
+            {
+              "name": "Identifies and locates significant features on political and physical maps",
+              "score": "1.33=B",
+              "score_numeric": 1.33,
+              "score_letter": "B",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/24",
+                  "name": "Latin America Political Map Quiz #2",
+                  "weight": "512",
+                  "grade": "1=B",
+                  "grade_numeric": 1.0,
+                  "grade_letter": "B",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/15",
+                  "name": "Latin America Political Map Quiz #1",
+                  "weight": "256",
+                  "grade": "1=B",
+                  "grade_numeric": 1.0,
+                  "grade_letter": "B",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/8",
+                  "name": "Latin America Political Maps",
+                  "weight": "128",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/2",
+                  "name": "Intro Unit Assessment",
+                  "weight": "64",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 3
+            },
+            {
+              "name": "Understands the role of physical geography and climate on human development",
+              "score": "3=M",
+              "score_numeric": 3.0,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "9/12",
+                  "name": "5 Themes Project",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 0
+            }
+          ],
+          "assignments": [],
+          "missing_count": 1,
+          "low_score_count": 4
+        },
+        {
+          "name": "History, Culture, Government, Economy",
+          "score": "2.5=P",
+          "score_numeric": 2.5,
+          "score_letter": "P",
+          "is_meeting": false,
+          "children": [
+            {
+              "name": "Understands and analyzes how cultural aspects, including world religions, can impact the regions of focus",
+              "score": "2.5=P",
+              "score_numeric": 2.5,
+              "score_letter": "P",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/15",
+                  "name": "Independent Research Worksheet for Latin America Project",
+                  "weight": "512",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 1
+            }
+          ],
+          "assignments": [],
+          "missing_count": 0,
+          "low_score_count": 1
+        },
+        {
+          "name": "Completes activities and assignments in a timely manner in order to engage as a learner.",
+          "score": "2.6=M",
+          "score_numeric": 2.6,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [
+            {
+              "name": "Cycle 1-4 Learning Habits",
+              "score": "",
+              "score_numeric": 0,
+              "score_letter": "",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "9/5",
+                  "name": "Q.O.D. #1",
+                  "weight": "",
+                  "grade": "Excused",
+                  "grade_numeric": 0,
+                  "grade_letter": "",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/4",
+                  "name": "Pre-Assessment",
+                  "weight": "",
+                  "grade": "Missing",
+                  "grade_numeric": 0,
+                  "grade_letter": "",
+                  "is_missing": true,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/3",
+                  "name": "Class Hive Observation",
+                  "weight": "",
+                  "grade": "Excused",
+                  "grade_numeric": 0,
+                  "grade_letter": "",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 1,
+              "low_score_count": 0
+            },
+            {
+              "name": "Cycle 5-7 Learning Habits",
+              "score": "2.6=M",
+              "score_numeric": 2.6,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/15",
+                  "name": "Independent Research Worksheet for Latin America Project",
+                  "weight": "512",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/6",
+                  "name": "Study Guide #2",
+                  "weight": "256",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/2",
+                  "name": "Study Guide #1",
+                  "weight": "128",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/2",
+                  "name": "Study Tool for Intro Assessment",
+                  "weight": "64",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 2
+            }
+          ],
+          "assignments": [],
+          "missing_count": 1,
+          "low_score_count": 2
+        }
+      ],
+      "summary": {
+        "missing_assignments": 2
+      }
+    },
+    {
+      "class_name": "English 7",
+      "standards": [
+        {
+          "name": "Reading",
+          "score": "2.86=M",
+          "score_numeric": 2.86,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [
+            {
+              "name": "Determines the meaning of words and phrases as they are used in a text, including figurative and connotative meaning and analyzes the impact of a specific word choice on meaning and tone.",
+              "score": "2.86=M",
+              "score_numeric": 2.86,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/24",
+                  "name": "Rewrite: Figurative Language in Sol Painting",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/3",
+                  "name": "Figurative Language in \"Sol Painting\"",
+                  "weight": "256",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": "Turned in late."
+                },
+                {
+                  "due_date": "9/19",
+                  "name": "Idiom Mini Project",
+                  "weight": "128",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 1
+            },
+            {
+              "name": "Analyzes how particular elements of a story or drama interact (e.g., how setting shapes the characters or plot)",
+              "score": "",
+              "score_numeric": 0,
+              "score_letter": "",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/7",
+                  "name": "\"Popularity\" Figurative Language & Theme Worksheet",
+                  "weight": "",
+                  "grade": "Handed In",
+                  "grade_numeric": 0,
+                  "grade_letter": "",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 0
+            }
+          ],
+          "assignments": [],
+          "missing_count": 0,
+          "low_score_count": 1
+        },
+        {
+          "name": "Writing",
+          "score": "2=P",
+          "score_numeric": 2.0,
+          "score_letter": "P",
+          "is_meeting": false,
+          "children": [
+            {
+              "name": "Writes arguments to support claims with clear reasons and relevant evidence.",
+              "score": "2=P",
+              "score_numeric": 2.0,
+              "score_letter": "P",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "9/18",
+                  "name": "\"On the Bridge\" Paragraph",
+                  "weight": "512",
+                  "grade": "2=P",
+                  "grade_numeric": 2.0,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": "Turned in very late. Please make sure to check in with teachers about missing work after you return from an absence."
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 1
+            }
+          ],
+          "assignments": [],
+          "missing_count": 0,
+          "low_score_count": 1
+        },
+        {
+          "name": "Speaking and Listening",
+          "score": "3=M",
+          "score_numeric": 3.0,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [
+            {
+              "name": "Engages effectively in a range of collaborative discussions by posing questions, in small group and whole class discussions, that elicit elaboration; and responding to others' questions and comments with relevant observations and ideas.",
+              "score": "3=M",
+              "score_numeric": 3.0,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/16",
+                  "name": "Group Work: Connotation Activity",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 0
+            }
+          ],
+          "assignments": [],
+          "missing_count": 0,
+          "low_score_count": 0
+        },
+        {
+          "name": "Language",
+          "score": "2.75=M",
+          "score_numeric": 2.75,
+          "score_letter": "M",
+          "is_meeting": true,
+          "children": [
+            {
+              "name": "Demonstrate command of the conventions of standard English capitalization, punctuation, and spelling when writing.",
+              "score": "3=M",
+              "score_numeric": 3.0,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "9/19",
+                  "name": "Idiom Mini Project",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/18",
+                  "name": "\"On the Bridge\" Paragraph",
+                  "weight": "256",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": "Turned in very late. Please make sure to check in with teachers about missing work after you return from an absence."
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 0
+            },
+            {
+              "name": "Explain the function of coordinating conjunctions and utilize them in compound sentences.",
+              "score": "2.5=P",
+              "score_numeric": 2.5,
+              "score_letter": "P",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/10",
+                  "name": "Compound Sentence Quiz",
+                  "weight": "512",
+                  "grade": "2.5=P",
+                  "grade_numeric": 2.5,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 1
+            }
+          ],
+          "assignments": [],
+          "missing_count": 0,
+          "low_score_count": 1
+        },
+        {
+          "name": "Completes activities and assignments in a timely manner in order to engage as a learner.",
+          "score": "2.5=P",
+          "score_numeric": 2.5,
+          "score_letter": "P",
+          "is_meeting": false,
+          "children": [
+            {
+              "name": "Cycle 1-4 Learning Habits",
+              "score": "2.33=P",
+              "score_numeric": 2.33,
+              "score_letter": "P",
+              "is_meeting": false,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "9/19",
+                  "name": "Idiom Mini Project",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "9/18",
+                  "name": "\"On the Bridge\" Paragraph",
+                  "weight": "256",
+                  "grade": "1=B",
+                  "grade_numeric": 1.0,
+                  "grade_letter": "B",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": "Turned in very late. Please make sure to check in with teachers about missing work after you return from an absence."
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 1
+            },
+            {
+              "name": "Cycle 5-7 Learning Habits",
+              "score": "2.67=M",
+              "score_numeric": 2.67,
+              "score_letter": "M",
+              "is_meeting": true,
+              "children": [],
+              "assignments": [
+                {
+                  "due_date": "10/7",
+                  "name": "\"Popularity\" Figurative Language & Theme Worksheet",
+                  "weight": "512",
+                  "grade": "3=M",
+                  "grade_numeric": 3.0,
+                  "grade_letter": "M",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": ""
+                },
+                {
+                  "due_date": "10/3",
+                  "name": "Figurative Language in \"Sol Painting\"",
+                  "weight": "256",
+                  "grade": "2=P",
+                  "grade_numeric": 2.0,
+                  "grade_letter": "P",
+                  "is_missing": false,
+                  "is_late": false,
+                  "feedback": "Turned in late."
+                }
+              ],
+              "missing_count": 0,
+              "low_score_count": 1
+            }
+          ],
+          "assignments": [],
+          "missing_count": 0,
+          "low_score_count": 2
+        }
+      ],
+      "summary": {
+        "missing_assignments": 0
+      }
+    }
+  ],
+  "student_name": "Test Student",
+  "alert_threshold": 2
+}

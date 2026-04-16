@@ -15,6 +15,14 @@ Review code changes for security vulnerabilities. Focus on the areas most releva
 - User settings go to the SQLite `settings` table. Non-secret per-child data (`base_url`, `username`, `display_name`) goes to the `children` table. Flag any settings or credentials stored in JSON files, localStorage, or env vars.
 - Anything under `sandbox/` is dev-only and out of scope for security review of shipped code — but flag any import from `sandbox/` into committed code (it would break for every other dev and indicates a wiring mistake).
 
+### Platform import boundaries (forward compatibility)
+Enforces the "portable core" rules from design-plan.md "Forward compatibility" so the code stays portable to a future backend or second frontend.
+
+- **`scraper/` must be pure.** No imports from `@tauri-apps/*`, `src/lib/ipc.ts`, `src-tauri/`, SQLite plugins, keychain, or any OS API. Only `fetch`, `cheerio`, and its own types. Finding: any platform import inside `scraper/`.
+- **`src/lib/core/` must be pure.** No imports from `@tauri-apps/*`, `src/lib/ipc.ts`, SQLite, keychain, or any platform API. Pure functions only. Finding: any side-effecting import.
+- **React components never import `@tauri-apps/*` directly.** They go through `src/lib/ipc.ts`. Biome's `noRestrictedImports` rule blocks this at lint time, with an override allowing `src/lib/ipc.ts` to import Tauri APIs. Finding: any `@tauri-apps/*` import from `src/app/`, `src/components/`, `src/lib/core/`, or `scraper/`. Also finding: any attempt to widen the Biome override to allow Tauri imports in additional files without a matching design-plan update.
+- **Business logic never lives in React components or Rust commands.** It lives in `src/lib/core/` as pure functions. Finding: diff algorithms, "needs attention" rules, or trend computations defined inside a `.tsx` component or a `#[tauri::command]` handler — they should be called from there, not defined there.
+
 ### Scraper input handling
 - TeacherEase HTML is untrusted input. Cheerio selectors must not assume structure; every `.text()` / `.attr()` should be null-safe.
 - Never render raw portal HTML into the dashboard via `dangerouslySetInnerHTML`. Extract text, render as plain strings.

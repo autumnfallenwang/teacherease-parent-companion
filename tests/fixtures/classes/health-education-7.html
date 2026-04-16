@@ -1,0 +1,882 @@
+<!DOCTYPE html><html class="tablesaw-enhanced"><head id="headTag"><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><title>
+	TeacherEase: Standards-Based Grades
+</title><meta name="description"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="/client_code/css/jquery-ui/themes/teacherease/jquery-ui?v=-xDoLU22ASwxgRsDXyqwH8vFnC1L_l0tOjyEL5j7Mzg1" rel="stylesheet">
+<link href="/bundles/internal-bootstrap-styles?v=7dnfUJQ6kvVkpvJCv5dtb94fZSjhpMBpC0XZkVB3wF81" rel="stylesheet">
+<link href="/client_code/css/fontawesome/css/all?v=FzvqiDBS3hCpmUV6ZvEu3DQiIL7KPspVHG6WG1ZkOyU1" rel="stylesheet">
+
+    <link rel="StyleSheet" href="../instructors/GVA.css?v=153.0" type="text/css" media="screen">
+    <style>
+        #stdScaleCell {
+            margin-left:10px;
+        }
+        ul.root-standard-item {
+            padding-left: 0;
+            margin-left: -15px;	/* Keep description close to left-side of screen */ 
+            margin-right: -15px; /* Keep score close to right-side of screen */
+            margin-top: 15px;
+	        color:#666666;
+        }
+
+        /* Specific CSS styles we want on the root item to override the general styles for standard items */
+        ul.root-standard-item.standard-item > li > .standard-item-data {
+	        font-weight: bold;
+        }
+
+        ul.root-standard-item > li > .standard-item {
+            padding-left: 0; 
+        }
+
+        /* General Standard Item Styles */
+        .standard-item .standard-item-data {
+            line-height: 20px;
+            font-size: 14px;
+            padding:5px 15px;
+	        display: table;
+	        width: 100%;
+        }
+
+        .standard-item .standard-item-data {
+           position:relative;
+           padding-right: 45px;
+        }
+
+        .standard-item .standard-item-data {
+            padding-left: 40px;
+	        background-position: 20px 10px;
+        }
+
+        .standard-item-data .standard-item-desc {
+	        display: table-cell;
+	        text-align: left;
+        }
+
+        .standard-item-data .standard-item-score {
+	        display: table-cell;
+	        text-align: right;
+	        padding-left: 7px;
+            vertical-align:middle;
+        }
+
+        .standard-item-data .standard-item-score-inner {
+            display:inline-flex;
+            flex-direction:row;
+        }
+
+        .standard-item div.collapsible.collapsed {
+            background-image: url('/images/collapsed.png');
+            background-size: auto 10px;
+	        background-repeat: no-repeat;
+        }
+
+        .standard-item div.collapsible {
+            background-image: url('/images/open.png');
+            background-size: 10px auto;
+            background-repeat: no-repeat;
+        }
+
+        .standard-item  div.hover {
+            background-color:#f2f2f2;
+	        cursor: pointer;
+        }
+
+        .root-standard-item li {
+            list-style: none;
+        }
+
+	    .divAsnContainer {
+            display:none; 
+            margin-left:15px;
+	    }
+
+        @media screen and (max-width: 599px){
+	        .divAsnContainer {
+                padding-left:15px;
+	        } 
+	        .standard-item .standard-item-data {
+	            padding-left: 20px;
+	            background-position: 5px 10px;
+	        }
+	        ul.standard-item > li > ul.standard-item {
+                padding-left:10px;
+	        }
+        }
+        @media screen and (min-width: 600px) and (max-width: 1023px){
+	        .divAsnContainer {
+                padding-left:30px;
+	        } 
+	        .standard-item .standard-item-data {
+	            padding-left: 30px;
+	            background-position: 20px 10px;
+	        }
+	        ul.standard-item > li > ul.standard-item {
+                padding-left:15px;
+	        }
+        }
+        @media screen and (min-width: 1024px){
+	        .divAsnContainer {
+                padding-left:40px;
+	        } 
+	        .standard-item .standard-item-data {
+	            padding-left: 40px;
+	            background-position: 20px 10px;
+	        }
+	        ul.standard-item > li > ul.standard-item {
+                padding-left:20px;
+	        }
+        }
+         
+	    .assignmentTable.tablesaw {
+            max-width: initial;
+            width: initial; 
+	    }
+
+        @media screen and (max-width: 993px) {
+	        .assignmentTable.tablesaw {
+	            max-width: inherit;
+	            width: inherit;
+	        }
+	    }
+
+	    .btn-container > input {
+            margin-right: 5px;
+	    } 
+	    span.ltactionicon {  
+            margin-left:5px;
+            opacity:.7;
+            width:1.4em;
+	    }
+        span.ltactionicon:hover {
+            opacity:1;
+        }
+	    span.ltactionicon > i {
+            font-size:23px;
+	    }
+        #calcDetails{
+            min-width:20em;
+        }
+	</style>
+<script src="/bundles/jquery?v=wEofjtjm5bXDt1Hwa0QlTIDdVypn9Jc-mC1pbfc8fuw1"></script>
+<script src="/bundles/internal-scripts?v=oVBqNX48An_fCNWXIAUClPiFkjOil7a0ePph3urt6_o1"></script>
+<script src="/bundles/internal-bootstrap-scripts?v=EtwcSJ4TPE922N5Pp8V4L94ulurIBZdRNznc5Ke3CVc1"></script>
+
+    <script>
+    var strShowAllText = "Show All";
+    var stdHideUnusedText = "Show Recent Only"; 
+    $(document).ready(function () {
+        $('ul.standard-item').find('div.standard-item-data').hover(function () {
+            $(this).toggleClass('hover');
+        });
+
+        $('ul.standard-item').find('li div.standard-item-data').click(function () {
+            $(this).closest("div.standard-item-data").toggleClass('collapsed').nextAll().slideToggle(function () { resizeParent(); });
+        });
+
+        $('ul.standard-item').find('li div.standard-item-data span.ltactionicon').click(function () {
+            return false;
+        }); 
+
+        $('ul.standard-item').find('li:has(ul.standard-item), li:has(table.assignmentTable)').children('div.standard-item-data').addClass('collapsible collapsed')
+            .filter(function () { return $(this).siblings('ul.standard-item').length > 0 }).removeClass("collapsed").nextAll().show();
+         
+        if (nTestNameID > 0) {
+            var jFirstLeafItemForAssignment = $('.assignmentTable tr[data-testnameid=' + nTestNameID + ']').first().closest('.divAsnContainer').show().siblings('.standard-item-data');
+            if (jFirstLeafItemForAssignment.length > 0) {
+                $('html, body').animate({ scrollTop: jFirstLeafItemForAssignment.offset().top }, 500);
+            }
+            var jAllLeafItemForAssignment = $('.assignmentTable tr[data-testnameid=' + nTestNameID + ']').closest('.divAsnContainer').show();
+        }
+        setTimeout(function () {
+            $(".fa-diamond").each(function () {
+                var diamondContainer = $(this).parent();
+                if (diamondContainer.is(":visible")) {
+                    var diamondContainerWidth = diamondContainer.width();
+                    var progressBarWidth = $(this).parents(".goal-progress-bar").width();
+
+                    var diamondWidthPercent = diamondContainerWidth / progressBarWidth * 100;
+
+                    var currentLeftPosition = parseFloat(diamondContainer[0].style.left);
+                    var newLeftPosition = currentLeftPosition - Math.round((diamondWidthPercent / 2) * 100) / 100;
+                    diamondContainer.css("left", newLeftPosition + "%");
+                }
+            });
+        }, 100);
+    }); 
+    function fExpandMissing(lbFromInit) { 
+        var jItems = $('.assignmentTable tr[data-bmissing]').parents('li').children('div.standard-item-data')
+
+        if (lbFromInit)
+            jItems.removeClass('collapsed').nextAll().show();
+        else
+            jItems.click();
+    }
+
+    function ShowChart(lClassID, lCGPID, lLTID) {
+        var lType = "Line";
+        var strURL = "../common/StandardGVAGraphing.aspx?"
+                               + "&LTID=" + lLTID
+                               + "&ClassID=" + lClassID
+                               + "&CGPID=" + lCGPID
+                               + "&chartType=" + lType 
+                               + "&bPopup=True"
+                               + "&bStdGrades=1"
+                               + GetChartSizeArgs();
+
+        teacherease.dom.iframe.Add(strURL, "chartPopup");
+        var oPopup = Popup_GetObj("chartPopup");
+        oPopup.bDraggable(false); //can't have it be draggle because it breaks the resize parent call
+    }
+    function ShowCalculation(lClassID, lCGPID, lLTID) {
+        var lType = "Line";
+        var strURL = "/App/Common/StandardScore/CalculationDetails?"
+                               + "&LTID=" + lLTID
+                               + "&ClassID=" + lClassID
+                               + "&CGPID=" + lCGPID
+                               + "&StudentID=" + 3405082 
+                               + "&bPopup=True";
+
+        teacherease.dom.iframe.Add(strURL, "calcDetails", true, { Title: "Calculation Details" });
+        var oPopup = Popup_GetObj("calcDetails");
+        oPopup.bDraggable(false); //can't have it be draggle because it breaks the resize parent call
+    }
+    function CloseCalculationDetails() {
+        var oPopup = Popup_GetObj("calcDetails");
+        oPopup.Close();
+    }
+    function GetChartSizeArgs() {
+        var strRet = "";
+
+        var width = $(window).width();
+        var height = $(window).height();
+
+        return "&screenWidth=" + width + "&screenHeight=" + height;
+    }
+    function GetQSArgs_Transfer() {
+        var ret = jte.AddToQS({
+            "classid": $("#hidden_classid").val(),
+            "studentid": $("#hidden_studentid").val(),
+            "nextpage" : "StudentProgressStandardsDetails"
+        });
+
+        return ret;
+    }
+    function RedirectToGraph() {
+        jte.RefreshPage({ "cgpid": nCGPID }, true, true, "/App/Parents/StandardGrade/StudentProgressGraph");
+    }
+</script>
+
+
+    <!-- <script src="js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script> -->
+    <!-- Google tag (gtag.js) -->
+    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-PK7BJTFHMF"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-PK7BJTFHMF');
+    </script>
+    <style>
+        .mobile-browser-app-nudge {
+            display:none;
+        }
+
+        .app-nudge-content {
+            padding:8px 16px 8px 8px;
+            background-color:#f2f2f2;
+            font-size:14px;
+        }
+
+        .app-nudge-content .flex-container {
+            display:flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .app-nudge-content .flex-container div:nth-child(2) {
+            flex-grow:1;
+        }
+
+        .app-nudge-content #AppStoreLink {
+            color: white;
+            background-color: #00AECB;
+            padding: 6px 16px;
+            border-radius: 8px;
+            text-decoration:none;
+        }
+
+        .app-nudge-content img {
+            height:60px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+    </style>
+    <script>
+        var clientInfo = null;
+        $(function () {
+            //initialized server side
+            if (clientInfo != null) {
+                var os = clientInfo.OS.Family;
+                if (/iOS/.test(os)) {
+                    if (/iPhone/.test(clientInfo.Device.Model)) {
+
+                        $("#menuBar").hide();
+                        $(".mobile-browser-app-nudge").show();
+                    }
+                }
+                else if (/Android/.test(os)) {
+                    $("#menuBar").hide();
+                    $(".mobile-browser-app-nudge").show();
+                }
+            }
+        });
+
+    </script>
+
+<link href="https://school.example.teacherease.com/common/StudentProgressStandardsDetails.aspx" rel="canonical"></head>
+<body class="page">
+    <div class="container-fluid">
+        <div class="mobile-browser-app-nudge row">
+            <div class="app-nudge-container">
+                <div class="app-nudge-content">
+                    <div class="flex-container">
+                        <div>
+                            <img src="/images/appicon_76x76.png">
+                        </div>
+                        <div>
+                            <div style="padding-left:4px;line-height:18px">
+                                <div style="color:#333;font-weight:bold">TeacherEase Mobile</div>
+                                <div style="font-size:12px; color:#777;padding-left:2px">Best on the mobile App</div>
+                            </div>
+                        </div>
+                        <div style="white-space:nowrap">
+                            <!--<a style="font-size:12px;color:#777;padding-right:4px" href="">learn more</a> -->
+                            <a id="AppStoreLink">App <i class="fas fa-arrow-up-right-from-square"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div id="menuBar" class="menuBar">      
+                
+        
+                <a href="/home.aspx" id="HomeLink" class="navbar-brand">
+                    <img src="/images/TE-Logo.png" id="MasterLogo" class="navbar-brand-default">
+                </a>
+                <div id="studentDiv" class="viewing pull-right text-right hidden-xs">           
+                    <div class="student hidden-xs"><span id="viewingSpan">Viewing</span>: <span id="studentNameSpan">Test Student</span></div>
+                    <div class="student-details hidden-xs">
+                        <span id="schoolNameSpan">CLARKE MIDDLE SCHOOL</span>, <span id="studentGradeLevelSpan">Grade 7 • 2025-26</span>
+                    </div>            
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="navbarContainer" class="navbar navbar-default" role="navigation">
+        <div class="navbar-header">
+			<div class="container-fluid">
+	
+                <div class=" row ">
+		
+                    <div class=" col-xs-2  col-sm-1  hidden-lg ">
+			
+                        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    		<span class="sr-only">Toggle navigation</span>
+                    		<span class="icon-bar"></span>
+                    		<span class="icon-bar"></span>
+                    		<span class="icon-bar"></span>
+                		</button>
+                    
+		</div>
+                    <div class="no-gutter-left col-xs-8  col-sm-7  col-lg-8 ">
+			
+                        <h1 id="headerPageName">Standards-Based Grades</h1>
+                    
+		</div>
+                    <div class=" col-xs-2  col-sm-4 ">
+			
+                        <div class="header-meta pull-right text-right">
+                            <div id="studentSelector" class="student-selector">
+                                <div id="studentPicture" class="current-student" style="background-image:url('../common/StudentGetPicture.aspx?StudentID=3405082&amp;DBID=2'), url(/images/AvatarGeneric.png);">
+				
+                                    <div id="studentSelectorCaret" class="te-caret"></div>
+                                
+			</div>
+
+                                <div class="student-list">
+                                    <ul id="studentSiblings" style="display:none;"><li><a class="student-list-item year-item" onclick="jte.controls.studentlist.ToggleStudentListForYear(2025);"><div class="container-fluid">
+				<div class=" row ">
+					<div class=" col-xs-10 ">
+						2025-26
+					</div><div class=" text-right col-xs-2 ">
+						<span class="glyphicon glyphicon-chevron-down" data-year="2025"></span>
+					</div>
+				</div>
+			</div></a></li><div class="student-list-year-group" data-year="2025">
+				<li><a class="student-list-item" onclick="jte.controls.RedirectOnChange( this,'[&quot;StudentID&quot;,&quot;SchoolEnrollmentID&quot;,&quot;DBID&quot;,&quot;bMobileAppRefreshMenu&quot;]','[&quot;AlertWarningText&quot;]','true','../parents/StudentProgressSummary.aspx');" value="3405082_2812888_2_true"><div class="sibling-picture" style="background-image:url('../common/StudentGetPicture.aspx?StudentID=3405082&amp;DBID=2'), url(/images/AvatarGeneric.png);">
+
+				</div><div>
+					Student, Test
+				</div><div class="subheader">
+					Grade: 7
+				</div></a></li>
+			</div><li><a class="student-list-item year-item" onclick="jte.controls.studentlist.ToggleStudentListForYear(2024);"><div class="container-fluid">
+				<div class=" row ">
+					<div class=" col-xs-10 ">
+						2024-25
+					</div><div class=" text-right col-xs-2 ">
+						<span class="glyphicon glyphicon-chevron-right" data-year="2024"></span>
+					</div>
+				</div>
+			</div></a></li><div class="student-list-year-group" data-year="2024" style="display:none;">
+				<li><a class="student-list-item" onclick="jte.controls.RedirectOnChange( this,'[&quot;StudentID&quot;,&quot;SchoolEnrollmentID&quot;,&quot;DBID&quot;,&quot;bMobileAppRefreshMenu&quot;]','[&quot;AlertWarningText&quot;]','true','../parents/StudentProgressSummary.aspx');" value="3405082_2632552_2_true"><div class="sibling-picture" style="background-image:url('../common/StudentGetPicture.aspx?StudentID=3405082&amp;DBID=2'), url(/images/AvatarGeneric.png);">
+
+				</div><div>
+					Student, Test
+				</div><div class="subheader">
+					Grade: 6
+				</div></a></li>
+			</div></ul>
+                                </div>
+                            </div>
+                            <div class="meta-left hidden-xs hidden-sm">
+                                <div id="AutoLogoutDiv" class="timer">
+                                    <span><span id="TE_AutoLogoutDiv" class="countdown">Auto Logout: 1h 05m</span> <span id="toLogoutSpan">to logout</span></span>
+                                </div>
+                                <div id="breadcrumbs" class="breadcrumbs"><span class="breadcrumb-item"><a href="../parents/main.aspx" class="breadcrumb-item">Main</a> &gt;</span><span class="breadcrumb-item"><a href="/App/Parents/StandardGrade/GradeViewAllWithProgress" class="breadcrumb-item">Grades</a> &gt;</span> Standards-Based Grades</div>
+                            </div>
+                        </div>
+                    
+		</div>
+                
+	</div>
+            
+</div>
+        </div>
+        <div class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+                
+                <li class="dropdown menu-item-heading"><a class="main-menu-header dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="../#">Main <span class="caret"></span></a><a class="main-menu-header collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Main</a><div class=" collapse-control ">
+	<a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Main"></a>
+</div><ul id="drop-Main" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style=""><li class="menu-item"><a class="hidden-md hidden-lg" href="/parents/main.aspx?tab=0">Feed</a></li><li class="menu-item"><a class="hidden-md hidden-lg" href="/parents/main.aspx?tab=1">Agenda</a></li></ul></li><li class="dropdown menu-item-heading"><a class=" dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="../#">Academics <span class="caret"></span></a><a class=" collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Academics</a><div class=" collapse-control ">
+	<a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Academics"></a>
+</div><ul id="drop-Academics" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style=""><li class="menu-item"><a href="/App/Parents/StandardGrade/GradeViewAllWithProgress">Grades</a></li><li class="menu-item"><a href="/parents/PRViewAll.aspx">Report Cards</a></li></ul></li><li class="dropdown menu-item-heading"><a class=" dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="../#">Communicate <span class="caret"></span></a><a class=" collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Communicate</a><div class=" collapse-control ">
+	<a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Communicate"></a>
+</div><ul id="drop-Communicate" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style=""><li class="menu-item"><a href="/parents/AnnouncementViewAll.aspx">Announcements</a></li></ul></li><li class="dropdown menu-item-heading"><a class=" dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="../#">Miscellaneous <span class="caret"></span></a><a class=" collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Miscellaneous</a><div class=" collapse-control ">
+	<a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Miscellaneous"></a>
+</div><ul id="drop-Miscellaneous" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style=""><li class="menu-item"><a href="/app/common/spa/account-profile">My Account</a></li><li class="menu-item"><a href="/app/Common/AccountProfile/NotificationPreferences">Communication Preferences</a></li><li class="menu-item"><a href="/app/common/AuthorizedDevice">Mobile Apps</a></li><li class="menu-item"><a href="/App/Common/TutoringActivityLogs/Index?StudentID=3405082">Tutoring/Activity Logs</a></li></ul></li>
+                <li class="menu-item-heading">
+                    <a href="/parents/Support.aspx" id="supportLink">Support</a>
+                </li>
+                <li class="menu-item-heading">
+                    <a href="../common/logout.aspx">Log Out</a>
+                </li>
+            </ul>
+        </div><!--/.navbar-collapse -->
+    </div>
+
+    <form method="post" action="./StudentProgressStandardsDetails.aspx?ClassID=1446710&amp;CGPID=6294718" id="webform">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="29ZlAX1SfYT9/XpixwPhYstMX/g7Z+fhrW2ivKwjICftpNoBLbgyzCp+MTgVAeHq09+TI9e0UV0pqgo4dNSmB9lFEOU=">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['webform'];
+if (!theForm) {
+    theForm = document.webform;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+
+<script src="../client_code/js/floatingcontent.js?v=153.0" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+bRedirectOnTimeout=true;
+bMobileApp=false;
+strServerURL = 'https://school.example.teacherease.com';
+TemplateTimeoutMin = 65;
+ApplicationName = 'TeacherEase';
+Module = 'Parents';
+SessionLoginID = 1152634;
+client_bDevelopmentMachine= 0;
+GoogleLogin= false;
+GoogleClientID= "503997313268-dm85q73f8niarr4c5ds3uc09b5ild6j8.apps.googleusercontent.com";
+bRegisterOverInternet = false;
+bPublic = true;
+bSpanishLanguage = 0;
+window.onload = function(){
+teacherease.utils.ClassNoun = "Class";teacherease.utils.ClassNounLower = "class";teacherease.utils.ClassNounPlural = "Classes";teacherease.utils.ClassNounLowerPlural = "classes";teacherease.utils.CMEntity = "";StandardDefinition = "Standard";StandardDefinitionPlural = "Standards";StandardAbbreviation = "S";LearningTargetDefinition = "Standard";LearningTargetDefinitionPlural = "Standards";LearningTargetAbbreviation = "S";FormativeDefinition = "Uncounted";FormativePluralDefinition = "Uncounted";teacherease.utils.ReportingEntityTypeStates = { 2 : "IL", 16 : "IL", 1 : "IL", 18 : "MA", 4 : "MO", 3 : "MO", 8 : "NH", 7 : "NH", 10 : "NJ", 9 : "NJ", 15 : "", 6 : "OK", 5 : "OK", 14 : "", 13 : "", 17 : "", 12 : "WI", 11 : "WI",  } ;fAttachMenuResizeEvent();
+_dropPopup();
+fStartTimeout();
+template_onload();
+if( typeof FloatingContent_Init != "undefined"  ) FloatingContent_Init();
+if(self.onPageShow)
+onPageShow();
+}
+
+$(document).ready(function() {
+    $('#studentSiblings a').click(function() {
+		if (bUserOpenedStudentSelector) {
+			$.ajax({
+				type: 	'POST',
+				url: 	'AJAXUpdateStudentSelector.aspx',
+				data: 	{ 'LoginID' : SessionLoginID }
+			});
+		}
+	});
+});
+//]]>
+</script>
+<script>clientInfo = {"String":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36","OS":{"Family":"Linux","Major":null,"Minor":null,"Patch":null,"PatchMinor":null},"Device":{"IsSpider":false,"Brand":"","Family":"Other","Model":""},"UserAgent":{"Family":"HeadlessChrome","Major":"140","Minor":"0","Patch":"7339"},"UA":{"Family":"HeadlessChrome","Major":"140","Minor":"0","Patch":"7339"}};</script>
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="F6E2C9BA">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="+eyERNN+ZmDPB9m32Lc03sgrC78M39pqfJHF1e1f5svp/Q/hWYH9d8bkhvX3CK1kKhOeje+HJY5/EkpcwqbwaBAf3HxCinDZbBelMQL77FcSOIYlwdD1NsrsnAvi7hMavaCSno3WbPxjlbScCpY7C0nbTYaIPst6adIV3Ar28F6DnxAE029wUdVoE0zF4UOO1Ebeow==">
+</div>
+        <input name="ctlTE$__AntiCsrfToken" type="hidden" id="__AntiCsrfToken" value="a413f7bb-7647-49ab-90fd-a2afe3b5dc16">
+        <div class="container-fluid">
+            <div id="introTextDiv" class="row">
+                <div class="col-md-10">
+                    <div class="intro-text hidden-xs hidden-sm"><p id="introTextParagraph">Student's standards-based scores are shown below. Click the scores to see assignments that make up those scores.</p></div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    
+                    
+                    
+                </div>
+            </div>
+            <div class="row pagefilter-container">
+                <div class="col-md-12">
+                    <span id="NewPageFilter" class=" pagefilter "><div id="pagefilter_row_0" class=" pagefilter-row ">
+	<span class=" pull-left "><span class="ShowHeading"><span class="ShowHeadingLabel">Class: </span><span class="ShowHeadingValue">T1 Health Education 7</span></span></span><span class=" pull-right "><span id="AsnMode" class="hidden-xs hidden-sm select-list "><span class="te-label">Assignments:</span><div class="items-container btn-group">
+		<button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="selected-value" data-value="1">Show All Assignments </span><span class="caret"></span></button><ul class="dropdown-menu dropdown-menu-right" role="menu" style=""><li><a class="list-item" data-value="1" href="javascript:void(0)">Show All Assignments</a></li><li><a class="list-item" data-value="2" href="javascript:void(0)">Show Assignments Contributing to Score Only</a></li><li><a class="list-item" data-value="3" href="javascript:void(0)">Show Missing Work Only</a></li></ul>
+	</div></span></span><span class=" pull-right "><span id="StdMode" class="hidden-xs hidden-sm select-list "><span class="te-label">Standards:</span><div class="items-container btn-group">
+		<button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="selected-value" data-value="2">Show Standards with Assignments Only </span><span class="caret"></span></button><ul class="dropdown-menu dropdown-menu-right" role="menu" style=""><li><a class="list-item" data-value="1" href="javascript:void(0)">Show All Standards</a></li><li><a class="list-item" data-value="2" href="javascript:void(0)">Show Standards with Assignments Only</a></li><li><a class="list-item" data-value="3" href="javascript:void(0)">Show Standards with Scores Only</a></li></ul>
+	</div></span></span>
+</div><div id="pagefilter_row_1" class=" pagefilter-row ">
+	<span class=" pull-left "><span id="AsnModeMobile" class="visible-xs visible-sm select-list "><span class="te-label">Assignments:</span><div class="items-container btn-group">
+		<button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="selected-value" data-value="1">Show All Assignments </span><span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a class="list-item" data-value="1" href="javascript:void(0)">Show All Assignments</a></li><li><a class="list-item" data-value="2" href="javascript:void(0)">Show Assignments Contributing to Score Only</a></li><li><a class="list-item" data-value="3" href="javascript:void(0)">Show Missing Work Only</a></li></ul>
+	</div></span></span><span class=" pull-left "><span id="StdModeMobile" class="visible-xs visible-sm select-list "><span class="te-label">Standards:</span><div class="items-container btn-group">
+		<button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="selected-value" data-value="2">Show Standards with Assignments Only </span><span class="caret"></span></button><ul class="dropdown-menu" role="menu"><li><a class="list-item" data-value="1" href="javascript:void(0)">Show All Standards</a></li><li><a class="list-item" data-value="2" href="javascript:void(0)">Show Standards with Assignments Only</a></li><li><a class="list-item" data-value="3" href="javascript:void(0)">Show Standards with Scores Only</a></li></ul>
+	</div></span></span>
+</div></span>
+                </div>
+            </div>
+        </div>
+
+        
+
+        
+    <div class="container-fluid">
+	
+        <div class=" row ">
+		
+            <div id="stdGradesCell" class=" col-xs-12  col-sm-7  col-md-7 ">
+			<ul class=" root-standard-item standard-item "><li><div class="standard-item-data collapsible collapsed">
+				<span class="standard-item-desc">Exhibits the ability to analyze influences and access valid health information</span><span class="standard-item-score"><span class="standard-item-score-inner">2.47=P<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405514);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405514);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><div class="divAsnContainer col-xs-12">
+				<div class="tablesaw-bar tablesaw-mode-stack"></div><table id="tablesaw-2278" class="assignmentTable ViewAllTable tablesaw cmg  tablesaw-stack tablesaw-sortable" data-tablesaw-mode="stack" data-tablesaw-sortable="" style="width:97%;">
+					<thead>
+						<tr>
+							<th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Date Due<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Assignment<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Weight<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Grade<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Feedback<span class="tablesaw-sortable-arrow"></span></button></th>
+						</tr>
+					</thead><tbody>
+						<tr class="recent" data-testnameid="26405797">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/31</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26405797">Caregiver Interview</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">512</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">2=P</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26342760">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/23</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26342760">Vape Escape</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">256</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26202892">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/26</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26202892">Support Systems</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">128</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26202091">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/23</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26202091">Healthy Habits Escape</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">64</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr>
+					</tbody>
+				</table>
+			</div></li></ul><ul class=" root-standard-item standard-item "><li><div class="standard-item-data collapsible collapsed">
+				<span class="standard-item-desc">Demonstrates the ability to use interpersonal communication and advocate for personal, family and community health</span><span class="standard-item-score"><span class="standard-item-score-inner">3=M<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405515);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405515);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><div class="divAsnContainer col-xs-12">
+				<div class="tablesaw-bar tablesaw-mode-stack"></div><table id="tablesaw-952" class="assignmentTable ViewAllTable tablesaw cmg  tablesaw-stack tablesaw-sortable" data-tablesaw-mode="stack" data-tablesaw-sortable="" style="width:97%;">
+					<thead>
+						<tr>
+							<th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Date Due<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Assignment<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Weight<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Grade<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Feedback<span class="tablesaw-sortable-arrow"></span></button></th>
+						</tr>
+					</thead><tbody>
+						<tr class="recent" data-testnameid="26290978">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/3</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26290978">ACT Exit Ticket</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">512</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26139141">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/5</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26139141">Feather Assignment </a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">256</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26139140">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/5</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26139140">Get to Know You Google Form</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">128</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr>
+					</tbody>
+				</table>
+			</div></li></ul><ul class=" root-standard-item standard-item "><li><div class="standard-item-data collapsible collapsed">
+				<span class="standard-item-desc">Actively utilizes decision-making and goal setting skills to enhance health</span><span class="standard-item-score"><span class="standard-item-score-inner">3=M<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405516);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405516);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><div class="divAsnContainer col-xs-12">
+				<div class="tablesaw-bar tablesaw-mode-stack"></div><table id="tablesaw-413" class="assignmentTable ViewAllTable tablesaw cmg  tablesaw-stack tablesaw-sortable" data-tablesaw-mode="stack" data-tablesaw-sortable="" style="width:97%;">
+					<thead>
+						<tr>
+							<th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Date Due<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Assignment<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Weight<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Grade<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Feedback<span class="tablesaw-sortable-arrow"></span></button></th>
+						</tr>
+					</thead><tbody>
+						<tr class="recent" data-testnameid="26139144">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/9</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26139144">Personal Wellness Wheel </a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">512</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr>
+					</tbody>
+				</table>
+			</div></li></ul><ul class=" root-standard-item standard-item "><li><div class="standard-item-data collapsible collapsed">
+				<span class="standard-item-desc">Comprehend concepts related to health promotion and disease prevention and practice health enhancing behaviors</span><span class="standard-item-score"><span class="standard-item-score-inner">3=M<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405517);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405517);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><div class="divAsnContainer col-xs-12">
+				<div class="tablesaw-bar tablesaw-mode-stack"></div><table id="tablesaw-3897" class="assignmentTable ViewAllTable tablesaw cmg  tablesaw-stack tablesaw-sortable" data-tablesaw-mode="stack" data-tablesaw-sortable="" style="width:97%;">
+					<thead>
+						<tr>
+							<th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Date Due<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Assignment<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Weight<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Grade<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Feedback<span class="tablesaw-sortable-arrow"></span></button></th>
+						</tr>
+					</thead><tbody>
+						<tr class="recent" data-testnameid="26405795" data-bmissing="1">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 11/6</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a style="color:red" href="/parents/AssignmentView.aspx?TestNameID=26405795">HGD Assessment</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">512</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M <img title="Missing" class="icon" src="../images/gva_missing.png"></span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26290982">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/10</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26290982">Coping Skills</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">256</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26290981">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/9</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26290981">Wordcloud</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">128</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M <img title="Assignment Turned In Late" class="icon" src="../images/gva_late.png"></span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26290964">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/1</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26290964">Eating Disorder Scenarios</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">64</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="recent" data-testnameid="26165735">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/19</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26165735">Nutrition</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">32</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr><tr class="" data-testnameid="26165734">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/19</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26165734">Skin Check </a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content"></span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content"><img title="Excused" class="icon" src="../images/gva_excused.png"></span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"> Absent - excused from work</span></td>
+						</tr><tr class="recent" data-testnameid="26139145">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/11</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26139145">Healthy Habits Checklist</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">16</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr>
+					</tbody>
+				</table>
+			</div></li></ul><ul class=" root-standard-item standard-item "><li><div class="standard-item-data collapsible">
+				<span class="standard-item-desc">Completes activities and assignments in a timely manner in order to engage as a learner.</span><span class="standard-item-score"><span class="standard-item-score-inner">3=M<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405518);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405518);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><ul class=" standard-item " style=""><li><div class="standard-item-data collapsible collapsed">
+				<span class="standard-item-desc">Cycle 1-4 Learning Habits</span><span class="standard-item-score"><span class="standard-item-score-inner">3=M<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405519);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405519);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><div class="divAsnContainer col-xs-12">
+				<div class="tablesaw-bar tablesaw-mode-stack"></div><table id="tablesaw-9842" class="assignmentTable ViewAllTable tablesaw cmg  tablesaw-stack tablesaw-sortable" data-tablesaw-mode="stack" data-tablesaw-sortable="" style="width:97%;">
+					<thead>
+						<tr>
+							<th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Date Due<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Assignment<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Weight<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Grade<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Feedback<span class="tablesaw-sortable-arrow"></span></button></th>
+						</tr>
+					</thead><tbody>
+						<tr class="recent" data-testnameid="26201762">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 9/26</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26201762">Learning Habits - 1</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">512</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr>
+					</tbody>
+				</table>
+			</div></li><li><div class="standard-item-data collapsible collapsed">
+				<span class="standard-item-desc">Cycle 5-7 Learning Habits</span><span class="standard-item-score"><span class="standard-item-score-inner">3=M<span title="Calculation Details" class="stdChart ltactionicon" onclick="ShowCalculation(1446710,6294718,3405520);"><i class="far  fa-calculator"></i></span><span class="stdChart ltactionicon" onclick="ShowChart(1446710,6294718,3405520);"><i class="fas fa-chart-line"></i></span></span></span>
+			</div><div class="divAsnContainer col-xs-12">
+				<div class="tablesaw-bar tablesaw-mode-stack"></div><table id="tablesaw-489" class="assignmentTable ViewAllTable tablesaw cmg  tablesaw-stack tablesaw-sortable" data-tablesaw-mode="stack" data-tablesaw-sortable="" style="width:97%;">
+					<thead>
+						<tr>
+							<th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Date Due<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Assignment<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Weight<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Grade<span class="tablesaw-sortable-arrow"></span></button></th><th scope="col" data-tablesaw-sortable-col="" data-tablesaw-priority="1" class="tablesaw-sortable-head"><button class="tablesaw-sortable-btn">Feedback<span class="tablesaw-sortable-arrow"></span></button></th>
+						</tr>
+					</thead><tbody>
+						<tr class="recent" data-testnameid="26345874">
+							<td><b class="tablesaw-cell-label">Date Due</b><span class="tablesaw-cell-content"><small> 10/24</small></span></td><td><b class="tablesaw-cell-label">Assignment</b><span class="tablesaw-cell-content"><a href="/parents/AssignmentView.aspx?TestNameID=26345874">Learning Process - 2</a></span></td><td><b class="tablesaw-cell-label">Weight</b><span class="tablesaw-cell-content">512</span></td><td><b class="tablesaw-cell-label">Grade</b><span class="tablesaw-cell-content">3=M</span></td><td><b class="tablesaw-cell-label">Feedback</b><span class="tablesaw-cell-content"></span></td>
+						</tr>
+					</tbody>
+				</table>
+			</div></li></ul></li></ul>
+		</div>
+			<div class=" col-xs-12  col-sm-5  col-md-5 ">
+			
+                <div id="stdScaleCell">
+                <span id="gsTableContainer"><table class=" stdScale ViewAllTable "><thead><tr>
+				<th align="left" valign="top">Letter<br>Grade</th>
+				<th align="left" valign="top">Points</th>
+				<th align="left" valign="top">Notes</th>
+				<th align="left" valign="top">Meets Expectation</th>
+			</tr>
+			</thead><tbody><tr>
+				<td align="left" valign="top">M</td>
+				<td align="left" valign="top">3</td>
+				<td align="left" valign="top">Meeting</td>
+				<td align="left" valign="top">Yes</td>
+			</tr>
+			<tr>
+				<td align="left" valign="top">P</td>
+				<td align="left" valign="top">2</td>
+				<td align="left" valign="top">Progressing</td>
+				<td align="left" valign="top">No</td>
+			</tr>
+			<tr>
+				<td align="left" valign="top">B</td>
+				<td align="left" valign="top">1</td>
+				<td align="left" valign="top">Beginning</td>
+				<td align="left" valign="top">No</td>
+			</tr>
+			<tr>
+				<td align="left" valign="top">NY</td>
+				<td align="left" valign="top">0.5</td>
+				<td align="left" valign="top">Not Yet</td>
+				<td align="left" valign="top">No</td>
+			</tr>
+			</tbody></table>
+			<strong> Calculation Mode:</strong>  Decaying Weights<br>Uncounted assignments do not count towards the grade.</span></div><br>
+                <div id="stdScaleKey">
+                    <table class="ViewAllTable" style="width:100%">
+                        <tbody>
+                           <tr>
+                                <th id="keyLegend">Key</th>
+			
+                                <th></th>
+                            </tr>
+                            <tr>
+                                <td id="blank">[blank]</td>
+			
+                                <td id="blankText">No information shown/entered</td>
+			
+                            </tr>
+                            <tr>
+                                <td><img src="../images/gva_handedin.png" id="HandedIn" class="icon" title="Handed In"></td>
+                                <td id="HandedInText">Handed in but not yet graded</td>
+			
+                            </tr>
+                            <tr>
+                                <td><img src="../images/gva_missing.png" id="Missing" class="icon" title="Missing"></td>
+                                <td id="MissingText">Missing <span style="color:red">(Assignment highlighted in red)</span></td>
+			
+                            </tr>
+                            <tr>
+                                <td><img src="../images/gva_excused.png" id="Excused" class="icon" title="Excused"></td>
+                                <td id="ExcusedText">Excused and not counted toward student grade</td>
+			
+                            </tr>
+                            <tr>
+                                <td><img src="../images/gva_late.png" id="Late" class="icon" title="Assignment Turned In Late"></td>
+                                <td id="LateText">Work was handed in late</td>
+			
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+			
+		</div>
+        
+	</div> 
+    
+</div>
+
+
+        
+
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-xs-12">
+                    <div id="TEContentBottomContainer" class="contentBottom newFloatingContent_Bottom" data-newfc-dynamic-calculate="1"><div class="floatingContent_Background"></div>
+	
+                         
+    <input type="button" name="ctlTE$TEContentBottom$btnTradGrades" value="View By Assignment" onclick="window.location='/parents/StudentProgressDetails.aspx?' + jte.AddToQS(); return false;__doPostBack('ctlTE$TEContentBottom$btnTradGrades','')" id="btnTradGrades">
+    
+    <input type="button" name="ctlTE$TEContentBottom$btnBack" value="Back" onclick="window.location=&quot;/App/Parents/StandardGrade/GradeViewAllWithProgress&quot;;; return false;__doPostBack('ctlTE$TEContentBottom$btnBack','')" id="btnBack" class=" teButtonBack"> 
+
+    <input type="hidden" name="ctlTE$TEContentBottom$hidden_studentid" id="hidden_studentid">
+    <input type="hidden" name="ctlTE$TEContentBottom$hidden_classid" id="hidden_classid">
+
+
+                    
+</div>
+                </div>
+            </div>
+        </div>
+    
+<script type="text/javascript">var nTestNameID = 0;var nCGPID = 6294718;</script> 
+<script type="text/javascript">$(document).ready(function() { $('#AsnMode').on('change', function() { 
+var jThis = $(this);
+var hNumValuePairs = {};
+hNumValuePairs[jThis.attr('id').toLowerCase()] = jThis.find('.selected-value').data('value');
+fRefreshPage( hNumValuePairs );
+ }); });</script> 
+<script type="text/javascript">
+$(document).ready(function() {
+    var jSelectLists = $('.select-list');
+
+    jSelectLists.find('.items-container')
+    .click(function() {
+	    //Highlight the currently selected item when we initially show the dropdown because the hover/focus CSS won't be able to do it.
+	    var jThis = $(this);
+	    var strSelectedValue = jThis.find('.selected-value').data('value');
+	    jThis.find('.dropdown-menu li')
+		    .children('.list-item')
+            .removeClass('highlight-value')
+		    .filter(function() { return $(this).data('value') == strSelectedValue; })
+		    .addClass('highlight-value');
+    });
+	
+    jSelectLists.find('.items-container .list-item')
+    .click(function() {
+	    //Update the currently selected item for the dropdown when we click an item in the list.
+	    var jThis = $(this);
+	    var jSelectedValue = jThis.closest('.items-container').find('.selected-value');
+	    jSelectedValue.data('value', jThis.data('value')).text(jThis.text() + ' ').trigger('change');
+    })
+    .mouseover(function() {
+	    //Get rid of the specific highlighted value and allow the hover/focus CSS to handle it now that the list is open. 
+	    $(this).closest('.items-container').find('.list-item').removeClass('highlight-value');
+    });
+	
+    //If we have a select list on the right side of the page filter then make sure bootstrap knows that so the dropdown doesn't go off the right side of the page.
+    $('#NewPageFilter').find('.pull-right')
+            .each(function () { 
+                var div = $(this);
+                var thisRight = div.offset().left + div.width();
+                var optionsList =  $(this).find('ul.dropdown-menu');
+                if( optionsList.width() < 5 //incase jquery fails to get a proper width for the hidden options
+                        ||  thisRight > optionsList.width()  //
+                        || $(window).width() - thisRight  < 100){
+                    optionsList.addClass('dropdown-menu-right');
+                } 
+            });
+});
+</script> 
+<script type="text/javascript">$(document).ready(function() { $('#StdMode').on('change', function() { 
+var jThis = $(this);
+var hNumValuePairs = {};
+hNumValuePairs[jThis.attr('id').toLowerCase()] = jThis.find('.selected-value').data('value');
+fRefreshPage( hNumValuePairs );
+ }); });</script> 
+<script type="text/javascript">$(document).ready(function() { $('#AsnModeMobile').on('change', function() { 
+var jThis = $(this);
+var hNumValuePairs = {};
+hNumValuePairs[jThis.attr('id').toLowerCase()] = jThis.find('.selected-value').data('value');
+fRefreshPage( hNumValuePairs );
+ }); });</script> 
+<script type="text/javascript">$(document).ready(function() { $('#StdModeMobile').on('change', function() { 
+var jThis = $(this);
+var hNumValuePairs = {};
+hNumValuePairs[jThis.attr('id').toLowerCase()] = jThis.find('.selected-value').data('value');
+fRefreshPage( hNumValuePairs );
+ }); });</script> 
+</form>
+
+    <footer id="footerContainer" class="hidden-xs hidden-sm">
+        <p>
+        Copyright © 2001-2025 Common Goal Systems Inc. 
+        All rights reserved.&nbsp;-&nbsp;<a href="/privacy.aspx">Privacy Policy</a>
+        &nbsp;-&nbsp;<a href="/terms.aspx">Terms of Service</a>
+        <span id="opsToolsSpan"></span>
+        </p>
+    </footer>                
+
+
+<div class="hidden-md hidden-lg"></div><div class="testdiv hidden-xs hidden-sm hidden-mobile-app"></div><div class="testdiv hidden-xs hidden-sm hidden-mobile-app"></div></body></html>

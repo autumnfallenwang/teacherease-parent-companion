@@ -1,0 +1,436 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]> <html lang="en" class="ie8"> <![endif]-->
+<!--[if IE 9]> <html lang="en" class="ie9"> <![endif]-->
+<!--[if !IE]><!--> <html lang="en"> <!--<![endif]-->
+<head><title>
+	Login - Common Goal Systems, Inc.
+</title> 
+
+	<!-- Meta -->
+	<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" /><meta name="description" /><meta name="keywords" />
+    
+
+	<!-- Favicon -->
+	<link rel="shortcut icon" href="/favicon.ico" /><link href="/bundles/external-styles?v=spBnp2v6jEqhYbIPtM-mZz7uiKuPZrhKfMI9UabQ1Fc1" rel="stylesheet"/>
+<link href="/client_code/css/fontawesome/css/all?v=FzvqiDBS3hCpmUV6ZvEu3DQiIL7KPspVHG6WG1ZkOyU1" rel="stylesheet"/>
+
+
+    <style>
+        /*to have the correct formatting on the standard search dropdown submenu*/
+        .header .dropdown .dropdown-submenu > a {
+            font-size: 15px;
+            color: #777 !important;
+            text-transform: none;
+        }
+    </style>
+
+    <link id="MobileAppCss" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet" type="text/css">
+    <style>
+        .wrapper {
+            background: none repeat scroll 0 0 #B3E7EF;
+        } 
+        #tecontent {
+            padding: 0;
+        }
+        .login-container {
+            margin-top:20px;
+        }
+        @media (max-width: 480px) { 
+            .xs-margin-top-15 {
+                margin-top: 15px;
+            }
+        }
+  </style>
+<script src="/bundles/jquery-external?v=IeRDa6EDLw7MZMJZeyMX9pEWhgj6RTWyCjMlcbZGmfg1"></script>
+
+    
+
+        <script>
+            function handleCredentialResponse(e) {
+                $.ajax({
+                    type: "POST",
+                    url: "/app/Login/LoginWithGoogle",
+                    data: "googleIDToken=" + e.credential,
+                    dataType: "json",
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function (redirectUrl) {
+                        window.location = redirectUrl;
+                    },
+                    error: function () {
+                        alert("Sorry an error occurred logging you in. Please try again.");
+                    }
+                });
+            }
+        </script>
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link href="https://school.example.teacherease.com/common/login.aspx" rel="canonical" /></head>
+
+<body>
+	<div class="wrapper">
+		<!--=== Header ===-->
+		<div class="header">
+			<div class="container">
+				<!-- Logo -->
+				<a href="/home.aspx" id="LogoLink" class="logo">
+					<img src="/images/CommonGoalLogo.png" id="LogoImage" alt="Logo" />
+				</a>
+				<!-- End Logo -->
+
+				<!-- Toggle get grouped for better mobile display -->
+				<button id="HamburgerMenuButton" type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-responsive-collapse">
+					<span class="sr-only">Toggle navigation</span>
+					<span class="fa fa-bars"></span>
+				</button>
+				<!-- End Toggle -->
+			</div><!--/end container-->
+
+			<!-- Collect the nav links, forms, and other content for toggling -->
+			<div id="MenuDiv" class="collapse navbar-collapse mega-menu navbar-responsive-collapse">
+				<div class="container">
+					<ul class="nav navbar-nav" id="te-navbar">
+						<!-- Products -->
+						<li id="menuProducts" class="dropdown">
+							<a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">
+								Products
+							</a>
+							<ul class="dropdown-menu">
+                                <li><a href="/finance.aspx">Financial Management System</a></li>		
+								<li><a href="/schoolinsight.aspx">SchoolInsight</a></li>
+					            <li class="sub-item"><a href="/basicmanagement.aspx">Core Student Management</a></li>
+					            <li class="sub-item"><a href="/enhancedparentcommunication.aspx">Enhanced Parent Communication</a></li>
+					            <li class="sub-item"><a href="/lunch.aspx">Lunch</a></li>
+					            <li class="sub-item"><a href="/discipline.aspx">Discipline</a></li>
+					            <li class="sub-item"><a href="/advancedscheduling.aspx">Advanced Scheduling</a></li>
+					            <li class="sub-item"><a href="/health.aspx">Health Records</a></li>
+                                <li><a href="/standards-based-learning-and-education.aspx">TeacherEase - Standards-based Learning</a></li>
+					            <li class="sub-item"><a href="/committee-collaboration.aspx">Committee Collaboration</a></li>
+					            <li class="sub-item"><a href="/learning-targets-and-objectives.aspx">Learning Targets</a></li>
+					            <li class="sub-item"><a href="/grading-rubric-maker.aspx">Rubrics</a></li>
+					            <li class="sub-item"><a href="/summative-and-formative-assessments.aspx">Summative and Formative Assessments</a></li>
+					            <li class="sub-item"><a href="/learning-management-system.aspx">Learning Management System (LMS)</a></li>
+					            <li class="sub-item"><a href="/data-analytics.aspx">Data Analytics</a></li>
+					            <li class="sub-item"><a href="/standards-based-gradebook.aspx">Standards-based Gradebook</a></li>
+					            <li class="sub-item"><a href="/standards-based-report-cards.aspx">Standards-based Report Cards</a></li>
+                                <li class="sub-item"><a href="/works-with-any-sis.aspx">Works with Any SIS</a></li>
+					            <li><a href="/catholicschools.aspx">Catholic Schools/Dioceses</a></li>
+							</ul>
+						</li>
+						<!-- End Product -->
+
+						<!-- Services -->
+						<li id="menuServices" class="dropdown">
+							<a href="/javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">
+								Services
+							</a>
+							<ul class="dropdown-menu">
+								<li><a href="/services.aspx">Overview</a></li>                                
+								<li><a href="/smartstart.aspx">SmartStart</a></li>
+					            <li><a href="/training.aspx">Training</a></li>
+					            <li><a href="/customersupport.aspx">Customer Support</a></li>
+					            <li><a href="/consulting.aspx">Consulting</a></li>
+                                <li><a href="/systemrequirements.aspx">System Requirements</a></li>
+							</ul>
+                        </li>
+                        <!-- End Services -->
+
+                        <!-- Company -->
+						<li id="menuCompany" class="dropdown">
+							<a href="/javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">
+								Company
+							</a>
+							<ul class="dropdown-menu">
+                                <li><a href="/about.aspx">About Us</a></li>
+					            <li><a href="/Webinars.aspx">Webinars</a></li>
+					            <li><a href="/app/news/index">News</a></li>
+					            <li><a href="/employment.aspx">Career Opportunities</a></li>          
+							</ul>
+                        </li>
+                        <!-- End Company -->
+
+                        <!-- Topics -->
+						<li id="menuTopics" class="dropdown md-margin-right">
+							<a href="/javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">
+								Topics
+							</a>
+							<ul class="dropdown-menu">
+                                <li><a href="/thecloud.aspx">The Cloud</a></li>
+                                <li><a href="/standards-based-grading.aspx">What is Standards-based Grading?</a></li>
+					            <li><a href="/online-gradebook.aspx">Online Gradebook</a></li>
+                                <!--
+                                <li><a href="/whatisthecloud.aspx">What is the Cloud?</a></li>
+					            <li><a href="/impactoncustomers.aspx">Impact on Customers</a></li>
+					            <li><a href="/effectonvendors.aspx">Effect on Vendors</a></li>
+					            <li><a href="/thecgscloud.aspx">The CGS Cloud</a></li>
+					            <li><a href="/totalcostofownership.aspx">Total Cost of Ownership</a></li>
+					            <li><a href="/bewareofimitations.aspx">Beware of Imitations</a></li>
+					            <li><a href="/truesoftwarecustomers.aspx">True Software Customers</a></li>
+                                -->
+                                <li class="dropdown-submenu">
+                                    <a href="#">Search State Standards</a>
+                                    <ul class="dropdown-menu">
+                                        <li><a href="/app/standards/common-core-state-standards">Common Core State Standards</a></li>
+                                        <li><a href="/app/standards/next-generation-science-standards">Next Generation Science Standards</a></li>
+                                        <li><a href="/app/standards/illinois-learning-standards">Illinois Learning Standards</a></li>
+                                        <li><a href="/app/standards/indiana-academic-standards">Indiana Academic Standards</a></li>
+                                        <li><a href="/app/standards/iowa-core">Iowa Core</a></li>
+                                        <li><a href="/app/standards/missouri-learning-standards">Missouri Learning Standards</a></li>                                                                                                       
+                                        <li><a href="/app/standards/nh-college-and-career-ready-standards">NH College and Career Ready Standards</a></li>
+                                        <li><a href="/app/standards/ohio-Learning-standards">Ohio Learning Standards</a></li>
+                                        <li><a href="/app/standards/oklahoma-academic-standards">Oklahoma Academic Standards</a></li>
+                                        <li><a href="/app/standards/Texas-Essential-Knowledge-and-Skills">Texas Essential Knowledge and Skills</a></li>
+                                        <li><a href="/app/standards/virgina-standards-of-learning">Virgina Standards of Learning</a></li>
+                                        <li><a href="/app/standards/washington-state-learning-standards">Washington State Learning Standards</a></li> 
+                                        <li><a href="/app/standards/common-core">Common Core</a></li>
+                                        <li><a href="/app/standards/ccss">CCSS</a></li>
+                                        <li><a href="/app/standards/ngss">NGSS</a></li>
+                                        <li><a href="/app/standards/teks">Teks</a></li>
+                                        <li><a href="/app/standards/show-me-standards">Show-Me Standards</a></li>
+                                        <li><a href="/app/standards/virginia-sol">Virginia SOL</a></li>                                                  
+                                    </ul>
+                                </li>
+
+							</ul>
+                        </li>
+                        <!-- End Topics -->
+
+                        <li class="single-item">
+                            <a href="/common/login.aspx" id="login" class="btn btn-u">Log In</a>
+                            <a href="/Requestinformation.aspx" id="requestDemo" class="btn btn-dark">Request Demo</a>                            
+                        </li>
+                        <!-- End Request Demo -->
+					</ul>
+				</div><!--/end container-->
+			</div><!--/navbar-collapse-->
+		</div>
+		<!--=== End Header ===-->
+
+        <div id="tecontent">
+            
+
+            
+    <!--=== Content Part ===-->
+	<div class="container content login-container">
+          
+		<div class="row is-flex">
+			<div id="pageLogin" class="col-xs-12 col-sm-offset-2 col-sm-8 col-md-offset-1 col-md-5 col-lg-offset-1 col-lg-5">
+				<form class="full-width reg-page" name="LoginForm" method=post 
+                    action="https://school.example.teacherease.com/app/Login/Login" onSubmit="return verify(this);" novalidate>
+                    <input name="ctlTE$TEContentPlaceHolder$__AntiCsrfToken" type="hidden" id="__AntiCsrfToken" value="43875cfa-9e01-4415-be16-f5dd65e8df89" /></TE:CTEAntiForgeryToken>
+					
+                    <div class="reg-header">
+						<h2>Log in to your account</h2>
+					</div>
+                    
+                    <input type="hidden" name="fromResetPassword" value="False" />
+                    
+					    <div class="input-group margin-bottom-20">
+						    <span class="input-group-addon"><i class="fa fa-user"></i></span>
+						    <input  id="email" name="email" type="email" placeholder="Email Address" class="form-control" value="" />
+                            <input id="targetPage" name="targetPage" type=hidden  value="" />
+					    </div>
+					    <div class="input-group margin-bottom-20">
+						    <span class="input-group-addon"><i class="fa fa-lock"></i></span>
+						    <input id="password" name="password" type="password" placeholder="Password" class="form-control" >
+					    </div>
+                    
+
+                    <div class="checkbox">
+						<ul class="list-inline">
+                            
+							<li>
+								<label>
+									<input name="bRememberEmail" id="bRememberEmail" type="checkbox" value="true"> Remember email
+								</label>
+							</li>
+                            
+							<li class="pull-right">
+								<a href="javascript:fForgotPassword();">Forgot password?</a>
+							</li>
+						</ul>
+					</div>
+
+					<div class="row margin-bottom-5">
+						<div class="col-md-12">
+							<button type="submit" class="btn-u btn-block">Log In</button>
+						</div>
+					</div>
+
+                    
+                        <div class="row margin-bottom-20">
+						    <div class="col-md-12">
+                                <div class="loginDivider">
+                                  <span>OR</span>
+                                </div>
+                            </div>
+					    </div>
+                    
+                            <div class="row margin-bottom-5">
+						        <div class="col-md-12">
+                                    <div id="g_id_onload"
+                                         data-client_id="503997313268-dm85q73f8niarr4c5ds3uc09b5ild6j8.apps.googleusercontent.com"
+                                         data-context="signin"
+                                         data-ux_mode="popup"
+                                         data-callback="handleCredentialResponse"
+                                         data-auto_prompt="false">
+                                    </div>
+
+                                    <div class="g_id_signin"
+                                         data-type="standard"
+                                         data-shape="rectangular"
+                                         data-theme="filled_blue"
+                                         data-text="signin_with"
+                                         data-size="large"
+                                         data-logo_alignment="right"
+                                         data-width="395"
+                                    >
+                                    </div>
+						        </div>
+					        </div>
+                        
+                    <input type="hidden" name="LoginRequestID" value="cf07f178-265c-42e5-b365-0078f8af9a4f" />
+
+                    
+                        <input type="hidden" name="requestedServerApiVersion" value="1.0" />
+                    
+				</form>
+			</div>
+
+            <div id="NewsDiv" class="col-xs-12 col-sm-offset-2 col-sm-8 col-md-offset-0 col-md-5 mobile-padding xs-margin-top-15">
+                <div class="reg-page full-width">
+                    <div class="reg-header">
+					    <h2>Latest News</h2>
+				    </div>
+                    <div class="row">
+				        <div class="col-md-12">
+					        
+
+<div id="news_sidebar">
+    <div id="NewsDiv">
+	
+    <div class='margin-bottom-20'>
+						                        <div class='info-description'>
+                                                    <p>3/16/2026<br /><a href='../app/news/article/SchoolInsightSIS_spring2026_usergroups_Reminder1'>2026 Spring SchoolInsight SIS User Groups - State Reporting (Reminder)</a></p>
+                                                </div>
+                                                    </div><div class='margin-bottom-20'>
+						                        <div class='info-description'>
+                                                    <p>3/2/2026<br /><a href='../app/news/article/SchoolInsightSIS_spring2026_usergroups'>2026 Spring SchoolInsight SIS User Groups - State Reporting</a></p>
+                                                </div>
+                                                    </div><div class='margin-bottom-20'>
+						                        <div class='info-description'>
+                                                    <p>2/23/2026<br /><a href='../app/news/article/2025_26_IAR_ISA_Updates'>IAR/ISA Accommodation Updates</a></p>
+                                                </div>
+                                                    </div><div class='margin-bottom-20'>
+						                        <div class='info-description'>
+                                                    <p>2/1/2026<br /><a href='../app/news/article/Better-District-Control-of-Two-Factor-Authentication-2FA-260201'>Better District Control of Two-Factor Authentication (2FA)</a></p>
+                                                </div>
+                                                    </div>
+</div>
+
+    <div id="more_news">
+        <a class="btn-u" href="/app/news" title="More News">More News</a>
+    </div>
+</div>
+ 
+                        </div>      
+                    </div>
+			    </div>
+            </div>
+		</div><!--/row-->
+	</div><!--/container-->
+	<!--=== End Content Part ===-->
+
+        </div>
+
+        <!--=== Footer Version 1 ===-->
+		
+		<!--=== End Footer Version 1 ===-->
+    </div>
+    <!--=== End wrapper ===-->
+
+    <!-- JS Global Compulsory -->
+	<script src="/bundles/external-scripts?v=nSGdtLglmI8mb0zhciYUfgQNjP6cMvsSI6sCGqncQyA1"></script>
+
+	<!--[if lt IE 9]>
+	<script src="/bundles/ie-scripts?v=TaDfbe4rnj7QXaGAd9DYgmGW0QgE1zmiXz85sPtmfSs1"></script>
+
+	<![endif]-->
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-RM6TRWGT9J"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-RM6TRWGT9J');
+    </script>
+    <!-- Salesloft Analytics -->
+    <script type="text/javascript">
+        (function(i,s,o,g,r,a,m){i['SLScoutObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','https://scout-cdn.salesloft.com/sl.js','slscout');
+        slscout(["init", "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0IjoxMDQzODl9.nbGT9fmlHOy9j05Bnrqtk9mJ2LH0lkuJ4EjGPEB3QK0"]);
+    </script>
+
+
+    
+    <script type="text/javascript">
+    $(window).load(function() {
+	    if( document.LoginForm.email.value == "" )
+		    document.LoginForm.email.focus();
+	    else
+            document.LoginForm.password.focus();
+
+        sessionStorage.clear();
+    });
+
+    function verify(f) {
+	    var errString = "";
+        var bNotEmail = false;
+    
+	    if( f.email.value == "" )
+	        errString += "Email must be entered.\r\n";
+	    else {
+		    f.email.value = f.email.value.trim();
+		
+		    if( f.email.value.search(/ /) != -1 )
+			    errString += "Email should not contain any spaces.\r\n";
+		    if( f.email.value.search(/\,/) != -1 )
+			    errString += "Email should not contain any commas.\r\n";
+		    if( f.email.value.search(/\;/) != -1 )
+			    errString += "Email should not contain any semicolons.\r\n";
+		    if( f.email.value.search(/.+\@.+\..+/) == -1 )
+			    errString += "Email must be a valid email address.\r\n";
+	    }
+	    if( errString != "" )
+            bNotEmail = true;
+        
+        if( f.password.value == "" ) {
+            errString += "Password must be entered.\r\n";
+            if( !bNotEmail )
+                errString += "If you cannot remember your password please click on \"Forgot your password?\"\r\n";
+        }
+            
+	    if( errString != "") {
+		    alert(errString);
+		    return false;
+	    }
+    }
+
+    function fForgotPassword() {
+        var f = document.LoginForm;
+        var e = document.LoginForm.email;
+
+        window.location = "/common/ForgetPassword.aspx?email=" + e.value;
+    }
+    </script>
+
+
+</body>
+</html>

@@ -1,0 +1,1473 @@
+<!DOCTYPE html><html class="js flexbox flexboxlegacy canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers no-applicationcache svg inlinesvg smil svgclippaths k-webkit k-webkit140" style=""><head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grades - TeacherEase</title>
+
+<link href="/App/Content/kendo/css?v=TTpq1Wf_oaMATtiXyP45Y3vnpFxe0uVlCS7IxhZbu481" rel="stylesheet">
+    <link href="/App/Content/fontawesome/css/all?v=Aoi7Lxej4V9-SpTDWK84PuLfgvT-cqFinZGdVxyq1CU1" rel="stylesheet">
+
+    <link href="/App/Content/print-preview?v=mGSFzSrjWpad0QYVmOEUfK7fm98nGTSNY3nytvO4EJ01" rel="stylesheet">
+
+    <link href="/App/Content/css?v=ev_ZP0rC6QwbQ3PbKPWnxzE4_hj9ZXzjB6-k_bakNDU1" rel="stylesheet">
+ 
+    <script async="" charset="utf-8" src="https://static.zdassets.com/ekr/asset_composer.js?key=22cc17e9-5e50-46dd-a5d7-573f012b9d5c" type="text/javascript"></script><script src="/App/bundles/modernizr?v=inCVuEFe6J4Q07A0AcRsbJic_UE5MwpRMNGcOtk94TE1"></script>
+
+<script src="/App/bundles/jquery?v=ty7mTWoxrT1QmtA49QzdK4nGB4a-zovuY08xfrVTEq41"></script>
+    <script src="/App/bundles/kendo/kendo?v=AS-JTPJiLRnSBSyMLK2xb2MQJUZZY4KFgWPJhbXTk781"></script>
+
+
+    
+    <style>
+        i.fa-chart-line {
+            font-size: 25px;
+            color: #00AECB;
+            cursor: pointer;
+            position:relative;
+            top:5px;
+            margin-right:5px;
+        }
+    </style>
+
+    <link href="/App/Content/standard-grade-progress-bar.css" rel="stylesheet">
+<style>
+            #GoalLegend .legend-key {
+                width:15px;
+                height:15px;
+                display:inline-block;
+            }
+            #GoalLegend .legend-value {
+                display:inline;
+            }
+            #GoalLegend .legend-key.legend-meeting {
+                background-color:lightgreen;
+            }
+            #GoalLegend .legend-key.legend-not-meeting {
+                background-color:yellow;
+            }
+            #GoalLegend .legend-key.legend-not-assessed {
+                background-color:lightgray;
+            }
+            #GoalLegend .legend-key.legend-meeting,
+            #GoalLegend .legend-key.legend-not-meeting,
+            #GoalLegend .legend-key.legend-not-assessed {
+                position:relative;
+                top:2px;
+            }
+            @media screen and (min-width:900px) {
+                #GoalLegend {
+                    margin-top:10px;
+                }
+            }
+        </style>
+
+<style>
+            .goal-status-not-meeting,
+            .goal-status-meeting {
+                text-align: center;
+            }
+
+            .goal-status-not-meeting {
+                background-color: #D00801;
+                color: white;
+                padding: 3px;
+            }
+        </style>
+
+
+    <!-- Google tag (gtag.js) -->
+    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-PK7BJTFHMF"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-PK7BJTFHMF');
+    </script>
+        <script>
+            window.zESettings = {
+                webWidget : { color:{theme: '#00aecb', button:'#00aecb', resultLists:'#00aecb'}
+                            ,offset:{horizontal:'-5px', vertical:'7px', mobile:{horizontal:'10px', vertical:'10px'}}
+                            ,position:{horizontal:'right', vertical:'top'}
+                            ,contactForm:{attachments:true, subject:true, title:{'*':'Contact Support'}}
+                            ,helpCenter:{messageButton:{'*':'Contact Support'}, searchPlaceholder:{'*':'Search'}, title:{'*':'Knowledge Base'}}
+                }
+            };
+            /*<![CDATA[*/window.zE||(function(e,t,s){var n=window.zE=window.zEmbed=function(){n._.push(arguments)}, a=n.s=e.createElement(t),
+            r=e.getElementsByTagName(t)[0];n.set=function(e){ n.set._.push(e)},n._=[],n.set._=[],a.async=true,a.setAttribute("charset","utf-8"),
+            a.src="https://static.zdassets.com/ekr/asset_composer.js?key="+s, n.t=+new Date,a.type="text/javascript",r.parentNode.insertBefore(a,r)})
+            (document,"script","22cc17e9-5e50-46dd-a5d7-573f012b9d5c");/*]]>*/
+             zE(function(){
+                 zE.hide();
+                 zE.identify({name: 'J. Student', email: 'test@example.com'});
+                 zE.setHelpCenterSuggestions({search: ''});
+            });
+        </script>
+    
+</head>
+<body class="page ">
+    <div id="IFrameOverlay" style="display:none;width: 100vw;height: 100vh;position: fixed;background-color: white;z-index: 9999"></div>
+    <script>
+        if (window != window.top) {
+            //Don't show scrollbar for IFrames. Resize Parent should ensure nothing is ever hidden
+            $("body").css("overflow", "hidden");
+            //Show IFrame Overlay until content is loaded so user doesn't see flickering
+            $("#IFrameOverlay").show();
+        }
+    </script>
+    <div class="top-section ">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="menuBar" id="menuBar">
+                        <a id="HomeLink" class="navbar-brand" href="/home.aspx">
+                                <img class="navbar-brand-default" src="/images/TE-Logo.png">
+                        </a>
+
+
+                    <div class="viewing pull-right text-right hidden-xs">
+
+                        <div class="student">
+                            <span id="viewingSpan">
+Viewing : Test Student                            </span>
+                            <span id="roleDescription">
+                            </span>
+                        </div>
+                        <div class="gradelevel">
+                            <span id="switchRoleContainer">
+                                <span id="roleSubDescription"></span>
+                            </span>
+                                <span id="schoolNameSpan">CLARKE MIDDLE SCHOOL</span>
+                                <span id="studentGradeLevelSpan">Grade 7 • 2025-26</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="navbar navbar-default" role="navigation" id="navbarContainer">
+            <div class="navbar-header">
+                <div class="container-fluid">
+                    <div class="row" style="display:flex">
+                        <div class="col-xs-10 col-sm-8 col-lg-8 no-gutter-left">
+                                <button type="button" class="navbar-toggle hidden-lg" data-toggle="collapse" data-target=".navbar-collapse">
+                                    <span class="sr-only">Toggle navigation</span>
+                                    <span class="icon-bar"></span>
+                                    <span class="icon-bar"></span>
+                                    <span class="icon-bar"></span>
+                                </button>
+                        <h1 id="headerPageName">
+                            <span id="titleHeader">Grades</span>
+                                                                <span class="intro-text-tooltip ">
+                                        
+<div onclick="jte.ToggleIntroText(this);" class="te-tooltip right Below">
+    
+                                    
+
+                        </div></span></h1>
+                        </div>
+                        <div class="col-xs-2 col-sm-4">
+                            <div class="header-meta pull-right text-right" style="height:100%;display:flex;flex-direction:row-reverse;align-items:center">
+                                        <div style="float:right">
+                                            
+<div id="studentSelector" class="student-selector">
+    <div id="studentPicture" class="current-student" style="background-image:url('/common/StudentGetPicture.aspx?StudentID=3405082&amp;DBID=2'),
+         url(/images/AvatarGeneric.png)">
+        <div id="studentSelectorCaret" class="te-caret"></div>
+    </div>
+    <div class="student-list">
+        <ul id="studentSiblings" style="display:none">
+            <li>
+                <a class="student-list-item year-item" onclick="jte.studentlist.ToggleStudentListForYear(2025)">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-xs-10">2025</div>
+                            <div class="col-xs-2"><span class="glyphicon glyphicon-chevron-right" data-year="2025"></span></div>
+                        </div>
+                    </div>
+                </a>
+            </li>
+                <div class="student-list-year-group" data-year="2025" style="display:block">
+                        <li>
+                            <a class="student-list-item" value="3405082_2812888_2_true" onclick="jte.RedirectOnChange(this, '[&quot;StudentID&quot;,&quot;SchoolEnrollmentID&quot;,&quot;DBID&quot;,&quot;bMobileAppRefreshMenu&quot;]', '[&quot;AlertWarningText&quot;]', 'false', null);">
+                                <div class="sibling-picture" style="background-image:url(/common/StudentGetPicture.aspx?StudentID=3405082&amp;DBID=2), url(/images/AvatarGeneric.png)"></div>
+                                <div>Student, Test</div>
+                                <div class="subheader">7th Grade</div>
+                            </a>
+                        </li>
+                </div>
+            <li>
+                <a class="student-list-item year-item" onclick="jte.studentlist.ToggleStudentListForYear(2024)">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-xs-10">2024</div>
+                            <div class="col-xs-2"><span class="glyphicon glyphicon-chevron-right" data-year="2024"></span></div>
+                        </div>
+                    </div>
+                </a>
+            </li>
+                <div class="student-list-year-group" data-year="2024" style="display:none">
+                        <li>
+                            <a class="student-list-item" value="3405082_2632552_2_true" onclick="jte.RedirectOnChange(this, '[&quot;StudentID&quot;,&quot;SchoolEnrollmentID&quot;,&quot;DBID&quot;,&quot;bMobileAppRefreshMenu&quot;]', '[&quot;AlertWarningText&quot;]', 'false', null);">
+                                <div class="sibling-picture" style="background-image:url(/common/StudentGetPicture.aspx?StudentID=3405082&amp;DBID=2), url(/images/AvatarGeneric.png)"></div>
+                                <div>Student, Test</div>
+                                <div class="subheader">6th Grade</div>
+                            </a>
+                        </li>
+                </div>
+        </ul>
+    </div>
+</div>
+
+                                        </div>
+                                <div class="header-meta-right hidden-xs">
+                                    <div id="AutoLogoutDiv" class="timer" style="line-height:normal">
+                                        <span><span id="TE_AutoLogoutDiv" class="countdown">Auto Logout: 1h 04m</span> <span id="toLogoutSpan"></span></span>
+                                    </div>
+                                    <div id="breadcrumbs" class="breadcrumbs hidden-xs">
+                                        <a class="breadcrumb-item" href="/Parents/main.aspx">Main</a> &gt; <span class="breadcrumb-currentpage">Grades</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="navbar-collapse collapse">
+                    <ul class="nav navbar-nav">
+                        
+                        
+            <li class="dropdown menu-item-heading">
+                    <a class="dropdown-toggle" role="button" aria-expanded="false" href="/parents/main.aspx">Main <span class="caret"></span></a>
+
+                        <a class="collapse-toggle menu-expander hidden-md hidden-lg" aria-expanded="false" aria-controls="collapse">Main</a>
+                        <a class="collapse-toggle hidden-sm hidden-xs hamburger-md" role="button" aria-expanded="false" href="/parents/main.aspx">Main <span class="caret"></span></a>
+                <div class="collapse-control">
+                    <a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Main"></a>
+                </div>
+                <ul id="drop-Main" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style="">
+                            <li class="menu-item hidden-md"><a href="/parents/main.aspx?tab=0" class="">Feed</a></li>
+                            <li class="menu-item hidden-md"><a href="/parents/main.aspx?tab=1" class="">Agenda</a></li>
+                </ul>
+            </li>
+            <li class="dropdown menu-item-heading">
+                    <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="/#">Academics <span class="caret"></span></a>
+
+                        <a class="collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Academics</a>
+                <div class="collapse-control">
+                    <a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Academics"></a>
+                </div>
+                <ul id="drop-Academics" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style="">
+                            <li class="menu-item">
+                                    <a href="/App/Parents/StandardGrade/GradeViewAllWithProgress" class="">Grades </a>
+                                                            </li>
+                            <li class="menu-item">
+                                    <a href="/parents/PRViewAll.aspx" class="">Report Cards </a>
+                                                            </li>
+                </ul>
+            </li>
+            <li class="dropdown menu-item-heading">
+                    <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="/#">Communicate <span class="caret"></span></a>
+
+                        <a class="collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Communicate</a>
+                <div class="collapse-control">
+                    <a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Communicate"></a>
+                </div>
+                <ul id="drop-Communicate" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style="">
+                            <li class="menu-item">
+                                    <a href=" /parents/AnnouncementViewAll.aspx" class="">Announcements </a>
+                                                            </li>
+                </ul>
+            </li>
+            <li class="dropdown menu-item-heading">
+                    <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" href="/#">Miscellaneous <span class="caret"></span></a>
+
+                        <a class="collapse-toggle menu-expander" aria-expanded="false" aria-controls="collapse">Miscellaneous</a>
+                <div class="collapse-control">
+                    <a class="btn btn-primary hidden" data-toggle="collapse" aria-expanded="true" aria-controls="collapse" href="#drop-Miscellaneous"></a>
+                </div>
+                <ul id="drop-Miscellaneous" class="dropdown-menu collapse in" role="menu" aria-expanded="true" style="">
+                            <li class="menu-item">
+                                    <a href="/app/common/spa/account-profile" class="">My Account </a>
+                                                            </li>
+                            <li class="menu-item">
+                                    <a href="/App/Common/AccountProfile/NotificationPreferences" class="">Communication Preferences </a>
+                                                            </li>
+                            <li class="menu-item">
+                                    <a href="/App/Common/AuthorizedDevice" class="">Mobile Apps </a>
+                                                            </li>
+                            <li class="menu-item">
+                                    <a href="/App/Common/TutoringActivityLogs?studentID=3405082" class="">Tutoring/Activity Logs </a>
+                                                            </li>
+                </ul>
+            </li>
+                                                    <li class="menu-item-heading">
+                                <a href="/parents/Support.aspx">Support</a>
+                            </li>
+                            <li class="menu-item-heading">
+                                <a href="/common/logout.aspx">Log Out</a>
+                            </li>
+                    </ul>
+            </div><!--/.navbar-collapse -->
+        </div>
+        <div class="container-fluid" id="pagefilterContainer">
+            <div class="row">
+                <div class="col-md-10">
+                        <div class="intro-text hidden-xs hidden-sm">
+
+                            <p id="introTextParagraph" style="display:none">View student scores and missing assignments in current classes. Please note that there may be a delay in teachers entering scores.</p>
+                        </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                                        <div id="MaintenanceContainer" hidden=""></div>
+                </div>
+            </div>
+                <div class="row pagefilter-container">
+        <div class="col-sm-12">
+            <div class="pagefilter">
+                <div class="pagefilter-items" id="NewPageFilter"> 
+
+<div class="pull-left "> 
+    <span id="PageFilter_GPID" class=" te-pagefilter-item ">
+        <span class="te-label">Grading Period: </span><span id="PageFilter_GPID_Value"><div class="items-container btn-group select-list" data-fieldname="GPID" data-maintainhistory="0" data-refreshonchange="true">
+<button aria-expanded="false" class=" btn btn-default dropdown-toggle" data-selected-value-class="" data-toggle="dropdown">
+<span class="selected-value" data-value="362210">T3</span>
+<span class="caret"></span>
+</button>
+<ul class="dropdown-menu" role="menu">
+    <li class=""><a class="list-item" data-value="362208" href="javascript:void(0)">T1</a></li>
+<li class=""><a class="list-item" data-value="362209" href="javascript:void(0)">T2</a></li>
+<li class=""><a class="list-item" data-value="362210" href="javascript:void(0)">T3</a></li>
+</ul>
+</div></span>
+    </span>
+</div>
+<div class="pull-right " style="margin-top:3px;"> 
+    <span id="PageFilter_Academic_Year" class=" te-pagefilter-item ">
+        <span class="te-label">Academic Year: </span><span id="PageFilter_Academic_Year_Value">2025-26</span>
+    </span>
+</div>                </div>
+            </div>
+        </div>
+    </div> 
+
+ 
+        </div>
+    </div>
+    <div class="mid-section ">
+<form action="/App/Parents/StandardGrade/GradeViewAllWithProgress" class="" id="tepageform" method="post" data-role="validator" novalidate="novalidate"><input name="__RequestVerificationToken" type="hidden" value="UeaZqFBfM0KRCCpdRkgRRYqjIxNcvMSLILHAz8yt4v5D8iiTUTEV_BEveKLNlzCkoWITri2suL1-q4qmxjkpPsLDYI01">
+
+
+
+
+
+
+
+
+<script type="text/x-kendo-tmpl" id="goalsContainer_viewTemplate">
+    <div class="row is-flex">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template" ></span>
+#:(ClassDescription ? ClassDescription : '')#</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+#=InstructorDescription ? '<div>'.concat(InstructorDescription.join('</div><div>')).concat('</div>') : ''#</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+#
+    var goalStatus = {Blank : 0, Meeting: 1, NotMeeting: 2};
+
+    var statusObj = GradeStatus;
+    var statusOverallStdScore = statusObj.OverallStandardScore    
+    var stdScoreDisplay = statusObj.OverallStandardDisplay
+
+    var statusDisplayCss = statusObj.Status == goalStatus.Blank || statusObj.OverallStandardScore != null ? "none" : "block";
+    var CssClass = statusObj.Status == goalStatus.Meeting ? "goal-status-meeting" : "goal-status-not-meeting";
+    var meetingAlias = "Meeting";
+    var notMeetingAlias = "Click on Details";
+
+    var statusClassID = statusObj.ClassID;
+    var statusCGPID = statusObj.CGPID; 
+#
+
+    #=
+        "<div style='display:" + statusDisplayCss + "' class='" + CssClass + "'>"
+            + (statusObj.Status == goalStatus.Meeting ? meetingAlias : notMeetingAlias) 
+        + "</div>"
+    #
+
+#=
+    "<div style='text-align:center;'>"
+#
+
+#
+    var tradObj = GradeStatus.TraditionalGradeData;
+#
+
+#=
+    (tradObj == null || (!tradObj.ShowLetterGrade && !tradObj.ShowPercentages) || (tradObj.Score == "" && tradObj.LetterGrade == "") ? "" :
+    "<a class='actionlink normal-size' href='/parents/StudentProgressDetails.aspx?ClassID=" + tradObj.ClassID
+        + "&CGPID=" + tradObj.CGPID + "&FromProgressPage=true'>"
+        + (tradObj.ShowPercentages ? tradObj.Score : "" ) + (tradObj.ShowPercentages && tradObj.ShowLetterGrade ? ": " : "") + (tradObj.ShowLetterGrade ? tradObj.LetterGrade : "")
+    + "</a>"
+    )
+#
+
+
+#=
+    "</div>"
+#
+
+#=
+    "<div style='text-align:center'>"
+        + (statusOverallStdScore != null ? 
+            "<a href='/common/StudentProgressStandardsDetails.aspx?ClassID=" + statusClassID + "&CGPID=" + statusCGPID + "' class='actionlink normal-size'>"
+                + stdScoreDisplay + "</a>" 
+            : "")
+    + "</div>"
+#
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+#
+    var ltMeeting = Progress.LearningTargetsMeeting;
+    var ltNotMeeting = Progress.LearningTargetsNotMeeting;
+    var ltNotAssessed = Progress.LearningTargetsNotAssessed;
+    var previousGoal = Progress.PreviousGradingPeriodGoal;
+    var currentGoal = Progress.CurrentGradingPeriodGoal;
+    var totalApplicable = Progress.TotalLeafLearningTargets;
+
+    var anyGrades = ltMeeting > 0 || ltNotMeeting > 0;
+
+    var meetingBarWidth = 0;
+    var notMeetingBarWidth = 0;
+    var previousGoalPosition = 0;
+    var currentGoalPosition = 0;
+
+    if(ltMeeting != null) {
+        meetingBarWidth = ((ltMeeting / totalApplicable) * 100).toPrecision(4);
+    }
+    if(ltNotMeeting != null) {
+        notMeetingBarWidth = ((ltNotMeeting / totalApplicable) * 100).toPrecision(4);
+    }
+    if(previousGoal != null) {
+        previousGoalPosition = ((previousGoal / totalApplicable) * 100).toPrecision(4);
+    }
+    if(currentGoal != null) {
+        currentGoalPosition = ((currentGoal / totalApplicable) * 100).toPrecision(4);
+    }
+#
+
+#=
+    "<div class='goal-progress-bar cbe-not-assessed-color' title='" + ltNotAssessed + "' style='vertical-align:middle;position:relative;display:" + (anyGrades ? "inline-block" : "none") + "'>"
+        + "<div class='cbe-passing-color' title='" + ltMeeting + "' style='display:" + (ltMeeting == null ? "none" : "inline-block")
+        + ";width:" + meetingBarWidth + "%' >"
+        + "</div>"
+        + "<div class='cbe-failed-color' title='" + ltNotMeeting + "' style='display:" + (ltNotMeeting == null ? "none" : "inline-block" )
+        + ";width:" + notMeetingBarWidth + "%' >"
+        + "</div>"
+        + "<div class='previous-goal' title='" + previousGoal + "' style='display:" + (previousGoal == null ? "none" : "inline") + ";left:" + previousGoalPosition + "%'>"
+            + "<i class='far fa-diamond'></i>"
+        + "</div>"
+        + "<div class='current-goal' title='" + currentGoal + "' style='display:" + (currentGoal == null ? "none" : "inline") + ";left:" + currentGoalPosition + "%'>"
+            + "<i class='fas fa-diamond'></i>"
+        + "</div>"
+    + "</div>"
+#
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="#:ClassID#" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details" /> 
+            </div>
+        </div>
+        
+    </div>
+</script>
+
+<div style="display:none;">
+    <div class="row is-flex hidden-xs te-listview-header floatingListViewHeader" data-targetlistview="goalsContainer">
+        
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="ClassDescription" data-column_index="0" data-property_type="String" class="col-md-2 col-sm-2">
+    Class
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="InstructorDescription" data-column_index="1" data-property_type="MultilineText" class="col-md-2 col-sm-2">
+    Instructor
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="GradeStatus" data-column_index="2" data-property_type="_GradeStatus" class="col-md-1 col-sm-1">
+    Status
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="Progress" data-column_index="3" data-property_type="_GradeProgressBar" class="col-md-3 col-sm-3">
+    Progress
+    
+</div>
+        <div class="hidden-xs col-sm-1 col-md-1">
+            <div class="te-listview-action-tooltip"></div>
+        </div>
+    </div>
+</div>
+<div class="te-listview k-widget k-listview k-listview-bordered" data-custom_viewsingle_action="" data-edittemplateid="goalsContainer_editTemplate" data-viewtemplateid="goalsContainer_viewTemplate" id="goalsContainer" data-role="listview" role="list"><div class="k-listview-content"><div class="row is-flex hidden-xs te-listview-header floatingListViewHeader" data-targetlistview="goalsContainer">
+        
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="ClassDescription" data-column_index="0" data-property_type="String" class="col-md-2 col-sm-2">
+    Class
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="InstructorDescription" data-column_index="1" data-property_type="MultilineText" class="col-md-2 col-sm-2">
+    Instructor
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="GradeStatus" data-column_index="2" data-property_type="_GradeStatus" class="col-md-1 col-sm-1">
+    Status
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="Progress" data-column_index="3" data-property_type="_GradeProgressBar" class="col-md-3 col-sm-3">
+    Progress
+    
+</div>
+        <div class="hidden-xs col-sm-1 col-md-1">
+            <div class="te-listview-action-tooltip"></div>
+        </div>
+    </div>
+    <div class="row is-flex" data-uid="f07fb10c-96b2-4926-b8ef-730f39034358" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Mathematics 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Instructor Two</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-meeting">Meeting</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="65" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="9" style="display:inline-block;width:12.16%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446158" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="b91e599f-4a9f-4795-a375-973ccd43c86c" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Computer Science 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Zides, T</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-meeting">Meeting</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="22" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="1" style="display:inline-block;width:4.348%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446211" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="ef20c213-791a-47b5-a1ad-0a9ef61c7afc" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Music 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Lee, S</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-meeting">Meeting</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="2" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="2" style="display:inline-block;width:50.00%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446228" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="a70ecc9d-8598-4f19-a131-70ca4c1fbb7e" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+French 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Instructor Six</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-meeting">Meeting</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="5" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="3" style="display:inline-block;width:37.50%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446276" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="b7bb5c87-5f9c-4c9d-8bd4-be2648346908" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Science 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Instructor Eight</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:none" class="goal-status-not-meeting">Click on Details</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="33" style="vertical-align:middle;position:relative;display:none"><div class="cbe-passing-color" title="0" style="display:inline-block;width:0.000%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                
+		<input data-row-model-id="1446369" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="e6002221-7e31-412d-92c0-92ee2ce4a011" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Instructor Four</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-not-meeting">Click on Details</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="14" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="5" style="display:inline-block;width:25.00%"></div><div class="cbe-failed-color" title="1" style="display:inline-block;width:5.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446437" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="a00c31df-ba14-49e0-8e09-6829342d891f" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+English 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Instructor Seven</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-meeting">Meeting</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="15" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="2" style="display:inline-block;width:11.76%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446487" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="row is-flex" data-uid="fe5f2da2-b5ec-4623-94a8-d3e8daf3a0a1" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Physical Education 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Instructor</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-2 col-sm-2">    <div class="te-display-template"></div>
+<div>Instructor Five</div></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Status</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-1 col-sm-1">
+
+
+    <div style="display:block" class="goal-status-meeting">Meeting</div>
+
+<div style="text-align:center;">
+
+
+
+
+
+
+</div>
+
+<div style="text-align:center"></div>
+</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Progress</div>
+<div class="te-listview-column index-3 col-xs-9  
+col-md-3 col-sm-3">
+
+
+<div class="goal-progress-bar cbe-not-assessed-color" title="4" style="vertical-align:middle;position:relative;display:inline-block"><div class="cbe-passing-color" title="2" style="display:inline-block;width:33.33%"></div><div class="cbe-failed-color" title="0" style="display:inline-block;width:0.000%"></div><div class="previous-goal" title="null" style="display:none;left:0%"><i class="far fa-diamond"></i></div><div class="current-goal" title="null" style="display:none;left:0%"><i class="fas fa-diamond"></i></div></div>
+</div>
+
+        
+        <div class="action-buttons col-xs-12 col-sm-1 col-md-1">
+            <div class="edit-buttons">
+                <i class="fas fa-chart-line" onclick="RedirectToGraph(this)"></i>
+		<input data-row-model-id="1446647" onclick="jte.kendo.listview.CustomAction(event, this, RedirectToGradesSingleView);" type="button" value="Details"> 
+            </div>
+        </div>
+        
+    </div>
+</div></div><script>
+	kendo.syncReady(function(){jQuery("#goalsContainer").kendoListView({"dataBound": function(event) { jte.kendo.listview.DefaultOnDataBound(event);  },"dataSource":{"type":(function(){if(kendo.data.transports['aspnetmvc-ajax']){return 'aspnetmvc-ajax';} else{throw new Error('The kendo.aspnetmvc.min.js script is not included.');}})(),"transport":{"read":{"url":""},"prefix":""},"error":jte.kendo.listview.ErrorHandler,"requestEnd":jte.kendo.listview.RequestEnd,"schema":{"data":"Data","total":"Total","errors":"Errors","model":{"id":"ClassID","fields":{"ClassID":{"type":"number"},"CurrentCGPID":{"type":"number"},"ClassDescription":{"type":"string"},"InstructorDescription":{"type":"object"},"GradeStatus":{"type":"object"},"Progress":{"type":"object"},"ShowDetailsForFormatives":{"type":"boolean"},"PageTitle":{"type":"string"},"MobileShowStudentSelector":{"type":"boolean"},"MobileActiveStudentSelector":{"type":"boolean"},"FixedHeightCssClass":{"editable":false,"type":"string"},"IsSPA":{"type":"boolean"},"IsIFramedFromSPA":{"type":"boolean"},"IsTab":{"type":"boolean"},"HideFooter":{"type":"boolean"},"MaintenanceMessages":{"type":"object"}}}},"data":{"Data":[{"ClassID":1446158,"CurrentCGPID":6293352,"ClassDescription":"Mathematics 7","InstructorDescription":["Instructor Two"],"GradeStatus":{"ClassID":1446158,"CGPID":6293352,"Status":1,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446158,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":9,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":74,"LearningTargetsNotAssessed":65},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446211,"CurrentCGPID":6293463,"ClassDescription":"Computer Science 7","InstructorDescription":["Zides, T"],"GradeStatus":{"ClassID":1446211,"CGPID":6293463,"Status":1,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446211,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":1,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":23,"LearningTargetsNotAssessed":22},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446228,"CurrentCGPID":6293500,"ClassDescription":"Music 7","InstructorDescription":["Lee, S"],"GradeStatus":{"ClassID":1446228,"CGPID":6293500,"Status":1,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446228,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":2,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":4,"LearningTargetsNotAssessed":2},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446276,"CurrentCGPID":6293612,"ClassDescription":"French 7","InstructorDescription":["Instructor Six"],"GradeStatus":{"ClassID":1446276,"CGPID":6293612,"Status":1,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446276,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":3,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":8,"LearningTargetsNotAssessed":5},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446369,"CurrentCGPID":6293847,"ClassDescription":"Science 7","InstructorDescription":["Instructor Eight"],"GradeStatus":{"ClassID":1446369,"CGPID":6293847,"Status":0,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446369,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":0,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":33,"LearningTargetsNotAssessed":33},"ShowDetailsForFormatives":true,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446437,"CurrentCGPID":6294033,"ClassDescription":"Social Studies 7","InstructorDescription":["Instructor Four"],"GradeStatus":{"ClassID":1446437,"CGPID":6294033,"Status":2,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446437,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":5,"LearningTargetsNotMeeting":1,"TotalLeafLearningTargets":20,"LearningTargetsNotAssessed":14},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446487,"CurrentCGPID":6294173,"ClassDescription":"English 7","InstructorDescription":["Instructor Seven"],"GradeStatus":{"ClassID":1446487,"CGPID":6294173,"Status":1,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446487,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":2,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":17,"LearningTargetsNotAssessed":15},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false},{"ClassID":1446647,"CurrentCGPID":6294565,"ClassDescription":"Physical Education 7","InstructorDescription":["Instructor Five"],"GradeStatus":{"ClassID":1446647,"CGPID":6294565,"Status":1,"TraditionalGradeData":{"ClassID":0,"CGPID":0,"Score":null,"LetterGrade":null,"ShowLetterGrade":false,"ShowPercentages":false},"OverallStandardScore":null,"OverallStandardDisplay":null},"Progress":{"ClassID":1446647,"PreviousGradingPeriodGoal":null,"CurrentGradingPeriodGoal":null,"LearningTargetsMeeting":2,"LearningTargetsNotMeeting":0,"TotalLeafLearningTargets":6,"LearningTargetsNotAssessed":4},"ShowDetailsForFormatives":false,"IsSPA":false,"IsIFramedFromSPA":false,"IsTab":false}],"Total":8,"AggregateResults":null}},"template":kendo.template(jQuery('#goalsContainer_viewTemplate').html())});});
+</script>
+
+<div id="GoalLegend" class="container-fluid">
+    <div class="row">
+        <div class="col-md-5 col-xs-12" style="padding-left:10px">
+            <div class="row">
+                <div class="col-xs-12" style="margin: 1px 0px;">
+                    <div class="legend-key legend-meeting"></div>
+                    <div class="legend-value">Standards where student is meeting expectations.</div>
+                </div>
+                <div class="col-xs-12" style="margin: 1px 0px;">
+                    <div class="legend-key legend-not-meeting"></div>
+                    <div class="legend-value">Standards assessed but student is not yet meeting expectations.</div>
+                </div>
+                <div class="col-xs-12" style="margin: 1px 0px;">
+                    <div class="legend-key legend-not-assessed"></div>
+                    <div class="legend-value">Standards have not been introduced/assessed.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="container-fluid" style="margin-top:30px">
+    <div class="row">
+        <div class="col-md-7 col-sm-7" style="padding:7px 10px 6px;color:white;font-weight:bold;background-color:#00AECB">
+            <span>Missing Work</span>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/x-kendo-tmpl" id="missingWorkContainer_viewTemplate">
+    <div class="row is-flex">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+#=('<span>'.concat(!Date ? '' : kendo.toString(Date, 'd')).concat(' <span class="nowrap">').concat(!Date ? '' : kendo.toString(Date, 't'))).concat(Date!=null? '' : '').concat('</span></span>')#</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template" ></span>
+#:(ClassDescription ? ClassDescription : '')#</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template" ></span>
+#:(TestNameDescription ? TestNameDescription : '')#</div>
+
+        
+    </div>
+</script>
+
+<div style="display:none;">
+    <div class="row is-flex hidden-xs te-listview-header floatingListViewHeader" data-targetlistview="missingWorkContainer">
+        
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="Date" data-column_index="0" data-property_type="DateTime" class="col-md-2 col-sm-2">
+    Due
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="ClassDescription" data-column_index="1" data-property_type="String" class="col-md-3 col-sm-3">
+    Class
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="TestNameDescription" data-column_index="2" data-property_type="String" class="col-md-2 col-sm-2">
+    Assignment
+    
+</div>
+        
+    </div>
+</div>
+<div class="te-listview k-widget k-listview k-listview-bordered" data-custom_viewsingle_action="" data-edittemplateid="missingWorkContainer_editTemplate" data-viewtemplateid="missingWorkContainer_viewTemplate" id="missingWorkContainer" data-role="listview" role="list"><div class="k-listview-content"><div class="row is-flex hidden-xs te-listview-header floatingListViewHeader" data-targetlistview="missingWorkContainer">
+        
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="Date" data-column_index="0" data-property_type="DateTime" class="col-md-2 col-sm-2">
+    Due
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="ClassDescription" data-column_index="1" data-property_type="String" class="col-md-3 col-sm-3">
+    Class
+    
+</div>
+		
+<div onclick="jte.kendo.listview.SortColumn(this);" data-prop_name="TestNameDescription" data-column_index="2" data-property_type="String" class="col-md-2 col-sm-2">
+    Assignment
+    
+</div>
+        
+    </div>
+    <div class="row is-flex" data-uid="d7d5ac36-fad8-4026-992a-c35dfc4c9ec4" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>9/11/2025 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+French 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Gimkit - avoir</div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="f5deeda0-22ad-4c62-ba80-5e970fd0bbf4" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>11/10/2025 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+French 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Lingco - description féminin</div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="e2d09700-a257-4939-985b-0f0ba7b188db" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>3/12/2026 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Science 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+How Environment Affects Genes</div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="f4ef58ed-3fa4-4ce3-9d0b-20bd2a7f7fea" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>9/4/2025 <span class="nowrap">9:22 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Pre-Assessment </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="e7b66c95-e6f4-45d9-a548-77608a8faa16" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>9/9/2025 <span class="nowrap">9:44 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+US Latitude &amp; Longitude Practice </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="d85552e0-9f01-4406-811d-0b4bff848945" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>11/7/2025 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Europe Physical Map </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="e61655ec-f5c3-4334-87da-655e4e370368" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>10/29/2025 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Amazon Under Fire Google Form </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="a92349a1-c2c4-4ede-95ca-d3f2918dc274" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>11/21/2025 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+WWI Notes Packet </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="ed368d0d-8f7e-4d26-b5df-5f362ca4c4bb" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>12/23/2025 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Forger Google Form </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="bea47056-400a-454c-afcd-5d2bf1348a3e" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>3/25/2026 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Mount Everest </div>
+
+        
+    </div>
+
+    <div class="row is-flex" data-uid="b70fbc17-a474-481b-8022-865c2d2a6a2b" role="listitem">
+        
+<div class="te-listview-label  visible-xs col-xs-3">Due</div>
+<div class="te-listview-column index-0 col-xs-9  
+col-md-2 col-sm-2">
+
+    <span class="te-display-template">1/1/0001</span>
+
+<span>4/2/2026 <span class="nowrap">1:00 AM</span></span></div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Class</div>
+<div class="te-listview-column index-1 col-xs-9  
+col-md-3 col-sm-3">    <span class="te-display-template"></span>
+Social Studies 7</div>
+
+		
+<div class="te-listview-label  visible-xs col-xs-3">Assignment</div>
+<div class="te-listview-column index-2 col-xs-9  
+col-md-2 col-sm-2">    <span class="te-display-template"></span>
+Gandhi Article </div>
+
+        
+    </div>
+</div></div><script>
+	kendo.syncReady(function(){jQuery("#missingWorkContainer").kendoListView({"dataBound": function(event) { jte.kendo.listview.DefaultOnDataBound(event);  },"dataSource":{"type":(function(){if(kendo.data.transports['aspnetmvc-ajax']){return 'aspnetmvc-ajax';} else{throw new Error('The kendo.aspnetmvc.min.js script is not included.');}})(),"transport":{"read":{"url":""},"prefix":""},"error":jte.kendo.listview.ErrorHandler,"requestEnd":jte.kendo.listview.RequestEnd,"schema":{"data":"Data","total":"Total","errors":"Errors","model":{"id":"TestNameID","fields":{"TestNameID":{"type":"number"},"CGPID":{"type":"number"},"Date":{"type":"date"},"ClassDescription":{"type":"string"},"TestNameDescription":{"type":"string"}}}},"data":{"Data":[{"TestNameID":26126676,"CGPID":6293610,"Date":"\/Date(1757566800000)\/","ClassDescription":"French 7","TestNameDescription":"Gimkit - avoir"},{"TestNameID":26419657,"CGPID":6293610,"Date":"\/Date(1762754400000)\/","ClassDescription":"French 7","TestNameDescription":"Lingco - description féminin"},{"TestNameID":26940857,"CGPID":6293846,"Date":"\/Date(1773291600000)\/","ClassDescription":"Science 7","TestNameDescription":"How Environment Affects Genes"},{"TestNameID":26198970,"CGPID":6294031,"Date":"\/Date(1756992120000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"Pre-Assessment "},{"TestNameID":26199087,"CGPID":6294031,"Date":"\/Date(1757425440000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"US Latitude \u0026 Longitude Practice "},{"TestNameID":26456424,"CGPID":6294031,"Date":"\/Date(1762495200000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"Europe Physical Map "},{"TestNameID":26456547,"CGPID":6294031,"Date":"\/Date(1761714000000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"Amazon Under Fire Google Form "},{"TestNameID":26493271,"CGPID":6294031,"Date":"\/Date(1763704800000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"WWI Notes Packet "},{"TestNameID":26588105,"CGPID":6294032,"Date":"\/Date(1766469600000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"Forger Google Form "},{"TestNameID":27004135,"CGPID":6294033,"Date":"\/Date(1774414800000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"Mount Everest "},{"TestNameID":27005762,"CGPID":6294033,"Date":"\/Date(1775106000000)\/","ClassDescription":"Social Studies 7","TestNameDescription":"Gandhi Article "}],"Total":11,"AggregateResults":null}},"template":kendo.template(jQuery('#missingWorkContainer_viewTemplate').html())});});
+</script>
+
+            <input type="hidden" name="IsIFramedFromSPA" value="False">
+            <div class="container-fluid" id="bottomContainer">
+                <div class="row">
+                    <div class="col-xs-12">
+                        <div id="TEContentBottomContainer" class="contentBottom newFloatingContent_Bottom sticky"><div class="floatingContent_Background"></div>
+                            
+
+    
+<input class="teButtonBack" onclick="window.location='/parents/main.aspx'" type="button" value="Back"> 
+
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+</form>    </div>
+        <div class="bottom-section ">
+            <footer class="hidden-xs hidden-sm" id="footerContainer">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <span>© 2001-2026 Common Goal Systems Inc. All Rights Reserved.</span>
+                            <span>- <a href="/privacy.aspx" target="_blank">Privacy Policy</a></span>
+                            <span>- <a href="/terms.aspx" target="_blank">Terms of Service</a></span>
+
+                            <a href="https://www.facebook.com/TeacherEase" target="_blank"><img style="vertical-align:middle;width:15px;height:15px;" src="/images/facebook.png"></a>
+                            <a href="https://twitter.com/teacherease" target="_blank"><img style="vertical-align:middle;width:15px;height:15px;" src="/images/twitter2.png"></a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+    <script src="/App/bundles/jqueryval?v=ewwbEwxCzNIunbw9c2Y5X5_ldbOkIBIkUo-LvchX7I81"></script>
+
+<script src="/App/bundles/jqueryaddons?v=unVCJ61cx-08dZJE79yVRaeuGvwx-k9QUmp862X0BjA1"></script>
+    <script src="/App/bundles/bootstrap?v=fUhHvIdNp9l3we3GNerNkAR0DI-TLkBw4X-H4VyYEc81"></script>
+
+<script src="/App/bundles/teacherease?v=iM12WWsbcAD10z6jXUi0QYexTw2fCFhazTnGNZaq0xA1"></script>
+    <script src="/App/bundles/te-shared?v=Z3wYlgolfKCqjU59JmD71bVshDfqZJBRlhQsFFLGY_Q1"></script>
+
+    <script src="/App/bundles/te-session?v=mOgCB0xR7BwVsgmjCKDJx61nKGP2F7_sVOdXWuiI5us1"></script>
+
+<script src="/App/Scripts/bootstrap_master.js"></script>
+    
+    <script>
+        kendo.syncReady(function () {
+            var goalContainer = $("#goalsContainer").getKendoListView();
+            for (var i = 0; i < goalContainer.dataSource._data.length; i++) {
+                var classRow = goalContainer.dataSource._data[i];
+                if (classRow.Progress.LearningTargetsMeeting <= 0 &&
+                    classRow.Progress.LearningTargetsNotMeeting <= 0) {
+                    if (classRow.ShowDetailsForFormatives) {
+                        $(".row[data-uid='" + classRow.uid + "']").find(".action-buttons").find("input:not([value='Details']), i").remove();
+                    }
+                    else {
+                        $(".row[data-uid='" + classRow.uid + "']").find(".action-buttons").find("input, i").remove();
+                    }
+                }
+            }
+
+            setTimeout(function () {
+                $(".fa-diamond").each(function () {
+                    var diamondContainer = $(this).parent();
+                    if (diamondContainer.is(":visible")) {
+                        var diamondContainerWidth = diamondContainer.width();
+                        var progressBarWidth = $(this).parents(".goal-progress-bar").width();
+
+                        var diamondWidthPercent = diamondContainerWidth / progressBarWidth * 100;
+
+                        var currentLeftPosition = parseFloat(diamondContainer[0].style.left);
+                        var newLeftPosition = currentLeftPosition - Math.round((diamondWidthPercent / 2) * 100) / 100;
+                        diamondContainer.css("left", newLeftPosition + "%");
+                    }
+                });
+            }, 100);
+        });
+
+        function RedirectToGradesSingleView(row) {
+            var classID = row.ClassID;
+            var cgpid = row.CurrentCGPID;
+            var url = "/common/StudentProgressStandardsDetails.aspx";
+
+            jte.RefreshPage({ "ClassID": classID, "CGPID": cgpid }, jte.RefreshPage_REDIRECT, true, url);
+        }
+
+        function RedirectToGraph(graphIcon) {
+            var rowUID = $(graphIcon).parents(".row").data("uid");
+            
+            var goalContainer = $("#goalsContainer").getKendoListView();
+            for (var i = 0; i < goalContainer.dataSource._data.length; i++) {
+                var classRow = goalContainer.dataSource._data[i];
+                if (classRow.uid == rowUID) {
+                    var cgpid = classRow.CurrentCGPID;
+                    if (cgpid > 0) {
+                        jte.RefreshPage({ "cgpid": cgpid }, jte.RefreshPage_REDIRECT, true, "/App/Parents/StandardGrade/StudentProgressGraph");
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script>
+        Module = Modules["Parents"];
+        client_SDID = 71114;
+        TemplateTimeoutMin = 65;
+        SessionLoginID = 1152634;
+        bDevelopmentMachine = false;
+        GoogleLogin = false;
+        GoogleClientID = "503997313268-dm85q73f8niarr4c5ds3uc09b5ild6j8.apps.googleusercontent.com";
+        DisableKendoValidator = false;
+        showCountryCode = false;
+        defaultAreaCode = "";
+
+        
+        bSpanishLanguage = false;
+        fStartTimeout();
+
+            teacherease.BaseInit();
+            teacherease.SendPageInfoToParent("Grades", "View student scores and missing assignments in current classes. Please note that there may be a delay in teachers entering scores.", true);
+            teacherease.dom.iframe.angular.sendPageInfo("Grades", "View student scores and missing assignments in current classes. Please note that there may be a delay in teachers entering scores.");
+
+    </script>
+    
+    
+
+
+<div class="hidden-md hidden-lg"></div><div class="testdiv hidden-xs hidden-sm hidden-mobile-app"></div><iframe data-product="web_widget" title="No content" role="presentation" tabindex="-1" allow="microphone *" aria-hidden="true" src="about:blank" style="width: 0px; height: 0px; border: 0px; position: absolute; top: -9999px;"></iframe><div><iframe title="Opens a widget where you can find more information" id="launcher" tabindex="-1" style="color-scheme: light; width: 240px; height: 50px; padding: 0px; margin: 10px 20px; position: fixed; bottom: 30px; overflow: visible; opacity: 0; border: 0px; z-index: 999998; transition-duration: 250ms; transition-timing-function: cubic-bezier(0.645, 0.045, 0.355, 1); transition-property: opacity, top, bottom; top: -9999px; visibility: hidden;"></iframe></div></body></html>

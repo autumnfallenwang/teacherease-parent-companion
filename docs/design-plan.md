@@ -330,6 +330,44 @@ teacherease-parent-companion/
     └── skills/
 ```
 
+## Forward compatibility (a note, not a decision)
+
+This project has **no backend service** — it's a desktop-local app by Q3 (no server, no cloud, no accounts). However, if a future version ever grows into a web/SaaS product or gains a second frontend (iOS, etc.), the code is structured so the portable pieces can be lifted into a monorepo without a rewrite.
+
+**Portable core** (zero platform imports — safe to promote to `packages/core/` later):
+- `scraper/` — `fetch` + `cheerio` + types, per Q11.
+- `src/lib/core/` — pure business logic (diff algorithms, "needs attention" rules, trend computations, grade formatting). No Tauri, no SQLite, no keychain, no `process.env`.
+- `src/components/` — React components that receive data as props and emit callbacks. No direct Tauri imports.
+- `scraper/types.ts` — single source of truth for `Child`, `Scrape`, `Grade`, `Assignment`. Imported by scraper, UI, and any future backend.
+
+**Platform integration** (non-portable — rewritten when platform changes):
+- `src-tauri/src/` — Rust shell, Tauri commands, plugin wiring.
+- `src/lib/ipc.ts` — the single TS file allowed to import from `@tauri-apps/*`. A future web version replaces this file with `src/lib/api.ts` (REST client) and every React component keeps working.
+- `next.config.mjs` — static-export config specific to Tauri bundling.
+
+**Rules enforcing this** (cheap to follow, expensive to retrofit):
+1. `scraper/` never imports from `@tauri-apps/*` or `src/lib/ipc.ts`. Pure module. (Q11 locks this; Biome `noRestrictedImports` enforces it.)
+2. `src/lib/core/` never imports from `@tauri-apps/*`, `src/lib/ipc.ts`, SQLite, or keychain. Pure functions only.
+3. React components (`src/app/`, `src/components/`) import from `src/lib/ipc.ts`, **never** from `@tauri-apps/*` directly. Biome blocks the direct imports.
+4. Business logic never lives in React components or Rust code — it lives in `src/lib/core/` so both platforms can reuse it.
+
+**What we explicitly do NOT do upfront:**
+- No ports/adapters hexagonal architecture. Designing interfaces against one implementation produces the wrong interfaces.
+- No local Hono/Express server inside Tauri. It would force shipping a Node runtime (contradicts Q6's installer-size win) and it's cosplay rather than a real backend — a real backend has auth, multi-user isolation, cron, deploy pipeline, none of which a local in-process server provides.
+- No premature `packages/` workspace extraction. The project has one consumer today; Turborepo pays for itself when there are real sibling apps (homecal-style), not before.
+
+**Migration shape if SaaS ever happens:**
+```
+scraper/              →  packages/core/scraper/
+src/lib/core/         →  packages/core/business/
+scraper/types.ts      →  packages/core/types.ts
+src/components/       →  packages/ui/
+src/lib/ipc.ts        →  stays in apps/desktop/ (Tauri-only)
+                         apps/web/client/src/lib/api.ts created fresh (REST client)
+                         apps/web/server/ created fresh (Hono + Postgres + auth + cron)
+```
+Mechanical file moves + import path updates, not a rewrite. The new backend imports `packages/core/scraper/` and runs it server-side. The web client imports the same `packages/ui/` components the desktop renders. Zero duplicated logic.
+
 ---
 
 ## Build Phases
