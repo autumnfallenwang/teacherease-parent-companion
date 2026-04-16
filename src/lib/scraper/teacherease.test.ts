@@ -144,7 +144,7 @@ describe("login", () => {
 
     const [getUrl, getInit] = getCall;
     expect(String(getUrl)).toBe(`${DUMMY_BASE}/common/login.aspx`);
-    expect(getInit).toBeUndefined();
+    expect((getInit as Record<string, unknown>)?.headers).toHaveProperty("User-Agent");
 
     const [postUrl, postInit] = postCall as [string | URL, RequestInit];
     expect(String(postUrl)).toBe(`${DUMMY_BASE}/app/Login/Login`);

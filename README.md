@@ -18,12 +18,24 @@ A cross-platform desktop app that keeps track of your child's grades and homewor
 - macOS 12+ (Apple Silicon; Intel builds available but less tested)
 - Linux x64 (AppImage and .deb)
 
-## Privacy
+## Privacy & data handling
 
-- Portal credentials are stored in your operating system's keychain (Windows Credential Manager, macOS Keychain, Linux libsecret).
-- All grade and homework data stays in a local SQLite database on your computer.
-- The only network calls the app makes are: (1) logging into TeacherEase, (2) optional SMTP sending if you enable email, (3) checking GitHub for updates.
-- No telemetry, no analytics, no third-party services.
+- **100% local.** All data stays on your computer. No cloud, no servers, no accounts with us.
+- Portal credentials are stored in your operating system's keychain (Windows Credential Manager, macOS Keychain, Linux libsecret) — never in plain files.
+- Grade and homework data is stored in a local SQLite database in your OS app-data folder.
+- The only network calls the app makes are: (1) logging into TeacherEase with **your** credentials, (2) reading **your child's** grade pages, (3) optional SMTP sending if you enable email reports, and (4) checking GitHub for app updates.
+- No telemetry, no analytics, no tracking, no third-party services.
+- Your child's data is never sent anywhere except TeacherEase itself (where it already lives) and optionally your own SMTP server.
+- This app exercises the same access a parent has when logging into TeacherEase in a web browser — no additional data is accessed, no security boundaries are crossed.
+
+## Responsible use
+
+This app is designed to be a respectful, lightweight client for TeacherEase:
+
+- **Rate-limited by design.** The app makes at most 4 automated checks per day (every 6 hours) plus any manual refreshes. Each check consists of a small number of page requests (1 login + 1 grades overview + detail pages only for classes that need attention). This is equivalent to a parent opening the portal a few times a day.
+- **No bulk scraping.** The app only accesses data for children whose credentials the parent has explicitly provided. It does not enumerate other students, classes, or schools.
+- **Identifiable.** The app sends a descriptive User-Agent header so the TeacherEase team can identify it and contact the developer if needed.
+- **Open source.** The complete source code is available for inspection. There is no hidden behavior.
 
 ## Download
 
@@ -35,7 +47,7 @@ Because the v1 builds are unsigned, Windows SmartScreen and macOS Gatekeeper wil
 
 - **Desktop shell:** [Tauri 2](https://tauri.app/) (Rust core + native OS webview)
 - **Frontend:** Next.js (static export) + React + TypeScript
-- **Scraper:** Node `fetch` + `cheerio` (plain HTTP, no headless browser)
+- **Scraper:** `fetch` + `cheerio` (plain HTTP, no headless browser)
 - **Storage:** SQLite via `tauri-plugin-sql`
 - **Credentials:** OS keychain via the `keyring` Rust crate (Keychain / Credential Manager / Secret Service)
 - **Updater:** `tauri-plugin-updater` with signed update payloads
@@ -43,6 +55,21 @@ Because the v1 builds are unsigned, Windows SmartScreen and macOS Gatekeeper wil
 ## Predecessor
 
 This project is a rewrite of [`teacherease_parents_helper`](https://github.com/autumnfallenwang/teacherease_parents_helper), a Python + Playwright + cron script the author built as a personal tool. That project remains functional for server-side use; this one targets non-technical parents on desktop.
+
+## Disclaimer
+
+This is an unofficial, community-built tool. It is **not** affiliated with, endorsed by, or connected to TeacherEase, Common Goal Systems Inc., or any school district.
+
+This software accesses TeacherEase using credentials that **you** provide for **your own** parent account. It exercises the same access you have when logging in through a web browser — no additional permissions, no security bypasses, no access to other users' data.
+
+By using this software, you acknowledge that:
+
+- You are the authorized parent/guardian for the TeacherEase account(s) you configure.
+- You accept responsibility for your use of this tool in accordance with your school's policies and TeacherEase's Terms of Service.
+- The developer provides this software "as is" with no warranty of any kind (see [LICENSE](LICENSE)).
+- The developer is not responsible for any consequences of using this software, including but not limited to account restrictions that may be imposed by TeacherEase or your school.
+
+If you are a TeacherEase representative and have questions or concerns about this tool, please open a GitHub issue or contact the maintainer directly.
 
 ## License
 

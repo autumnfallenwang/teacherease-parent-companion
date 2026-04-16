@@ -20,7 +20,7 @@ import {
   setupAutostart,
 } from "@/lib/ipc";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
-import { login } from "@/lib/scraper/teacherease";
+import { login, USER_AGENT } from "@/lib/scraper/teacherease";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
 
 export function Dashboard() {
@@ -90,7 +90,7 @@ export function Dashboard() {
       const gradesPath = "/App/Parents/StandardGrade/GradeViewAllWithProgress";
       const gradesUrl = new URL(gradesPath, session.baseUrl).toString();
       const gradesRes = await fetch(gradesUrl, {
-        headers: { Cookie: session.cookieHeader },
+        headers: { Cookie: session.cookieHeader, "User-Agent": USER_AGENT },
       });
       const gradesHtml = await gradesRes.text();
       const overview = parseGradesOverview(gradesHtml);
@@ -102,7 +102,7 @@ export function Dashboard() {
           session.baseUrl,
         ).toString();
         const detailRes = await fetch(detailUrl, {
-          headers: { Cookie: session.cookieHeader },
+          headers: { Cookie: session.cookieHeader, "User-Agent": USER_AGENT },
         });
         const detail = parseClassDetails(await detailRes.text(), cls.name);
         classDetails.push(detail);
