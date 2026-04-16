@@ -113,10 +113,10 @@
 | U3 | ProgressBar component | ✅ Done | Thin 4px bar with teal/amber segments. Label "5/20". |
 | U4 | GradesTable: progress bars + instructor + sort | ✅ Done | ProgressBar + instructor per row. Sorted by urgency via `sortClassesByUrgency()`. |
 | U5 | RecentActivity component + core logic | Not started | `computeRecentActivity()` in `core/activity.ts`. Time-based (24h). |
-| U6 | AttentionSection: missing + low scores | Partial | `MissingWork` done (urgency groups). Needs: rename to `AttentionSection`, add low-score section (assignments below M/3.0). `getLowScoreAssignments()` in `core/attention.ts`. |
+| U6 | AttentionSection: missing + low scores | ✅ Done | `AttentionSection` replaces `MissingWork`. Shows missing (urgency groups) + low scores (below M/3.0, sorted worst first). `getLowScoreAssignments()` in `core/attention.ts` (5 tests). Dashboard passes all assignments for filtering. |
 | U7 | Dashboard wiring | ✅ Done | StatusHero + ChildTabs wired. Auto-selects attention child on load. Hero loads all children's grades. Header simplified (no children slot). `getClasses()` IPC query for instructor map. |
 | U8 | StandardsTree: full detail for all classes | ✅ Done | Empty state updated to "No standards data available." |
-| U9 | Seed script: v2 schema + time-varying data | Partial | v2 schema done. Needs: evolving scores over time, assignments appearing/resolving, status transitions across days. |
+| U9 | Seed script: v2 schema + time-varying data | ✅ Done | `evolveAssignment()` varies data over 7 days: missing work resolves on day -1 (→ 2=P), meeting scores start low early on (2.5=P → 3=M). Status transitions + score evolution verified in DB. |
 
 ## Phase 8: Optional email (advanced)
 
@@ -156,4 +156,4 @@
 
 ## What's Next
 
-**U1–U4, U7–U8 done.** Dashboard redesigned. Next: U6 (AttentionSection: add low scores) + U9 (seed: time-varying data) → then U5 (RecentActivity).
+**U1–U4, U6–U9 done.** Dashboard fully redesigned with AttentionSection + time-varying seed data. Next: U5 (RecentActivity — time-based 24h change tracking).

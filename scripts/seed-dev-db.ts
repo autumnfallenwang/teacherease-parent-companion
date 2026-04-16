@@ -703,6 +703,39 @@ function insertStandards(
   }
 }
 
+/**
+ * Get the time-evolved version of an assignment for a given day.
+ * Simulates: assignments appearing, scores changing, missing work resolving.
+ */
+function evolveAssignment(
+  asn: AssignmentDef,
+  day: number,
+): { score: string; isMissing: boolean; visible: boolean } {
+  // Not visible yet (before due date)
+  if (day < asn.dueOffset - 1) return { score: "", isMissing: false, visible: false };
+
+  // For assignments that start as missing: resolve them on day -1
+  if (asn.isMissing) {
+    // Stays missing until day -1, then gets a low score
+    if (day < -1) return { score: "", isMissing: true, visible: true };
+    // Day -1 onward: student turned it in, got a low grade
+    return { score: "2=P", isMissing: false, visible: true };
+  }
+
+  // For graded assignments: scores can evolve
+  // Early days: slightly lower scores, improving over time
+  if (asn.score && day < -4) {
+    const { numeric } = parseScore(asn.score);
+    if (numeric >= 3.0) {
+      // Was meeting — show slightly lower early on
+      return { score: "2.5=P", isMissing: false, visible: true };
+    }
+    return { score: asn.score, isMissing: false, visible: true };
+  }
+
+  return { score: asn.score, isMissing: asn.isMissing, visible: true };
+}
+
 function insertAssignments(
   db: Database.Database,
   scrapeId: number,
@@ -717,11 +750,12 @@ function insertAssignments(
   );
   for (const std of standards) {
     for (const asn of std.assignments) {
-      if (day < asn.dueOffset - 1) continue; // Assignment not yet visible
-      if (seen.has(asn.testNameId)) continue; // Deduplicate
+      const evolved = evolveAssignment(asn, day);
+      if (!evolved.visible) continue;
+      if (seen.has(asn.testNameId)) continue;
       seen.add(asn.testNameId);
 
-      const { numeric, letter } = parseScore(asn.score);
+      const { numeric, letter } = parseScore(evolved.score);
       ins.run(
         scrapeId,
         classId,
@@ -729,15 +763,15 @@ function insertAssignments(
         asn.name,
         asn.testNameId,
         asn.name,
-        asn.score || null,
+        evolved.score || null,
         numeric || null,
         letter || null,
         asn.weight || null,
-        asn.isMissing ? 1 : 0,
+        evolved.isMissing ? 1 : 0,
         formatDueDate(asn.dueOffset),
         null,
         null,
-        asn.isMissing ? "missing" : letter || null,
+        evolved.isMissing ? "missing" : letter || null,
       );
     }
     if (std.children) {

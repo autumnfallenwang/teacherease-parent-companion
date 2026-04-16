@@ -2,17 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AttentionSection } from "@/components/attention-section";
 import { ChildTabs } from "@/components/child-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
-import { MissingWork } from "@/components/missing-work";
 import { StandardsTree } from "@/components/standards-tree";
 import type { ChildStatus } from "@/components/status-hero";
 import { StatusHero } from "@/components/status-hero";
 import type { AssignmentRecord, GradeRecord, ScrapeRecord, StatusHistoryEntry } from "@/lib/ipc";
 import {
   getAllStatusHistory,
+  getAssignmentsForScrape,
   getChildPassword,
   getChildren,
   getClassDetail,
@@ -43,6 +44,7 @@ export function Dashboard() {
   const [lastScrape, setLastScrape] = useState<ScrapeRecord | null>(null);
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [missing, setMissing] = useState<AssignmentRecord[]>([]);
+  const [allAssignments, setAllAssignments] = useState<AssignmentRecord[]>([]);
   const [statusHistory, setStatusHistory] =
     useState<Map<string, StatusHistoryEntry[]>>(EMPTY_HISTORY);
   const [instructors, setInstructors] = useState<Map<number, string>>(EMPTY_INSTRUCTORS);
@@ -64,14 +66,16 @@ export function Dashboard() {
     const scrape = await getLatestScrape(cId);
     setLastScrape(scrape);
     if (scrape) {
-      const [g, m, h] = await Promise.all([
+      const [g, m, h, a] = await Promise.all([
         getGradesForScrape(scrape.id),
         getMissingAssignments(scrape.id),
         getAllStatusHistory(cId),
+        getAssignmentsForScrape(scrape.id),
       ]);
       setGrades(g);
       setMissing(m);
       setStatusHistory(h);
+      setAllAssignments(a);
     }
 
     // Load instructor map from classes table
@@ -227,6 +231,7 @@ export function Dashboard() {
       setChildId(newChildId);
       setGrades([]);
       setMissing([]);
+      setAllAssignments([]);
       setStatusHistory(EMPTY_HISTORY);
       setInstructors(EMPTY_INSTRUCTORS);
       setExpandedClass(null);
@@ -298,7 +303,7 @@ export function Dashboard() {
         )}
 
         {/* Layer 3: Missing Work (if any) */}
-        <MissingWork missingAssignments={missing} />
+        <AttentionSection missingAssignments={missing} allAssignments={allAssignments} />
 
         {/* Layer 4: All Classes + Layer 5: Accordion */}
         <GradesTable
