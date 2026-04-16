@@ -3,13 +3,15 @@ name: commit
 description: Git commit with conventional format. Use when the user wants to commit, save progress, push changes, or says "commit", "save this", "push it", or "ship it".
 ---
 
+Follow commit rules in `.claude/rules/conventions.md` "Commits" section.
+
 ## Step 1: Verify → `/check fast`
 
 Run `/check fast`. Abort if anything fails.
 
 ## Step 2: Stage and commit
 
-1. Stage changed files with `git add` (specific files, not `-A` — avoids accidentally committing secrets or debug HTML dumps).
+1. Stage changed files with `git add` (specific files, not `-A`).
 2. Commit with message: `$ARGUMENTS`
 3. Push to remote with `git push`
 

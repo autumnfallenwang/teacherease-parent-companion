@@ -85,3 +85,23 @@ Logging the keychain KEY name (`child-1`) is fine. Logging the VALUE (the passwo
 - CSS classes: Tailwind utilities, no custom class names (use inline styles for one-offs)
 - DB columns: snake_case (SQL convention)
 - TS properties: camelCase (mapped from snake_case via row-mapping functions in ipc.ts)
+
+## Tauri + Next.js integration
+
+- Components that import from `src/lib/ipc.ts` (which imports `@tauri-apps/*`) must be loaded with `next/dynamic` + `ssr: false`. Direct top-level ipc imports from page.tsx break SSR.
+- Pattern: page.tsx uses `dynamic(() => import("@/components/dashboard"), { ssr: false })`, the component itself is `"use client"`.
+- Linux dev: always run with `WEBKIT_DISABLE_DMABUF_RENDERER=1 GDK_BACKEND=x11` (baked into `pnpm tauri:dev`).
+
+## Scraper development
+
+- Always work from saved HTML fixtures in `tests/fixtures/`, never hit the live portal during development.
+- If no fixture exists, mine from `ref/teacherease_parents_helper/logs/` or ask the user to capture a fresh sample.
+- Never guess server protocol shapes — capture a real response and inspect it before writing code. A 5-minute POC saves hours of wrong-path coding.
+- Playwright-based reference code shows intent (what to scrape), not mechanism (how to send over the wire).
+
+## Commits
+
+- Stage specific files with `git add`, never `-A` — prevents accidentally committing secrets or debug HTML.
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
+- Append to commit body: `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
+- Never commit: `.env` (except `.env.example`), `*.db`, `*.sqlite`, debug HTML dumps, updater private keys.
