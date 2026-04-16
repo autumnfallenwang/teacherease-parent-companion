@@ -1,5 +1,6 @@
 mod json_log;
 mod keychain;
+mod log_commands;
 mod migrations;
 
 use std::path::PathBuf;
@@ -9,12 +10,12 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
-use tauri_plugin_log::{Target, TargetKind};
 
-fn log_dir(app: &tauri::App) -> PathBuf {
-    app.path()
-        .app_log_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
+fn default_log_dir() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("dev.autumnfallenwang.teacherease-parent-companion")
+        .join("logs")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,15 +27,25 @@ pub fn run() {
         log::LevelFilter::Info
     };
 
+    // Initialize JSON file logger BEFORE Tauri builder — so all plugin
+    // initialization is captured. File at appDataDir/logs/app.log.
+    let log_path = default_log_dir().join("app.log");
+    json_log::JsonFileLogger::new(
+        log_path.clone(),
+        if is_debug {
+            log::Level::Debug
+        } else {
+            log::Level::Info
+        },
+        is_debug,
+    )
+    .init(log_level);
+
+    log::info!("app_version={}", env!("CARGO_PKG_VERSION"));
+    log::info!("log_file={}", log_path.display());
+    log::info!("build={}", if is_debug { "debug" } else { "release" });
+
     tauri::Builder::default()
-        // tauri-plugin-log: still needed for the JS → Rust IPC bridge
-        // (attachConsole, info/warn/error from TS). Targets: webview only.
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .level(log_level)
-                .targets(vec![Target::new(TargetKind::Webview)])
-                .build(),
-        )
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:app.db", migrations::initial())
@@ -50,35 +61,17 @@ pub fn run() {
             keychain::keychain_set,
             keychain::keychain_get,
             keychain::keychain_delete,
+            log_commands::log_info,
+            log_commands::log_warn,
+            log_commands::log_error,
         ])
         .setup(move |app| {
-            // JSON file logger — ELK-ready, one line per event
-            let json_path = log_dir(app).join("app.log");
-            let json_logger = json_log::JsonFileLogger::new(
-                json_path.clone(),
-                if is_debug {
-                    log::Level::Debug
-                } else {
-                    log::Level::Info
-                },
-                is_debug, // stdout in dev only
-            );
-            // Set as the global logger (log crate). tauri-plugin-log
-            // handles the webview bridge separately.
-            if log::set_boxed_logger(Box::new(json_logger)).is_ok() {
-                log::set_max_level(log_level);
-            }
-
             let app_data = app
                 .path()
                 .app_data_dir()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| "unknown".to_string());
-
-            log::info!("app_version={}", env!("CARGO_PKG_VERSION"));
             log::info!("data_dir={}", app_data);
-            log::info!("log_file={}", json_path.display());
-            log::info!("build={}", if is_debug { "debug" } else { "release" });
 
             // System tray: Open / Refresh / Quit
             let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;

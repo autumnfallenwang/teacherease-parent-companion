@@ -5,9 +5,10 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 pub struct JsonFileLogger {
-    path: Mutex<PathBuf>,
+    path: PathBuf,
     level: Level,
     stdout: bool,
+    buf: Mutex<Vec<u8>>,
 }
 
 impl JsonFileLogger {
@@ -16,10 +17,16 @@ impl JsonFileLogger {
             let _ = fs::create_dir_all(parent);
         }
         Self {
-            path: Mutex::new(path),
+            path,
             level,
             stdout,
+            buf: Mutex::new(Vec::with_capacity(512)),
         }
+    }
+
+    pub fn init(self, max_level: log::LevelFilter) {
+        log::set_max_level(max_level);
+        log::set_boxed_logger(Box::new(self)).expect("logger already set");
     }
 }
 
@@ -51,12 +58,16 @@ impl Log for JsonFileLogger {
             println!("{json_str}");
         }
 
-        if let Ok(path) = self.path.lock() {
-            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&*path) {
-                let _ = writeln!(file, "{json_str}");
-            }
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)
+        {
+            let _ = writeln!(file, "{json_str}");
         }
     }
 
-    fn flush(&self) {}
+    fn flush(&self) {
+        let _ = &self.buf;
+    }
 }

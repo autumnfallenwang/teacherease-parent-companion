@@ -11,12 +11,6 @@ import {
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
 import {
-  attachConsole,
-  error as logError,
-  info as logInfo,
-  warn as logWarn,
-} from "@tauri-apps/plugin-log";
-import {
   isPermissionGranted,
   requestPermission,
   sendNotification,
@@ -448,23 +442,22 @@ export async function checkAutostartEnabled(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Logging (Q14) — wraps @tauri-apps/plugin-log so components don't import
-// the plugin directly. Never log PII or secrets (see CLAUDE.md).
+// Logging (Q14) — routes to Rust JSON logger via custom commands.
+// Never log PII or secrets (see CLAUDE.md).
 // ---------------------------------------------------------------------------
 
 export async function initLogging(): Promise<void> {
-  await attachConsole();
-  await logInfo("frontend logging initialized");
+  await invoke("log_info", { message: "frontend logging initialized" });
 }
 
 export async function log(message: string): Promise<void> {
-  await logInfo(message);
+  await invoke("log_info", { message });
 }
 
 export async function logWarning(message: string): Promise<void> {
-  await logWarn(message);
+  await invoke("log_warn", { message });
 }
 
 export async function logErr(message: string): Promise<void> {
-  await logError(message);
+  await invoke("log_error", { message });
 }
