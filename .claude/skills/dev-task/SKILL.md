@@ -10,7 +10,8 @@ Pick up the next task from the development plan and implement it. The goal is to
 1. Read `docs/progress.md` to see what's done, what's partial, what's next.
 2. Read `docs/design-plan.md` for design context AND the "Locked Decisions" section (the "why" behind each choice). **Never contradict a locked decision without explicitly raising it with the user first.**
 3. Read `docs/lessons.md` for past corrections — avoid repeating known mistakes.
-4. Identify the next task to work on — follow the phase order; earlier phases must be done before later ones.
+4. Read `.claude/conventions.md` for coding rules (logging levels, import conventions, error handling, naming). Follow these when writing code.
+5. Identify the next task to work on — follow the phase order; earlier phases must be done before later ones.
 5. If $ARGUMENTS is provided, treat it as the specific task to work on (e.g. "task 9" or "grade overview parser") instead of auto-detecting.
 
 ## Phase 2: Explore and plan (the most important phase)
