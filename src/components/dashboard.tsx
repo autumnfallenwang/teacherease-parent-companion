@@ -117,7 +117,7 @@ export function Dashboard() {
       <div className="flex min-h-screen flex-col">
         <Header lastRunAt={null} onRefresh={() => undefined} />
         <main className="flex flex-1 flex-col">
-          <EmptyState onAddChild={() => undefined} />
+          <EmptyState />
         </main>
       </div>
     );

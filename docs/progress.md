@@ -50,11 +50,11 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 20 | Welcome screen | Not started | Per design-plan Q7 |
-| 21 | Add-child screen + live login validation | Not started | Refuse to advance unless login succeeds |
-| 22 | Notification permission pre-prompt | Not started | Our copy, then OS prompt |
-| 23 | Inline first scrape + summary | Not started | Run scrape inside wizard, show results before handoff |
-| 24 | Skip + resume-later flows | Not started | Empty-state dashboard with CTA if skipped |
+| 20 | Welcome screen | ✅ Done | `WizardWelcome` — one sentence + "Get started" + "Skip setup" link |
+| 21 | Add-child screen + live login validation | ✅ Done | `WizardAddChild` — form with name/email/password, calls `login()` on submit, refuses to advance unless login succeeds, stores child via `addChild()` on success |
+| 22 | Notification permission pre-prompt | ✅ Done (stub) | `WizardNotifications` — UI complete, OS permission request deferred to Phase 5 (`tauri-plugin-notification` not yet wired) |
+| 23 | Inline first scrape + summary | ✅ Done | `WizardDone` — runs full scrape pipeline inline, shows "X classes — Y meeting, Z need attention" summary, error handling with "Open dashboard" fallback |
+| 24 | Skip + resume-later flows | ✅ Done | Skip link on every screen + wizard header. Empty-state dashboard CTA links to `/setup`. `next/dynamic` with `ssr: false` on `/setup` page. |
 
 ## Phase 5: Scheduler + notifications + tray
 
@@ -119,4 +119,4 @@
 
 ## What's Next
 
-**Phase 3 complete.** Dashboard shell renders in Tauri webview. Next: **Phase 4, Task 20** — First-run wizard welcome screen.
+**Phase 4 complete.** 4-screen setup wizard at `/setup` with live login validation, inline first scrape, skip flows. Next: **Phase 5, Task 25** — Tray icon + menu.
