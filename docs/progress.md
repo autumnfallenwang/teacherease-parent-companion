@@ -28,8 +28,8 @@
 |---|------|--------|-------|
 | 12 | SQLite schema + migrations | ✅ Done | `tauri-plugin-sql` with `sqlite` feature wired in Rust; migration v1 creates 6 tables (children, settings, scrapes, raw_payloads, grades, assignments) + 3 indexes; plugin registered in `lib.rs`, `sql:default` permission added; JS bindings installed (`@tauri-apps/plugin-sql`). Schema matches design-plan Q8/Q13. |
 | 13 | Child CRUD (Rust + TS) | ✅ Done | 3 Rust `#[tauri::command]` keychain handlers (`keychain_set/get/delete`) via `keyring` crate; `src/lib/ipc.ts` with `addChild()`, `removeChild()`, `getChildren()`, `getChild()`, `updateChildPassword()`, `getChildPassword()` — DB + keychain orchestration with rollback on keychain failure (Q3 atomicity in TS layer). |
-| 14 | Scrape persistence | Not started | Store scrape runs + normalized rows + raw payload |
-| 15 | Read queries for UI | Not started | Latest scrape, per-child history, needs-attention filter |
+| 14 | Scrape persistence | ✅ Done | `persistScrape()` in `src/lib/ipc.ts` — inserts into scrapes, raw_payloads, grades, assignments; recursive standard→assignment flattening; maps scraper types to DB rows |
+| 15 | Read queries for UI | ✅ Done | `getLatestScrape()`, `getGradesForScrape()`, `getAssignmentsForScrape()`, `getNeedsAttentionGrades()`, `getMissingAssignments()` in `src/lib/ipc.ts` |
 
 ## Phase 3: Dashboard UI (core)
 
@@ -113,4 +113,4 @@
 
 ## What's Next
 
-**Task 14**: Scrape persistence — store scrape runs + normalized rows (grades, assignments) + raw payload JSON in SQLite via `src/lib/ipc.ts`. Wire up the scraper output types → DB insert pipeline.
+**Phase 2 complete.** All persistence tasks done (T12–T15). Next: **Phase 3, Task 16** — Layout + header + empty state (first real UI).
