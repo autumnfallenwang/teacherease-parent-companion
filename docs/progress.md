@@ -18,7 +18,7 @@
 | 7 | HTML fixtures from ref repo | ✅ Done | 7 HTML + `expected/full-data.json` scrubbed (sandbox/scrub-fixtures.ts) and landed in `tests/fixtures/`; PII verified clean via independent grep; `tests/fixtures/README.md` documents dummy values and re-scrub workflow |
 | 8 | TeacherEase login (fetch + cookie jar) | ✅ Done | `scraper/cookie-jar.ts` (manual Map-backed jar, 11 unit tests) + `scraper/teacherease.ts` with `login()`, `extractLoginFormFields()`, `buildLoginFormBody()` (14 unit tests); uses `tests/fixtures/login-page.html` captured via sandbox POC; NOT classic WebForms — regular HTML form with 5 hidden fields, credential fields `email`/`password`, POST target `/app/Login/Login` (different from GET `/common/login.aspx`); no `__VIEWSTATE` needed for login (grade pages may still be WebForms — to verify in T9) |
 | 9 | Grade overview parser | ✅ Done | `scraper/parser.ts` with `extractClassesJson()` + `parseGradesOverview()` (12 tests). Not cheerio — data is embedded JSON extracted via regex + `JSON.parse`. Fixture mismatch with `full_data.json` discovered and documented (different scrapes). Two new instructors scrubbed (Zides, Lee). |
-| 10 | Class detail parser (cheerio) | Not started | Per-class assignments, scores, statuses |
+| 10 | Class detail parser (cheerio) | ✅ Done | `parseClassDetails()` in `scraper/parser.ts` (18 tests). Cheerio-based recursive parser: `ul.root-standard-item` → nested standards → `table.assignmentTable` rows. Missing detection via `data-bmissing="1"`, `style="color:red"`, `img[title="Missing"]`. Confirmed fixture ≠ `full-data.json` for ALL 3 detail classes (different scrape sessions); tests assert against manually verified fixture values. |
 | 11a | Real-fixture parser tests | Not started | Tests in `tests/integration/`, load unscrubbed HTML from `sandbox/captures/` (skip if files missing). Catches PII-scrub artifacts that break parsers. Run after T9/T10. |
 | 11b | Live e2e scraper test | Not started | Full login → navigate → scrape → parse against real TeacherEase. Reads credentials from `sandbox/.env`, gated by `TEACHEREASE_LIVE=1`. Run after T10 to prove the complete pipeline. |
 
@@ -113,4 +113,4 @@
 
 ## What's Next
 
-**Task 10**: Class detail parser (cheerio) — port Python `GradeParser.parse_class_details`. This one IS real HTML parsing with cheerio: `ul.root-standard-item` → nested standards → `table.assignmentTable` rows. Uses `tests/fixtures/classes/*.html` fixtures and validates against `full-data.json`'s `detailed_classes` section (these fixtures ARE from the same scrape).
+**Task 11a**: Real-fixture parser tests — load unscrubbed HTML from `sandbox/captures/` to verify parsers against raw data. Then **Task 11b**: live e2e test against real TeacherEase (gated by `TEACHEREASE_LIVE=1`).

@@ -64,3 +64,38 @@ export interface GradesOverview {
     readonly totalTargetsNotMeeting: number;
   };
 }
+
+// ---------------------------------------------------------------------------
+// Class detail (T10)
+// ---------------------------------------------------------------------------
+
+export interface Assignment {
+  readonly dueDate: string;
+  readonly name: string;
+  readonly weight: string;
+  readonly grade: string;
+  readonly gradeNumeric: number;
+  readonly gradeLetter: string;
+  readonly isMissing: boolean;
+  readonly feedback: string;
+}
+
+export interface Standard {
+  readonly name: string;
+  readonly score: string;
+  readonly scoreNumeric: number;
+  readonly scoreLetter: string;
+  readonly isMeeting: boolean;
+  readonly children: readonly Standard[];
+  readonly assignments: readonly Assignment[];
+  readonly missingCount: number;
+  readonly lowScoreCount: number;
+}
+
+export interface ClassDetails {
+  readonly className: string;
+  readonly standards: readonly Standard[];
+  readonly summary: {
+    readonly missingAssignments: number;
+  };
+}
