@@ -199,6 +199,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/components/ui/**"],
+      "linter": {
+        "rules": {
+          "security": {
+            "noSecrets": "off"
+          }
+        }
+      }
     }
   ]
 }

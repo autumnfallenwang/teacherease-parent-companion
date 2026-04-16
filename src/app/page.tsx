@@ -1,8 +1,15 @@
-export default function HomePage() {
+"use client";
+
+import { EmptyState } from "@/components/empty-state";
+import { Header } from "@/components/header";
+
+export default function DashboardPage() {
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
-      <h1>TeacherEase Parent Companion</h1>
-      <p>Phase 0 scaffold. Dashboard coming in Phase 3.</p>
-    </main>
+    <div className="flex min-h-screen flex-col">
+      <Header lastRunAt={null} onRefresh={() => {}} />
+      <main className="flex flex-1 flex-col">
+        <EmptyState onAddChild={() => {}} />
+      </main>
+    </div>
   );
 }

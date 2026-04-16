@@ -41,7 +41,7 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 16 | Layout + header + empty state | Not started | Minimal shell with Refresh-now button, last-run timestamp |
+| 16 | Layout + header + empty state | ✅ Done | Tailwind 4 + shadcn/ui bootstrapped. Layout with globals.css + theme vars. `Header` component (title + Refresh button + timestamp). `EmptyState` component (CTA to add child). Dashboard page wired with `"use client"`. `next build` produces static export. |
 | 17 | Current-grades view | Not started | One row per class, color-coded status |
 | 18 | Needs-attention section | Not started | Missing assignments, low scores |
 | 19 | Refresh-now wiring | Not started | Frontend button → Rust command → scraper → persist → UI refresh |
