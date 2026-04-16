@@ -8,8 +8,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseClassDetails, parseGradesOverview } from "../../scraper/parser";
-import { extractLoginFormFields } from "../../scraper/teacherease";
+import { parseClassDetails, parseGradesOverview } from "../../src/lib/scraper/parser";
+import { extractLoginFormFields } from "../../src/lib/scraper/teacherease";
 
 const CAPTURES_DIR = join(__dirname, "../../sandbox/captures");
 

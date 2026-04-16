@@ -12,8 +12,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseGradesOverview } from "../../scraper/parser";
-import { login } from "../../scraper/teacherease";
+import { parseGradesOverview } from "../../src/lib/scraper/parser";
+import { login } from "../../src/lib/scraper/teacherease";
 
 const LIVE_ENABLED = process.env.TEACHEREASE_LIVE === "1";
 const ENV_PATH = join(__dirname, "../../sandbox/.env");

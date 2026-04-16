@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildLoginFormBody, extractLoginFormFields, login } from "./teacherease";
 import { LoginError } from "./types";
 
-const FIXTURE_PATH = join(__dirname, "../tests/fixtures/login-page.html");
+const FIXTURE_PATH = join(__dirname, "../../../tests/fixtures/login-page.html");
 const LOGIN_PAGE_HTML = readFileSync(FIXTURE_PATH, "utf8");
 
 const DUMMY_BASE = "https://school.example.teacherease.com";

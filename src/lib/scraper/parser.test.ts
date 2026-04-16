@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { extractClassesJson, parseClassDetails, parseGradesOverview } from "./parser";
 
-const FIXTURES_DIR = join(__dirname, "../tests/fixtures");
+const FIXTURES_DIR = join(__dirname, "../../../tests/fixtures");
 const FIXTURE = readFileSync(join(FIXTURES_DIR, "grades-page.html"), "utf8");
 
 function readClassFixture(name: string): string {

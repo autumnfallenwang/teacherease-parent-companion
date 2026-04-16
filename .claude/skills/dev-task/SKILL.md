@@ -23,7 +23,7 @@ This phase is cheap in tokens and prevents expensive rework. Take your time here
    - Existing test files to understand testing conventions
 8. Determine which platform(s) this task targets:
    - **TypeScript frontend** (`src/`): Next.js App Router, React, Tailwind + shadcn/ui patterns.
-   - **TypeScript scraper** (`scraper/`): `fetch` + `cheerio`, bundled into the Next.js frontend and imported from React per Q11. Invoked via Tauri's `http` allowlist. Not a separate Node process.
+   - **TypeScript scraper** (`src/lib/scraper/`): `fetch` + `cheerio`, bundled into the Next.js frontend per Q11. Pure module — no Tauri imports, no platform code.
    - **Rust Tauri core** (`src-tauri/src/`): `#[tauri::command]` handlers, plugin wiring, state management.
    - Cross-cutting tasks may touch all three.
 9. For scraper work: **always work from saved HTML fixtures in `tests/fixtures/`**, never hit the live portal during development. If no fixture exists, mine one from `ref/teacherease_parents_helper/logs/` or ask the user to capture a fresh sample.

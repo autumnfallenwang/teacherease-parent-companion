@@ -7,7 +7,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
-import type { ChildRecord, ClassDetails, GradesOverview, Standard } from "../../scraper/types";
+import type { ChildRecord, ClassDetails, GradesOverview, Standard } from "./scraper/types";
 
 // ---------------------------------------------------------------------------
 // DB singleton

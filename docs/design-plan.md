@@ -287,40 +287,64 @@ CREATE INDEX idx_assignments_scrape ON assignments(scrape_id);
 
 ---
 
-## Project Structure (planned)
+## Project Structure
+
+**One rule: everything that ships lives under `src/`.** `src-tauri/` is the sole exception — required by Tauri's build system (separate compiler, separate runtime). `tests/` holds non-shipped test infrastructure (fixtures, integration tests). Everything else at the root is config.
 
 ```
 teacherease-parent-companion/
 ├── CLAUDE.md
 ├── README.md
-├── package.json             # pnpm workspace root
+├── package.json
 ├── pnpm-lock.yaml
 ├── biome.json
 ├── tsconfig.json
-├── next.config.mjs          # Next.js static export
-├── src/                     # Next.js frontend
-│   ├── app/                 # App Router pages
-│   │   ├── page.tsx         # Dashboard
-│   │   ├── setup/           # First-run wizard
-│   │   └── settings/        # Settings pages
-│   ├── components/          # Shared React components
-│   └── lib/                 # Client-side helpers (IPC wrappers, formatting)
-├── scraper/                 # Plain TS module, imported by src/ (Q11)
-│   ├── teacherease.ts       # Login + navigation (fetch, cookie jar)
-│   ├── parser.ts            # cheerio HTML → normalized JSON
-│   └── types.ts
-├── src-tauri/               # Rust shell
+├── vitest.config.ts
+├── next.config.mjs              # Next.js static export
+├── src/                         # Everything that ships (TS/React)
+│   ├── app/                     # Next.js App Router pages
+│   │   ├── layout.tsx
+│   │   ├── page.tsx             # Dashboard
+│   │   ├── setup/               # First-run wizard (Phase 4)
+│   │   └── settings/            # Settings pages (Phase 6)
+│   ├── components/              # React components (props in, callbacks out)
+│   ├── hooks/                   # React hooks (call ipc, manage state)
+│   └── lib/
+│       ├── ipc.ts               # Tauri bridge — ONLY file with @tauri-apps/*
+│       ├── scraper/             # Pure TS: HTTP + parsing + types (Q11)
+│       │   ├── types.ts         # ALL data types (producer defines the shapes)
+│       │   ├── teacherease.ts   # Login + session management
+│       │   ├── parser.ts        # HTML/JSON → typed data
+│       │   ├── cookie-jar.ts    # Set-Cookie parser
+│       │   ├── cookie-jar.test.ts   # colocated tests
+│       │   ├── parser.test.ts
+│       │   └── teacherease.test.ts
+│       └── core/                # Pure TS: business logic (diff, attention, trends)
+│           └── index.ts
+├── src-tauri/                   # Rust shell (fixed by Tauri, separate program)
 │   ├── Cargo.toml
+│   ├── Cargo.lock
 │   ├── tauri.conf.json
+│   ├── rust-toolchain.toml
 │   ├── build.rs
+│   ├── capabilities/
+│   │   └── default.json
 │   └── src/
-│       ├── main.rs          # Tauri entry, plugin wiring, tray, commands
-│       └── commands.rs      # #[tauri::command] handlers callable from frontend
-├── tests/                   # Vitest tests
-│   ├── scraper/
-│   └── fixtures/            # saved HTML fixtures from TeacherEase for offline tests
+│       ├── main.rs              # Tauri entry point
+│       ├── lib.rs               # Plugin wiring, command registration
+│       ├── keychain.rs          # #[tauri::command] keychain handlers
+│       └── migrations.rs        # SQLite schema migrations
+├── tests/                       # Non-shipped test infrastructure
+│   ├── smoke.test.ts
+│   ├── fixtures/                # Scrubbed HTML fixtures for offline parser tests
+│   │   ├── README.md
+│   │   ├── login-page.html
+│   │   ├── grades-page.html
+│   │   ├── classes/             # Per-class detail pages
+│   │   └── expected/            # Reference parser output
+│   └── integration/             # e2e tests (sandbox-loaded, gated)
 ├── docs/
-│   ├── design-plan.md       # this file (merged design + locked decisions)
+│   ├── design-plan.md           # this file
 │   ├── progress.md
 │   └── lessons.md
 └── .claude/
@@ -335,10 +359,9 @@ teacherease-parent-companion/
 This project has **no backend service** — it's a desktop-local app by Q3 (no server, no cloud, no accounts). However, if a future version ever grows into a web/SaaS product or gains a second frontend (iOS, etc.), the code is structured so the portable pieces can be lifted into a monorepo without a rewrite.
 
 **Portable core** (zero platform imports — safe to promote to `packages/core/` later):
-- `scraper/` — `fetch` + `cheerio` + types, per Q11.
+- `src/lib/scraper/` — `fetch` + `cheerio` + types, per Q11. The producer of all data shapes.
 - `src/lib/core/` — pure business logic (diff algorithms, "needs attention" rules, trend computations, grade formatting). No Tauri, no SQLite, no keychain, no `process.env`.
 - `src/components/` — React components that receive data as props and emit callbacks. No direct Tauri imports.
-- `scraper/types.ts` — single source of truth for `Child`, `Scrape`, `Grade`, `Assignment`. Imported by scraper, UI, and any future backend.
 
 **Platform integration** (non-portable — rewritten when platform changes):
 - `src-tauri/src/` — Rust shell, Tauri commands, plugin wiring.
@@ -346,7 +369,7 @@ This project has **no backend service** — it's a desktop-local app by Q3 (no s
 - `next.config.mjs` — static-export config specific to Tauri bundling.
 
 **Rules enforcing this** (cheap to follow, expensive to retrofit):
-1. `scraper/` never imports from `@tauri-apps/*` or `src/lib/ipc.ts`. Pure module. (Q11 locks this; Biome `noRestrictedImports` enforces it.)
+1. `src/lib/scraper/` never imports from `@tauri-apps/*` or `src/lib/ipc.ts`. Pure module. (Q11 locks this; Biome `noRestrictedImports` enforces it.)
 2. `src/lib/core/` never imports from `@tauri-apps/*`, `src/lib/ipc.ts`, SQLite, or keychain. Pure functions only.
 3. React components (`src/app/`, `src/components/`) import from `src/lib/ipc.ts`, **never** from `@tauri-apps/*` directly. Biome blocks the direct imports.
 4. Business logic never lives in React components or Rust code — it lives in `src/lib/core/` so both platforms can reuse it.
@@ -358,9 +381,8 @@ This project has **no backend service** — it's a desktop-local app by Q3 (no s
 
 **Migration shape if SaaS ever happens:**
 ```
-scraper/              →  packages/core/scraper/
+src/lib/scraper/      →  packages/core/scraper/
 src/lib/core/         →  packages/core/business/
-scraper/types.ts      →  packages/core/types.ts
 src/components/       →  packages/ui/
 src/lib/ipc.ts        →  stays in apps/desktop/ (Tauri-only)
                          apps/web/client/src/lib/api.ts created fresh (REST client)

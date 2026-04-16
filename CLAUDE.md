@@ -6,11 +6,14 @@ Cross-platform desktop app that monitors a child's TeacherEase portal and notifi
 
 Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + React + TypeScript | `fetch` + `cheerio` scraper bundled into the frontend | SQLite (`tauri-plugin-sql`) | OS keychain via `keyring` Rust crate (wrapped in Tauri commands) | Biome + Vitest | `tauri-plugin-updater`
 
-## Structure (planned)
+## Structure
 
-- `src/` — Next.js frontend (pages/components/hooks)
-- `src-tauri/` — Rust shell, `tauri.conf.json`, `Cargo.toml`, plugin wiring
-- `scraper/` — TypeScript scraper module (TeacherEase HTTP client + HTML parser), bundled into the frontend per design-plan Q11
+- `src/` — everything that ships: Next.js pages (`app/`), React components (`components/`), hooks (`hooks/`), and all non-React logic (`lib/`)
+- `src/lib/ipc.ts` — Tauri bridge: ONLY file with `@tauri-apps/*` imports
+- `src/lib/scraper/` — pure TS scraper module (login, parsers, types). No Tauri imports, no platform code.
+- `src/lib/core/` — pure TS business logic (diff, attention rules, trends)
+- `src-tauri/` — Rust shell (separate program, fixed by Tauri convention)
+- `tests/` — non-shipped test infrastructure (fixtures, integration tests)
 - `docs/` — design docs and decision log
 - `.claude/` — agents, hooks, skills for this project
 - `sandbox/` — gitignored scratch space for POCs and live-credential smoke tests (see "Security constraints" below)
