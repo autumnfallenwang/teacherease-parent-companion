@@ -102,9 +102,21 @@
 | D5 | Read queries: update to use class_id FK | ✅ Done | `GradeRecord` + `AssignmentRecord` types expanded. `mapGradeRow()` / `mapAssignmentRow()` helpers. `getMissingAssignments()` queries both `is_missing=1` and `status='missing'` for compat. |
 | D6 | Seed script: update for v2 schema | Not started | Generate proper classes, standards, assignments with new columns. |
 | D7 | E2E validation with real credentials | ✅ Done | `tests/integration/v2-persistence-live.integration.test.ts` — login → fetch all 8 detail pages → persist to v2 DB → 12 assertions passed. Plus `sandbox/poc-v2-persistence.ts` (11 checks). Foundation validated. |
-| D8 | Dashboard: progress bars | Not started | Show targets_meeting / total on each class row. |
-| D9 | Dashboard: instructor display | Not started | Show instructor name in class row or accordion. |
-| D10 | Standard-level trend tracking | Not started | Query standard scores across scrapes, display in accordion drilldown. |
+| D8 | Dashboard UX v2 design | ✅ Done | Q18 locked: Status Hero + Recent Activity (24h time-based) + Missing Work (grouped by urgency) + All Classes with progress bars + accordion detail. No toggles — sort order separates attention from meeting. |
+
+## Phase 7c: Dashboard UX v2 implementation (Q18)
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| U1 | StatusHero component (family-wide) | Not started | Shows ALL children's verdicts in one card. Per-child row: icon + name + status + counts. Green/amber tint per row. Tappable to select child. |
+| U2 | ChildTabs component | Not started | Tab bar below hero, replaces header dropdown. Hidden if 1 child. Amber dot for attention children. Auto-selects child needing attention on load. |
+| U3 | ProgressBar component | Not started | Thin 4px bar: teal (meeting) + amber (not meeting) + gray track. Label "5/20". |
+| U4 | GradesTable: progress bars + instructor + sort | Not started | Add ProgressBar + instructor to each row, sort by urgency (attention → meeting → not assessed). |
+| U5 | RecentActivity component + core logic | Not started | `computeRecentActivity()` in `core/activity.ts` (pure diff of two snapshots). `getScrapeBefore()` IPC query. Time-based (24h), not scrape-based. |
+| U6 | MissingWork: group by urgency | Not started | Enhance NeedsAttention to group by overdue duration (3+ weeks / 1-3 weeks / recent). Rename component. |
+| U7 | Dashboard wiring | Not started | Wire StatusHero + ChildTabs + RecentActivity. Fetch all children's grades for hero. Fetch 24h-ago scrape for activity. Remove ChildSwitcher from header. |
+| U8 | StandardsTree: full detail for all classes | Not started | Remove "only for needs attention" empty state. All classes now have detail data. |
+| U9 | Seed script: update for v2 schema | Not started | Generate classes, standards, assignments with v2 columns. Multi-child data. |
 
 ## Phase 8: Optional email (advanced)
 
@@ -144,4 +156,4 @@
 
 ## What's Next
 
-**D1–D5 + D7 done.** v2 data model fully validated against live portal (12 assertions, 2.77s). Foundation solid. Next: D6 (seed script), then D8–D10 (UI: progress bars, instructor, standard trends).
+**Q18 locked.** Dashboard UX v2 designed — Status Hero, time-based activity, urgency-grouped missing work, progress bars. Next: Phase 7c — U1 (StatusHero component).

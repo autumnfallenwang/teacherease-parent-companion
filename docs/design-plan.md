@@ -316,6 +316,303 @@ Clicking a class row expands an **inline detail panel** below it:
 - No per-assignment history across scrapes — only class-level status history.
 - No assignment editing — read-only always.
 
+### Q18 — Dashboard UX v2: "The Progress Report" (supersedes Q16 layout)
+
+**The dashboard is a peace-of-mind monitor, not a data table.** A parent opens the app and gets a family-wide verdict in 2 seconds. Detail is available on demand through progressive disclosure in one vertical scroll. No separate pages, no mode toggles, no confusion.
+
+Q16 established the aesthetic direction (warm editorial, Newsreader + DM Sans, binder tabs, paper texture) and the accordion/dots primitives — those remain. Q18 redesigns the information architecture for the full v2 data (all classes detailed, progress numbers, standards tree everywhere) and multi-child families.
+
+#### Design direction
+
+**Tone:** Like a well-designed weekly progress letter from a thoughtful school counselor. Not a dashboard. Not a grade tracker. A report. The parent feels informed and calm after a 10-second glance.
+
+**The unforgettable element:** The Status Hero — a family-wide card at the top that shows ALL children's status before the parent reads anything else. Green when everything's fine. Amber when any child needs attention.
+
+#### Multi-child architecture
+
+The dashboard has two zones: **family-wide** (Status Hero) and **per-child** (everything below).
+
+- **1 child:** Hero shows just them. No child tabs visible — clean single-child experience.
+- **2+ children:** Hero shows all children's verdicts stacked. Below the hero, a **tab bar** (not dropdown) switches the per-child content. Auto-selects the child who needs attention on load.
+
+The header child-switcher dropdown is replaced by the tab bar below the hero — more visible, more tappable, contextually placed.
+
+#### Full layout (vertical scroll)
+
+```
+┌────────────────────────────────────────────────────────┐
+│  Header: [T] Parent Companion        [Refresh]  [⚙]   │
+│          Checked 2h ago                                │
+╞════════════════════════════════════════════════════════╡
+│                                                        │
+│  LAYER 1: Status Hero (FAMILY-WIDE)                    │
+│  ┌────────────────────────────────────────────────┐    │
+│  │                                                │    │
+│  │  ✓ Alex — all good                            │    │  Newsreader 18px
+│  │    7 meeting · 1 not assessed                  │    │  DM Sans 12px muted
+│  │                                                │    │
+│  │  ⚠ Sam — 1 class needs attention              │    │  amber tint on this row
+│  │    Writing 5 · 1 missing                       │    │
+│  │    4 meeting · 1 not assessed                  │    │
+│  │                                                │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                        │
+│  CHILD TABS (hidden if 1 child)                        │
+│  ┌──────────┐┌──────────┐                              │
+│  │   Alex   ││  ● Sam   │  ← dot = needs attention    │
+│  └──────────┘└──────────┘    selected tab underlined   │
+│                                                        │
+│─ ─ ─ ─ ─ ─  Per-child content below  ─ ─ ─ ─ ─ ─ ─ ─│
+│                                                        │
+│  LAYER 2: Recent Activity (time-based, 24h)            │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  Today                                         │    │
+│  │  ↑ Geography improved 2.50 → 2.84             │    │
+│  │  ★ 2 new scores in Mathematics                 │    │
+│  │  ⚠ Mount Everest still missing (3 weeks)      │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                        │
+│  LAYER 3: Missing Work (if any exist for this child)   │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  ✕ Missing Work                           11   │    │
+│  │                                                │    │
+│  │  Overdue (3+ weeks)                            │    │  deep amber bg
+│  │  ├ Mount Everest · Social Studies · 3/25       │    │
+│  │  ├ Forger Google Form · Social Studies · 12/23 │    │
+│  │                                                │    │
+│  │  Overdue (1–3 weeks)                           │    │  medium amber bg
+│  │  ├ Gandhi Article · Social Studies · 4/2       │    │
+│  │                                                │    │
+│  │  Recent                                        │    │  light amber border
+│  │  ├ SW Asia Map · Social Studies · 4/15         │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                        │
+│  LAYER 4: All Classes (for selected child)             │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  Classes                              8 total  │    │
+│  │                                                │    │
+│  │  ⚠ Social Studies 7          Paddol, D         │    │  ← attention first
+│  │     ████░░░░░░░░░░░░  5/20   ◐ ◐ ◐ ◐ ◐       │    │     progress + dots
+│  │                                                │    │
+│  │  ✓ Mathematics 7             Isles, D          │    │  ← meeting: quieter
+│  │     █████████░░░░░░░  9/74   ● ● ● ● ●        │    │
+│  │                                                │    │
+│  │  ✓ Computer Science 7        Zides, T          │    │
+│  │     █░░░░░░░░░░░░░░░  1/23   ● ● ● ● ●        │    │
+│  │                                                │    │
+│  │  ✓ Music 7                   Lee, S            │    │
+│  │     ██████████░░░░░░  2/4    ● ● ● ● ●        │    │
+│  │                                                │    │
+│  │  ─ Science 7                 Welsh, J          │    │  ← not assessed: gray
+│  │     ░░░░░░░░░░░░░░░░  0/33                    │    │
+│  │  ...                                           │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                        │
+│  LAYER 5: Class Detail (accordion, one at a time)      │
+│  ┌────────────────────────────────────────────────┐    │
+│  │  ▾ Social Studies 7                            │    │
+│  │  ┌──────────────────────────────────────────┐  │    │
+│  │  │  Research Skills              3=M   ✓    │  │    │
+│  │  │    Uses note taking...        3=M   ✓    │  │    │
+│  │  │      Gandhi Packet    w:512   3=M        │  │    │
+│  │  │                                          │  │    │
+│  │  │  Geography                   2.84=M ✓    │  │    │
+│  │  │    Identifies and locates     3=M   ✓    │  │    │
+│  │  │      South Asia Map  w:512   3=M         │  │    │
+│  │  │      Mount Everest           Missing ⚠   │  │    │
+│  │  │    Understands the role of   2.67=M ✓    │  │    │
+│  │  │      ...                                 │  │    │
+│  │  └──────────────────────────────────────────┘  │    │
+│  └────────────────────────────────────────────────┘    │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+```
+
+#### Layer 1: Status Hero (family-wide)
+
+A rounded card spanning the full content width, immediately below the header. Shows ALL children's status.
+
+**Visual spec:**
+
+| Element | Detail |
+|---|---|
+| Container | `rounded-xl`, `shadow-[0_2px_8px_rgba(0,0,0,0.04)]`, `px-5 py-4` |
+| Per-child row | Flex row: icon + name + verdict. ~28px per child. |
+| Child name | Newsreader 18px, `font-medium`. Teal if all good, amber if attention. |
+| Status line | DM Sans 12px, `text-muted-foreground`: "7 meeting · 1 not assessed" |
+| Attention detail | DM Sans 12px, `text-attention-foreground`: "Social Studies 7 · 8 missing" |
+| Row background | Subtle per-row tint: `bg-meeting/6` if all good, `bg-attention/6` if attention. Rounded. |
+| Divider | 1px `border-border/50` between children. No divider for single child. |
+
+**Behavior:**
+- Tapping a child's name in the hero auto-selects their tab below (on multi-child)
+- If only 1 child, the hero is simpler — no name prefix, just the verdict
+
+**Single child:**
+```
+┌─────────────────────────────────────────┐
+│  ✓ All good                            │  bg-meeting/6
+│  7 meeting · 1 not assessed            │
+└─────────────────────────────────────────┘
+```
+
+**Multi-child, mixed status:**
+```
+┌─────────────────────────────────────────┐
+│  ✓ Alex — all good                     │  bg-meeting/6 on this row
+│    7 meeting · 1 not assessed           │
+│─────────────────────────────────────────│  1px divider
+│  ⚠ Sam — 1 class needs attention      │  bg-attention/6 on this row
+│    Writing 5 · 1 missing                │
+│    4 meeting · 1 not assessed           │
+└─────────────────────────────────────────┘
+```
+
+#### Child Tabs (replaces header dropdown)
+
+Positioned directly below the Status Hero. Only visible when 2+ children.
+
+| Element | Detail |
+|---|---|
+| Tab bar | Flex row, `gap-1`, `px-1`, `py-1`, `bg-secondary/50`, `rounded-lg` |
+| Tab button | `px-4 py-1.5`, `rounded-md`, `text-[13px]`, DM Sans `font-medium` |
+| Selected tab | `bg-card`, `shadow-sm`, `text-foreground` |
+| Unselected tab | `text-muted-foreground`, hover `text-foreground` |
+| Attention dot | 6px amber circle to the left of the name: `bg-attention`, `rounded-full` |
+| Transition | Selected tab background slides with `transition-all duration-200` |
+
+**Auto-select logic:** On load, select the first child with `needs_attention`. If all are fine, select the first child. When switching tabs, the per-child content (Layers 2–5) updates instantly from cached data.
+
+#### Layer 2: Recent Activity (per-child, time-based)
+
+**Time-based, not scrape-based.** Compares current scrape vs the nearest scrape ~24h ago. Stable across multiple refreshes in the same day.
+
+| Element | Detail |
+|---|---|
+| Section heading | "Today" or "Since yesterday" in DM Sans 11px, `uppercase`, `tracking-wider`, `text-muted-foreground`, `border-t border-border/30`, `pt-3 mt-4` |
+| Item row | Flex row: icon (16px) + text (DM Sans 12px). `py-1`. |
+| Improvement | `TrendingUp` icon in `text-meeting`. Text: "Geography improved 2.50 → 2.84" |
+| Decline | `TrendingDown` icon in `text-attention`. Text: "Algebra declined 3.0 → 2.5" |
+| New scores | `Sparkles` icon in `text-primary`. Text: "2 new scores in Mathematics" |
+| Aging missing | `Clock` icon in `text-attention`. Text: "Mount Everest still missing (3 weeks)" |
+| Empty state | Hidden entirely if no activity. No "nothing new" message — absence = no news. |
+| Overflow | Max 5 items visible. "Show N more" link in `text-muted-foreground` if overflow. |
+
+**Data source:** Pure function `computeRecentActivity()` in `core/activity.ts`. Inputs: current grades + assignments, 24h-ago grades + assignments. Output: `ActivityItem[]`.
+
+**IPC query:** `getScrapeBefore(childId, isoDate)` — `SELECT * FROM scrapes WHERE child_id = $1 AND run_at < $2 AND status = 'success' ORDER BY run_at DESC LIMIT 1`
+
+#### Layer 3: Missing Work (per-child, grouped by urgency)
+
+Only renders if the selected child has missing assignments. Groups by how overdue.
+
+| Group | Condition | Visual |
+|---|---|---|
+| Overdue (3+ weeks) | `dueDate < now - 21d` | `bg-attention/10`, `border-attention/30`, bold name, `text-attention-foreground` label |
+| Overdue (1–3 weeks) | `dueDate < now - 7d` | `bg-attention/5`, `border-attention/20` |
+| Recent (< 1 week) | `dueDate >= now - 7d` | `border border-attention/15` only, no fill |
+| No due date | `dueDate` is null | `text-muted-foreground`, no border color |
+
+| Element | Detail |
+|---|---|
+| Section header | Same style as current NeedsAttention: `BookX` icon + "Missing Work" + count badge |
+| Group header | DM Sans 11px, `uppercase tracking-wider text-muted-foreground`, `pt-2 pb-1` |
+| Item row | Same as current: name (13px medium) + class (11px muted) + due date with clock icon |
+
+**Data source:** Pure function `groupMissingByUrgency()` in `core/missing.ts`. Input: `AssignmentRecord[]`. Output: `{ overdue3w: [], overdue1w: [], recent: [], noDueDate: [] }`.
+
+#### Layer 4: All Classes (per-child)
+
+All classes always visible. No toggle. Sorted by urgency.
+
+**Sort order:**
+1. `needs_attention` — amber binder-tab border
+2. `meeting` — subject-color binder-tab border
+3. `not_assessed` — gray binder-tab border
+
+**Class row layout (enhanced from T33):**
+
+```
+┌─ border-left-3px (binder tab color) ─────────────────────────────────┐
+│  ▸  Mathematics 7                Isles, D                            │
+│     ███████████░░░░░░░░  9/74    ● ● ● ● ●    Meeting ✓            │
+└──────────────────────────────────────────────────────────────────────┘
+     ↑chevron  ↑name 14px          ↑instructor   ↑progress   ↑dots    ↑badge
+               font-medium         11px muted     bar 4px     8px      existing
+```
+
+| Element | Detail |
+|---|---|
+| Row container | `button`, full width, `rounded-lg`, `bg-card`, `shadow-[0_1px_2px_rgba(0,0,0,0.04)]`, border-left binder tab. `py-3 px-4`. |
+| Class name | DM Sans 14px, `font-medium`, left-aligned. |
+| Instructor | DM Sans 11px, `text-muted-foreground`, below class name or right-aligned on wide screens. |
+| Progress bar | 4px tall, `rounded-full`, `w-24`. Three segments: teal (`meeting`) + amber (`not_meeting`) + gray track. |
+| Progress label | DM Sans 11px, `tabular-nums`, `text-muted-foreground`: "9/74" to the right of the bar. |
+| Status dots | 5 circles, 8px, from T33. Already built. |
+| Status badge | Pill badge from T33. Already built. |
+| Chevron | `ChevronRight` 14px, muted. Rotates 90° on expand. `transition-transform duration-200`. |
+| Row height | ~60px (two lines: name/instructor + progress/dots/badge). |
+
+**Progress bar component:**
+```
+<div class="h-1 w-24 rounded-full bg-muted overflow-hidden flex">
+  <div class="bg-meeting" style="width: ${meetingPct}%" />
+  <div class="bg-attention" style="width: ${notMeetingPct}%" />
+</div>
+```
+
+#### Layer 5: Class Detail (accordion, per-child)
+
+Already built in T34. Now available for ALL classes. One class expanded at a time.
+
+**Changes from T34:**
+- Remove the "Detailed breakdown available for classes that need attention" empty state — all classes have detail now.
+- Replace with "No standards data available" only if `standards.length === 0` (rare edge case).
+
+#### New components
+
+| Component | Props | Description |
+|---|---|---|
+| `StatusHero` | `children: Array<{ name, meeting, attention, notAssessed, attentionClasses }>`, `onChildSelect` | Family-wide verdict card. One row per child. |
+| `ChildTabs` | `children: ChildRecord[]`, `selectedId`, `attentionChildIds`, `onSelect` | Tab bar below hero. Hidden if 1 child. Amber dot for attention children. |
+| `RecentActivity` | `activities: ActivityItem[]` | Time-based change list. Hidden if empty. |
+| `ProgressBar` | `meeting`, `notMeeting`, `total` | Thin 4px horizontal bar with label. |
+
+#### Modified components
+
+| Component | Change |
+|---|---|
+| `GradesTable` | Add `ProgressBar`, instructor name, sort by status. Accept grades with progress data. |
+| `NeedsAttention` | Rename to `MissingWork`. Group by overdue urgency. |
+| `Dashboard` | Replace `ChildSwitcher` with `ChildTabs`. Add `StatusHero` (family-wide) + `RecentActivity`. Fetch 24h-ago scrape. Load all children's grades for hero. |
+| `Header` | Remove children slot (tabs move below hero). Simplify to logo + timestamp + refresh + settings. |
+| `StandardsTree` | Remove needs-attention-only empty state. |
+
+#### New IPC queries
+
+| Query | Purpose |
+|---|---|
+| `getScrapeBefore(childId, isoDate)` | Nearest successful scrape before timestamp (for 24h activity comparison) |
+| `getGradesSummaryAllChildren()` | Meeting/attention/not-assessed counts per child (for family-wide hero) |
+
+#### New pure functions (in `core/`, no platform imports)
+
+| Function | File | Purpose |
+|---|---|---|
+| `computeRecentActivity()` | `core/activity.ts` | Diff two scrape snapshots → `ActivityItem[]` with type/icon/text |
+| `groupMissingByUrgency()` | `core/missing.ts` | Group `AssignmentRecord[]` by overdue duration → urgency buckets |
+| `sortClassesByUrgency()` | `core/sort.ts` | Sort grades: attention → meeting → not_assessed |
+
+#### Explicit non-goals
+
+- No chart library — status dots + progress bars are pure CSS/HTML
+- No separate analytics/trends page — everything in the main scroll
+- No toggle between "attention" and "full" view — sort order does this naturally
+- No cross-trimester comparison — current trimester only
+- No date range picker for activity — fixed 24h window
+- No assignment editing — read-only always
+- No per-child separate pages — one scroll, tab-switch for child selection
+
 ### Q17 — Data model v2: full normalization + fetch all detail pages
 
 **Fetch detail pages for ALL classes (not just needs_attention) and normalize the data model.**
