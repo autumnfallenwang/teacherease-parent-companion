@@ -17,7 +17,9 @@ pub fn run() {
     };
 
     let mut log_targets = vec![
-        Target::new(TargetKind::LogDir { file_name: None }),
+        Target::new(TargetKind::LogDir {
+            file_name: Some("app.log".into()),
+        }),
         Target::new(TargetKind::Webview),
     ];
 
