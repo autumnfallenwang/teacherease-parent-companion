@@ -7,7 +7,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { ProgressBar } from "@/components/progress-bar";
 import { StatusDots } from "@/components/status-dots";
+import { sortClassesByUrgency } from "@/lib/core/sort";
 import type { TrendDirection } from "@/lib/core/trend";
 import { computeTrend } from "@/lib/core/trend";
 import type { GradeRecord, StatusHistoryEntry } from "@/lib/ipc";
@@ -15,6 +17,7 @@ import type { GradeRecord, StatusHistoryEntry } from "@/lib/ipc";
 interface GradesTableProps {
   grades: GradeRecord[];
   history: Map<string, StatusHistoryEntry[]>;
+  instructors: Map<number, string>;
   expandedClass: string | null;
   onClassClick: (className: string) => void;
   children?: (className: string) => ReactNode;
@@ -73,6 +76,7 @@ function TrendArrow({ direction }: { direction: TrendDirection }) {
 export function GradesTable({
   grades,
   history,
+  instructors,
   expandedClass,
   onClassClick,
   children,
@@ -85,8 +89,7 @@ export function GradesTable({
     );
   }
 
-  const meetingCount = grades.filter((g) => g.status === "meeting").length;
-  const attentionCount = grades.filter((g) => g.needsAttention).length;
+  const sorted = sortClassesByUrgency(grades);
 
   return (
     <div className="space-y-3">
@@ -94,19 +97,19 @@ export function GradesTable({
         <h2 className="text-lg font-medium" style={{ fontFamily: "var(--font-heading)" }}>
           Classes
         </h2>
-        <p className="text-xs text-muted-foreground">
-          {meetingCount} meeting
-          {attentionCount > 0 && (
-            <span className="text-attention-foreground"> · {attentionCount} need attention</span>
-          )}
-        </p>
+        <p className="text-xs text-muted-foreground">{grades.length} total</p>
       </div>
 
       <div className="space-y-1.5">
-        {grades.map((grade) => {
+        {sorted.map((grade) => {
           const classHistory = history.get(grade.className) ?? [];
           const trend = computeTrend(classHistory);
           const isExpanded = expandedClass === grade.className;
+          const instructor = grade.classId ? instructors.get(grade.classId) : undefined;
+          const totalTargets =
+            (grade.targetsMeeting ?? 0) +
+            (grade.targetsNotMeeting ?? 0) +
+            (grade.targetsNotAssessed ?? 0);
 
           return (
             <div key={grade.id}>
@@ -118,9 +121,19 @@ export function GradesTable({
                 <ChevronRight
                   className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
                 />
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
-                  {grade.className}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium">{grade.className}</span>
+                  {instructor && (
+                    <span className="block text-[11px] text-muted-foreground">{instructor}</span>
+                  )}
+                </div>
+                {totalTargets > 0 && (
+                  <ProgressBar
+                    meeting={grade.targetsMeeting ?? 0}
+                    notMeeting={grade.targetsNotMeeting ?? 0}
+                    total={totalTargets}
+                  />
+                )}
                 <StatusDots history={classHistory} />
                 <TrendArrow direction={trend} />
                 <StatusIndicator grade={grade} />

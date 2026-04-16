@@ -1,19 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { ChildSwitcher } from "@/components/child-switcher";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChildTabs } from "@/components/child-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
-import { NeedsAttention } from "@/components/needs-attention";
+import { MissingWork } from "@/components/missing-work";
 import { StandardsTree } from "@/components/standards-tree";
+import type { ChildStatus } from "@/components/status-hero";
+import { StatusHero } from "@/components/status-hero";
 import type { AssignmentRecord, GradeRecord, ScrapeRecord, StatusHistoryEntry } from "@/lib/ipc";
 import {
   getAllStatusHistory,
   getChildPassword,
   getChildren,
   getClassDetail,
+  getClasses,
   getGradesForScrape,
   getLatestScrape,
   getMissingAssignments,
@@ -31,6 +34,7 @@ import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
 
 const EMPTY_HISTORY = new Map<string, StatusHistoryEntry[]>();
 const EMPTY_DETAIL_CACHE = new Map<string, ClassDetails | null>();
+const EMPTY_INSTRUCTORS = new Map<number, string>();
 
 export function Dashboard() {
   const router = useRouter();
@@ -41,12 +45,20 @@ export function Dashboard() {
   const [missing, setMissing] = useState<AssignmentRecord[]>([]);
   const [statusHistory, setStatusHistory] =
     useState<Map<string, StatusHistoryEntry[]>>(EMPTY_HISTORY);
+  const [instructors, setInstructors] = useState<Map<number, string>>(EMPTY_INSTRUCTORS);
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [detailCache, setDetailCache] =
     useState<Map<string, ClassDetails | null>>(EMPTY_DETAIL_CACHE);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Family-wide status for the hero
+  const [heroStatuses, setHeroStatuses] = useState<ChildStatus[]>([]);
+  const attentionChildIds = useMemo(
+    () => new Set(heroStatuses.filter((s) => s.attentionCount > 0).map((s) => s.childId)),
+    [heroStatuses],
+  );
 
   const loadData = useCallback(async (cId: number) => {
     const scrape = await getLatestScrape(cId);
@@ -61,6 +73,45 @@ export function Dashboard() {
       setMissing(m);
       setStatusHistory(h);
     }
+
+    // Load instructor map from classes table
+    const classes = await getClasses(cId);
+    const instrMap = new Map<number, string>();
+    for (const cls of classes) {
+      if (cls.instructor) instrMap.set(cls.id, cls.instructor);
+    }
+    setInstructors(instrMap);
+  }, []);
+
+  // Load hero statuses for ALL children
+  const loadHeroStatuses = useCallback(async (children: ChildRecord[]) => {
+    const statuses: ChildStatus[] = [];
+    for (const child of children) {
+      const scrape = await getLatestScrape(child.id);
+      if (!scrape) {
+        statuses.push({
+          childId: child.id,
+          name: child.displayName,
+          meetingCount: 0,
+          attentionCount: 0,
+          notAssessedCount: 0,
+          attentionClassNames: [],
+        });
+        continue;
+      }
+      const g = await getGradesForScrape(scrape.id);
+      const attnClasses = g.filter((gr) => gr.needsAttention).map((gr) => gr.className);
+      statuses.push({
+        childId: child.id,
+        name: child.displayName,
+        meetingCount: g.filter((gr) => gr.status === "meeting").length,
+        attentionCount: attnClasses.length,
+        notAssessedCount: g.filter((gr) => gr.status === "not_assessed").length,
+        attentionClassNames: attnClasses,
+      });
+    }
+    setHeroStatuses(statuses);
+    return statuses;
   }, []);
 
   useEffect(() => {
@@ -71,24 +122,21 @@ export function Dashboard() {
       .then(async (children) => {
         await log(`dashboard: found ${children.length} children`);
         setAllChildren(children);
-        const first = children[0];
-        if (first) {
-          setChildId(first.id);
-          return loadData(first.id).then(() => {
-            // Auto-refresh if last scrape was >6h ago (Q2)
-            return getLatestScrape(first.id).then((scrape) => {
-              if (!scrape) return;
-              const ageMs = Date.now() - new Date(scrape.runAt).getTime();
-              const sixHours = 6 * 60 * 60 * 1000;
-              if (ageMs > sixHours) {
-                // Will be set after state update, trigger via ref
-              }
-            });
-          });
+        if (children.length === 0) return;
+
+        // Load hero statuses for all children
+        const statuses = await loadHeroStatuses(children);
+
+        // Auto-select: first child needing attention, or first child
+        const attnChild = statuses.find((s) => s.attentionCount > 0);
+        const selectedId = attnChild?.childId ?? children[0]?.id;
+        if (selectedId != null) {
+          setChildId(selectedId);
+          await loadData(selectedId);
         }
       })
       .catch(() => undefined);
-  }, [loadData]);
+  }, [loadData, loadHeroStatuses]);
 
   const handleRefresh = useCallback(async () => {
     if (!childId) return;
@@ -147,12 +195,14 @@ export function Dashboard() {
       await loadData(childId);
       setDetailCache(EMPTY_DETAIL_CACHE);
 
+      // Refresh hero statuses
+      await loadHeroStatuses(children);
+
       // Send OS notification if there are attention items (T27)
       const attentionGrades = await getNeedsAttentionGrades(scrapeId);
       const missingAsns = await getMissingAssignments(scrapeId);
       if (attentionGrades.length > 0 || missingAsns.length > 0) {
-        const childList = await getChildren();
-        const childName = childList.find((c) => c.id === childId)?.displayName ?? "Your child";
+        const childName = children.find((c) => c.id === childId)?.displayName ?? "Your child";
         await notifyNeedsAttention(childName, attentionGrades.length, missingAsns.length);
       }
     } catch (e) {
@@ -168,21 +218,23 @@ export function Dashboard() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [childId, loadData]);
+  }, [childId, loadData, loadHeroStatuses]);
 
-  const handleChildSwitch = useCallback(
+  const handleChildSelect = useCallback(
     (newChildId: number) => {
+      if (newChildId === childId) return;
       void log(`dashboard: switched to childId=${newChildId}`);
       setChildId(newChildId);
       setGrades([]);
       setMissing([]);
       setStatusHistory(EMPTY_HISTORY);
+      setInstructors(EMPTY_INSTRUCTORS);
       setExpandedClass(null);
       setDetailCache(EMPTY_DETAIL_CACHE);
       setLastScrape(null);
       void loadData(newChildId);
     },
-    [loadData],
+    [childId, loadData],
   );
 
   const handleClassClick = useCallback(
@@ -206,7 +258,7 @@ export function Dashboard() {
 
   const goSettings = useCallback(() => router.push("/settings"), [router]);
 
-  if (childId === null) {
+  if (childId === null && allChildren.length === 0) {
     return (
       <div className="flex min-h-screen flex-col">
         <Header lastRunAt={null} onRefresh={() => undefined} onSettings={goSettings} />
@@ -224,18 +276,35 @@ export function Dashboard() {
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         onSettings={goSettings}
-      >
-        <ChildSwitcher items={allChildren} selectedId={childId} onSelect={handleChildSwitch} />
-      </Header>
+      />
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-5 py-5">
+        {/* Layer 1: Status Hero (family-wide) */}
+        <StatusHero statuses={heroStatuses} onChildSelect={handleChildSelect} />
+
+        {/* Child Tabs (hidden if 1 child) */}
+        {childId && (
+          <ChildTabs
+            items={allChildren}
+            selectedId={childId}
+            attentionChildIds={attentionChildIds}
+            onSelect={handleChildSelect}
+          />
+        )}
+
         {error && (
           <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-[13px] text-destructive">
             {error}
           </div>
         )}
+
+        {/* Layer 3: Missing Work (if any) */}
+        <MissingWork missingAssignments={missing} />
+
+        {/* Layer 4: All Classes + Layer 5: Accordion */}
         <GradesTable
           grades={grades}
           history={statusHistory}
+          instructors={instructors}
           expandedClass={expandedClass}
           onClassClick={handleClassClick}
         >
@@ -248,7 +317,6 @@ export function Dashboard() {
             />
           )}
         </GradesTable>
-        <NeedsAttention missingAssignments={missing} />
       </main>
     </div>
   );

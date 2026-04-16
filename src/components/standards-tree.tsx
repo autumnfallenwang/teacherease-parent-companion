@@ -104,9 +104,7 @@ export function StandardsTree({ detail, isLoading }: StandardsTreeProps) {
     return (
       <div className="flex items-center gap-2 px-4 py-4">
         <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <p className="text-[12px] text-muted-foreground">
-          Detailed breakdown available for classes that need attention.
-        </p>
+        <p className="text-[12px] text-muted-foreground">No standards data available.</p>
       </div>
     );
   }

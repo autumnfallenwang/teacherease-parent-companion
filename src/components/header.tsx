@@ -1,5 +1,4 @@
 import { RefreshCw, Settings } from "lucide-react";
-import type { ReactNode } from "react";
 import { Button } from "./ui/button";
 
 interface HeaderProps {
@@ -7,7 +6,6 @@ interface HeaderProps {
   isRefreshing?: boolean;
   onRefresh?: () => void;
   onSettings?: () => void;
-  children?: ReactNode;
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -21,7 +19,7 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export function Header({ lastRunAt, isRefreshing, onRefresh, onSettings, children }: HeaderProps) {
+export function Header({ lastRunAt, isRefreshing, onRefresh, onSettings }: HeaderProps) {
   return (
     <header className="relative border-b bg-card/80 backdrop-blur-sm">
       <div className="flex items-center justify-between px-5 py-3.5">
@@ -44,7 +42,6 @@ export function Header({ lastRunAt, isRefreshing, onRefresh, onSettings, childre
               </p>
             </div>
           </div>
-          {children}
         </div>
         <div className="flex items-center gap-1.5">
           <Button

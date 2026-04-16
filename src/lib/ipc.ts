@@ -511,6 +511,44 @@ export async function getNeedsAttentionGrades(scrapeId: number): Promise<GradeRe
 }
 
 // ---------------------------------------------------------------------------
+// Classes metadata (Q17 v2)
+// ---------------------------------------------------------------------------
+
+export interface ClassRecord {
+  id: number;
+  childId: number;
+  name: string;
+  instructor: string | null;
+  teClassId: number;
+  teCgpid: number;
+}
+
+interface RawClassRow {
+  id: number;
+  child_id: number;
+  name: string;
+  instructor: string | null;
+  te_class_id: number;
+  te_cgpid: number;
+}
+
+export async function getClasses(childId: number): Promise<ClassRecord[]> {
+  const d = await getDb();
+  const rows = await d.select<RawClassRow[]>(
+    "SELECT id, child_id, name, instructor, te_class_id, te_cgpid FROM classes WHERE child_id = $1 ORDER BY name",
+    [childId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    childId: r.child_id,
+    name: r.name,
+    instructor: r.instructor,
+    teClassId: r.te_class_id,
+    teCgpid: r.te_cgpid,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Status history (T33 — grade trend dots per Q16)
 // ---------------------------------------------------------------------------
 
