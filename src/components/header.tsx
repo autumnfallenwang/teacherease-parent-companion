@@ -1,4 +1,5 @@
 import { RefreshCw, Settings } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "./ui/button";
 
 interface HeaderProps {
@@ -6,16 +7,20 @@ interface HeaderProps {
   isRefreshing?: boolean;
   onRefresh?: () => void;
   onSettings?: () => void;
+  children?: ReactNode;
 }
 
-export function Header({ lastRunAt, isRefreshing, onRefresh, onSettings }: HeaderProps) {
+export function Header({ lastRunAt, isRefreshing, onRefresh, onSettings, children }: HeaderProps) {
   return (
     <header className="flex items-center justify-between border-b px-6 py-4">
-      <div>
-        <h1 className="text-xl font-semibold">TeacherEase Parent Companion</h1>
-        <p className="text-sm text-muted-foreground">
-          {lastRunAt ? `Last checked: ${lastRunAt}` : "No data yet"}
-        </p>
+      <div className="flex items-center gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">TeacherEase Parent Companion</h1>
+          <p className="text-sm text-muted-foreground">
+            {lastRunAt ? `Last checked: ${lastRunAt}` : "No data yet"}
+          </p>
+        </div>
+        {children}
       </div>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" disabled={isRefreshing} onClick={onRefresh}>

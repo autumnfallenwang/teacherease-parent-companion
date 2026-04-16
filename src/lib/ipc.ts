@@ -432,5 +432,11 @@ export async function setupAutostart(): Promise<void> {
   }
 }
 
-export { disable as disableAutostart } from "@tauri-apps/plugin-autostart";
-export { isAutostartEnabled };
+export async function disableAutostart(): Promise<void> {
+  const { disable } = await import("@tauri-apps/plugin-autostart");
+  await disable();
+}
+
+export async function checkAutostartEnabled(): Promise<boolean> {
+  return await isAutostartEnabled();
+}

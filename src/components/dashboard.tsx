@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { ChildSwitcher } from "@/components/child-switcher";
 import { EmptyState } from "@/components/empty-state";
 import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
@@ -19,9 +21,11 @@ import {
 } from "@/lib/ipc";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login } from "@/lib/scraper/teacherease";
-import type { ClassDetails } from "@/lib/scraper/types";
+import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
 
 export function Dashboard() {
+  const router = useRouter();
+  const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
   const [childId, setChildId] = useState<number | null>(null);
   const [lastScrape, setLastScrape] = useState<ScrapeRecord | null>(null);
   const [grades, setGrades] = useState<GradeRecord[]>([]);
@@ -43,6 +47,7 @@ export function Dashboard() {
 
     void getChildren()
       .then((children) => {
+        setAllChildren(children);
         const first = children[0];
         if (first) {
           setChildId(first.id);
@@ -118,8 +123,8 @@ export function Dashboard() {
       const attentionGrades = await getNeedsAttentionGrades(scrapeId);
       const missingAsns = await getMissingAssignments(scrapeId);
       if (attentionGrades.length > 0 || missingAsns.length > 0) {
-        const children = await getChildren();
-        const childName = children.find((c) => c.id === childId)?.displayName ?? "Your child";
+        const childList = await getChildren();
+        const childName = childList.find((c) => c.id === childId)?.displayName ?? "Your child";
         await notifyNeedsAttention(childName, attentionGrades.length, missingAsns.length);
       }
     } catch (e) {
@@ -136,10 +141,23 @@ export function Dashboard() {
     }
   }, [childId, loadData]);
 
+  const handleChildSwitch = useCallback(
+    (newChildId: number) => {
+      setChildId(newChildId);
+      setGrades([]);
+      setMissing([]);
+      setLastScrape(null);
+      void loadData(newChildId);
+    },
+    [loadData],
+  );
+
+  const goSettings = useCallback(() => router.push("/settings"), [router]);
+
   if (childId === null) {
     return (
       <div className="flex min-h-screen flex-col">
-        <Header lastRunAt={null} onRefresh={() => undefined} />
+        <Header lastRunAt={null} onRefresh={() => undefined} onSettings={goSettings} />
         <main className="flex flex-1 flex-col">
           <EmptyState />
         </main>
@@ -153,7 +171,10 @@ export function Dashboard() {
         lastRunAt={lastScrape?.runAt ?? null}
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
-      />
+        onSettings={goSettings}
+      >
+        <ChildSwitcher items={allChildren} selectedId={childId} onSelect={handleChildSwitch} />
+      </Header>
       <main className="flex-1 space-y-6 p-6">
         {error && (
           <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">{error}</div>

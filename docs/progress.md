@@ -70,8 +70,8 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 30 | Child switcher in header | Not started | Hidden when only one child |
-| 31 | Settings → Children CRUD page | Not started | Add / edit / remove, reuses wizard add-child form |
+| 30 | Child switcher in header | ✅ Done | `ChildSwitcher` dropdown in header, hidden when ≤1 child. Dashboard loads all children on mount, switching clears grades and re-fetches. |
+| 31 | Settings → Children CRUD page | ✅ Done | `/settings` page with child list (name + email), trash-to-remove, "+ Add another child" form with live login validation. Back arrow to dashboard. |
 
 ## Phase 7: Dashboard UI (full)
 
@@ -119,4 +119,4 @@
 
 ## What's Next
 
-**Phase 5 complete.** Tray icon, notifications, autostart wired. Battery setting deferred (no Tauri API for power status). Next: **Phase 6, Task 30** — Child switcher in header.
+**Phase 6 complete.** Multi-child support: child switcher in header + Settings → Children CRUD page. Next: **Phase 7** — Dashboard UI (full) with trends, charts, drilldowns. This is where `frontend-design` skill comes in.
