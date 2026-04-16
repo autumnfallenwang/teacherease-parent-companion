@@ -44,7 +44,7 @@
 | 16 | Layout + header + empty state | ✅ Done | Tailwind 4 + shadcn/ui bootstrapped. Layout with globals.css + theme vars. `Header` component (title + Refresh button + timestamp). `EmptyState` component (CTA to add child). Dashboard page wired with `"use client"`. `next build` produces static export. |
 | 17 | Current-grades view | ✅ Done | `GradesTable` component with color-coded status badges (Meeting/Needs Attention/Not Assessed). shadcn Table + Badge. |
 | 18 | Needs-attention section | ✅ Done | `NeedsAttention` component showing missing assignments list with class name + due date. shadcn Card. |
-| 19 | Refresh-now wiring | Not started | Frontend button → IPC → scraper → persist → UI refresh. Needs `tauri dev` for testing (IPC only works inside the Tauri webview). |
+| 19 | Refresh-now wiring | ✅ Done (code) | Full pipeline: Refresh button → getChildren → getChildPassword → login → fetch grades → parseGradesOverview → fetch details for needs_attention classes → parseClassDetails → persistScrape → loadData → re-render. Error display + loading state. Needs `pnpm tauri dev` to verify end-to-end. |
 
 ## Phase 4: First-run wizard
 
