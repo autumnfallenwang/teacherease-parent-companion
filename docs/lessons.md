@@ -36,6 +36,16 @@ The **grade pages may still be ASP.NET WebForms** — to verify in T9 when we ac
 2. Don't conflate "the site is ASP.NET" with "every form is WebForms postback." Modern ASP.NET apps mix WebForms, MVC, and plain HTML forms on different pages of the same site.
 3. When porting from a Playwright-based reference, the reference tells you almost nothing about the HTTP shape — Playwright abstracts away the form mechanics entirely. Treat the Python code as documentation of *intent* (what to scrape, what to parse), not *mechanism* (how to send it over the wire).
 
+## 2026-04-16 — tauri-plugin-sql uses appConfigDir, not appDataDir
+
+**Context:** Seed script writes dummy data to SQLite, but the dashboard shows empty state — no children found.
+
+**Mistake:** Assumed `sqlite:app.db` in tauri-plugin-sql resolves to `appDataDir` (`~/.local/share/<id>/`). Wrote the seed script to that path.
+
+**Correction:** `tauri-plugin-sql` stores the DB in `appConfigDir` (`~/.config/<id>/` on Linux). Two `app.db` files existed — one seeded (wrong path), one used by the app (empty). The logging system (Q14) revealed this: startup log showed `data dir: ~/.local/share/...` but the sqlx queries showed DB operations in `~/.config/...`.
+
+**How to avoid next time:** Always check the actual path by reading the startup log or using `find ~ -name "app.db" -path "*teacherease*"`. Don't assume which Tauri directory a plugin uses — different plugins use different base directories.
+
 ## 2026-04-15 — WebKitGTK on Linux needs GPU workarounds for Tauri dev
 
 **Context:** First `pnpm tauri dev` run — window opens but renders completely white.

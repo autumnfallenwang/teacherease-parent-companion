@@ -20,7 +20,11 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 
 const APP_ID = "dev.autumnfallenwang.teacherease-parent-companion";
-const DB_PATH = join(homedir(), ".local/share", APP_ID, "app.db");
+// tauri-plugin-sql uses appConfigDir (~/.config/ on Linux), NOT appDataDir (~/.local/share/)
+const DB_PATH =
+  process.env.XDG_CONFIG_HOME
+    ? join(process.env.XDG_CONFIG_HOME, APP_ID, "app.db")
+    : join(homedir(), ".config", APP_ID, "app.db");
 const RESET = process.argv.includes("--reset");
 
 const MIGRATION_SQL = `
