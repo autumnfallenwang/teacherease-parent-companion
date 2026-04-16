@@ -32,7 +32,7 @@ A cross-platform desktop app that keeps track of your child's grades and homewor
 
 This app is designed to be a respectful, lightweight client for TeacherEase:
 
-- **Rate-limited by design.** The app makes at most 4 automated checks per day (every 6 hours) plus any manual refreshes. Each check consists of a small number of page requests (1 login + 1 grades overview + detail pages only for classes that need attention). This is equivalent to a parent opening the portal a few times a day.
+- **Lightweight.** Each check consists of a small number of page requests (1 login + 1 grades overview + detail pages only for classes that need attention). Equivalent to a parent opening the portal in a browser.
 - **No bulk scraping.** The app only accesses data for children whose credentials the parent has explicitly provided. It does not enumerate other students, classes, or schools.
 - **Identifiable.** The app sends a descriptive User-Agent header so the TeacherEase team can identify it and contact the developer if needed.
 - **Open source.** The complete source code is available for inspection. There is no hidden behavior.

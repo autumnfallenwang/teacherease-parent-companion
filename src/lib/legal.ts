@@ -30,7 +30,7 @@ export const PRIVACY_NOTICE = `All data stays on your computer:
 
 export const RESPONSIBLE_USE = `This app is designed to be a respectful, lightweight client:
 
-• Rate-limited by design — at most 4 automated checks per day.
 • Only accesses data for children whose credentials you have provided.
+• Does not enumerate other students, classes, or schools.
 • Sends an identifiable User-Agent header so TeacherEase can contact the developer if needed.
 • Fully open source — the complete source code is available for inspection.`;

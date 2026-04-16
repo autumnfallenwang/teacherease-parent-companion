@@ -26,8 +26,6 @@ const LOGIN_POST_PATH = "/app/Login/Login";
 export const USER_AGENT =
   "TeacherEaseParentCompanion/0.1.0 (+https://github.com/autumnfallenwang/teacherease-parent-companion)";
 
-export const MIN_SCRAPE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes hard floor
-
 // Credential field names — simple, not WebForms-style.
 const FIELD_EMAIL = "email";
 const FIELD_PASSWORD = "password";
