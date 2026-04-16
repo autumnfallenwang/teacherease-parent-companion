@@ -34,6 +34,15 @@ Parser tests in `scraper/teacherease.test.ts` assert the exact set of hidden fie
 
 Not included: `homework_page.html` (we derive missing assignments from class detail pages per T9 proposal), Python runtime logs, Art 7 / Mathematics 7 / Physical Education 7 detail pages (the Python scraper only fetched details for classes with `needs_attention`, so we have 6 detail pages for an 8-class overview — intentional).
 
+## Important: grades-page.html and full-data.json are from different scrapes
+
+`grades-page.html` was captured at a different time than `full-data.json`. They show different classes and different statuses:
+
+- **grades-page.html** (8 classes): Mathematics 7, Computer Science 7, Music 7, French 7, Science 7, Social Studies 7, English 7, Physical Education 7. Summary: 6 meeting, 1 needs_attention, 1 not_assessed.
+- **full-data.json** (8 classes): Mathematics 7, French 7, Science 7, Social Studies 7, English 7, Art 7, Physical Education 7, Health Education 7. Summary: 4 meeting, 3 needs_attention, 1 not_assessed.
+
+The class detail pages (`classes/*.html`) ARE from the same scrape as `full-data.json` — they match the `detailed_classes` section. Parser tests for overview (T9) assert against `grades-page.html` directly, NOT against `full-data.json`. Parser tests for class details (T10) can validate against `full-data.json`'s `detailed_classes`.
+
 ## Dummy values (match these in tests and code)
 
 Per `CLAUDE.md` "Security constraints" and design-plan Q13, all committed code uses these dummy values. If you write parser tests against these fixtures, assert on these strings:

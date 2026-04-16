@@ -35,3 +35,32 @@ export class LoginError extends Error {
     this.name = "LoginError";
   }
 }
+
+// ---------------------------------------------------------------------------
+// Grades overview (T9)
+// ---------------------------------------------------------------------------
+
+export interface ClassOverview {
+  readonly name: string;
+  readonly instructor: string;
+  readonly status: "meeting" | "needs_attention" | "not_assessed";
+  readonly statusCode: number;
+  readonly needsAttention: boolean;
+  readonly targetsMeeting: number;
+  readonly targetsNotMeeting: number;
+  readonly totalTargets: number;
+  readonly classId: number;
+  readonly cgpId: number;
+}
+
+export interface GradesOverview {
+  readonly classes: readonly ClassOverview[];
+  readonly summary: {
+    readonly totalClasses: number;
+    readonly meetingExpectations: number;
+    readonly needsAttention: number;
+    readonly notAssessed: number;
+    readonly totalTargetsMeeting: number;
+    readonly totalTargetsNotMeeting: number;
+  };
+}
