@@ -1,5 +1,8 @@
+mod json_log;
 mod keychain;
 mod migrations;
+
+use std::path::PathBuf;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -8,32 +11,28 @@ use tauri::{
 };
 use tauri_plugin_log::{Target, TargetKind};
 
+fn log_dir(app: &tauri::App) -> PathBuf {
+    app.path()
+        .app_log_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let log_level = if cfg!(debug_assertions) {
+    let is_debug = cfg!(debug_assertions);
+    let log_level = if is_debug {
         log::LevelFilter::Debug
     } else {
         log::LevelFilter::Info
     };
 
-    let mut log_targets = vec![
-        Target::new(TargetKind::LogDir {
-            file_name: Some("app.log".into()),
-        }),
-        Target::new(TargetKind::Webview),
-    ];
-
-    if cfg!(debug_assertions) {
-        log_targets.push(Target::new(TargetKind::Stdout));
-    }
-
     tauri::Builder::default()
+        // tauri-plugin-log: still needed for the JS → Rust IPC bridge
+        // (attachConsole, info/warn/error from TS). Targets: webview only.
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log_level)
-                .targets(log_targets)
-                .max_file_size(2_000_000)
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                .targets(vec![Target::new(TargetKind::Webview)])
                 .build(),
         )
         .plugin(
@@ -52,32 +51,34 @@ pub fn run() {
             keychain::keychain_get,
             keychain::keychain_delete,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            // JSON file logger — ELK-ready, one line per event
+            let json_path = log_dir(app).join("app.log");
+            let json_logger = json_log::JsonFileLogger::new(
+                json_path.clone(),
+                if is_debug {
+                    log::Level::Debug
+                } else {
+                    log::Level::Info
+                },
+                is_debug, // stdout in dev only
+            );
+            // Set as the global logger (log crate). tauri-plugin-log
+            // handles the webview bridge separately.
+            if log::set_boxed_logger(Box::new(json_logger)).is_ok() {
+                log::set_max_level(log_level);
+            }
+
             let app_data = app
                 .path()
                 .app_data_dir()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| "unknown".to_string());
-            let app_log = app
-                .path()
-                .app_log_dir()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|_| "unknown".to_string());
 
-            log::info!(
-                "TeacherEase Parent Companion v{}",
-                env!("CARGO_PKG_VERSION")
-            );
-            log::info!("data dir: {}", app_data);
-            log::info!("log dir: {}", app_log);
-            log::info!(
-                "build: {}",
-                if cfg!(debug_assertions) {
-                    "debug"
-                } else {
-                    "release"
-                }
-            );
+            log::info!("app_version={}", env!("CARGO_PKG_VERSION"));
+            log::info!("data_dir={}", app_data);
+            log::info!("log_file={}", json_path.display());
+            log::info!("build={}", if is_debug { "debug" } else { "release" });
 
             // System tray: Open / Refresh / Quit
             let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;

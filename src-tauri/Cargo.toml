@@ -27,3 +27,4 @@ tauri-plugin-sql = { version = "2.4.0", features = ["sqlite"] }
 keyring = "3"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-autostart = "2.5.1"
+chrono = "0.4.44"
