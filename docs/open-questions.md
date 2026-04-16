@@ -177,3 +177,21 @@ grades (simplified snapshot per class per scrape)
 **Decided (2026-04-16).** Locked as Q17 in design-plan.md. Implementation tracked as Phase 7b (tasks D1–D9) in progress.md.
 
 Decision: fetch all detail pages + normalize with `classes` + `standards` tables. No junction table — many-to-many stays in raw_payloads JSON. See Q17 for full schema.
+
+---
+
+## Parser portability (single-student risk)
+
+Scraper and parser verified against one student (Clarke Middle School, Grade 7, 8 classes). TeacherEase is a single SaaS product so HTML structure is likely shared across schools, but some variations are untested:
+
+- **Traditional grading mode** — `TraditionalGradeData.Score` / `.LetterGrade` are null for this school. Other schools may use traditional grades instead of standards-based. We don't parse this path.
+- **Different grading scales** — We've seen M/P/B/NY and PS/FL. Others possible (A-F, percentages). Raw score strings are stored, so display works. But `isMeeting` logic assumes M=meeting.
+- **HTML structure changes** — Already caught one: `tablesaw-cell-content` span wrapper present in old fixtures but absent in live pages. Fixed with fallback. More could exist.
+
+Mitigations in place:
+- Defensive parsing (null-safe selectors, graceful fallbacks, variable tree depth)
+- `raw_payloads` stores full JSON — parser bugs can be fixed and data re-rendered
+- Scrape failures surface as `parser_error` status, not silent data loss
+- Lessons.md rule: "Never guess server protocol shapes — capture and inspect"
+
+Status: Accepted risk. Fix with real data when a second student is added, don't speculate.

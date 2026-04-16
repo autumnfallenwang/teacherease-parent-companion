@@ -45,7 +45,7 @@ export function WizardDone({ child, onFinish }: WizardDoneProps) {
         const overview = parseGradesOverview(await gradesRes.text());
 
         const classDetails: ClassDetails[] = [];
-        for (const cls of overview.classes.filter((c) => c.needsAttention)) {
+        for (const cls of overview.classes) {
           const url = new URL(
             `/common/StudentProgressStandardsDetails.aspx?ClassID=${cls.classId}&CGPID=${cls.cgpId}`,
             session.baseUrl,

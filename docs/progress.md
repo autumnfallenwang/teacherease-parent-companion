@@ -95,13 +95,13 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| D1 | v2 migration script | Not started | Add `classes` + `standards` tables, alter `grades` + `assignments` (add columns, backfill class_id FK). Migration v2 in `migrations.rs`. |
-| D2 | Scraper: fetch all detail pages | Not started | Change `dashboard.tsx` filter from `c.needsAttention` to all classes. ~8 extra HTTP requests per scrape. |
-| D3 | Parser: extract TestNameID | Not started | Parse `te_assignment_id` from assignment link URLs in `parseClassDetails()`. Add to `Assignment` type. |
-| D4 | Persistence: rewrite `persistScrape()` | Not started | Upsert `classes`, insert `standards` tree, deduplicate `assignments` by `te_assignment_id`, populate progress numbers in `grades`. |
-| D5 | Read queries: update to use class_id FK | Not started | Update `getGradesForScrape()`, `getMissingAssignments()`, `getAllStatusHistory()`, `getClassDetail()` to join on `class_id` instead of `class_name`. |
+| D1 | v2 migration script | ✅ Done | Migration v2 in `migrations.rs`: `classes` + `standards` tables, ALTER `grades` + `assignments` with new columns + indexes. |
+| D2 | Scraper: fetch all detail pages | ✅ Done | Removed `.filter(c => c.needsAttention)` in dashboard.tsx + wizard-done.tsx. All 8 classes fetched. |
+| D3 | Parser: extract TestNameID | ✅ Done | `testNameId` added to `Assignment` type. Extracted from `data-testnameid` attr on `<tr>`, fallback to href URL. Fixed `tablesaw-cell-content` span fallback (live pages don't have it). |
+| D4 | Persistence: rewrite `persistScrape()` | ✅ Done | `upsertClasses()` + `persistStandards()` (recursive) + `persistAssignmentsDeduplicated()` (dedup by testNameId). Writes both v1 legacy columns + v2 new columns. |
+| D5 | Read queries: update to use class_id FK | ✅ Done | `GradeRecord` + `AssignmentRecord` types expanded. `mapGradeRow()` / `mapAssignmentRow()` helpers. `getMissingAssignments()` queries both `is_missing=1` and `status='missing'` for compat. |
 | D6 | Seed script: update for v2 schema | Not started | Generate proper classes, standards, assignments with new columns. |
-| D7 | E2E validation with real credentials | Not started | `sandbox/` — login → fetch all 8 detail pages → persist to v2 schema → verify all tables populated correctly. Validate standards tree, assignment dedup, progress numbers, class metadata against live portal. Must pass before any UI work. |
+| D7 | E2E validation with real credentials | ✅ Done | `tests/integration/v2-persistence-live.integration.test.ts` — login → fetch all 8 detail pages → persist to v2 DB → 12 assertions passed. Plus `sandbox/poc-v2-persistence.ts` (11 checks). Foundation validated. |
 | D8 | Dashboard: progress bars | Not started | Show targets_meeting / total on each class row. |
 | D9 | Dashboard: instructor display | Not started | Show instructor name in class row or accordion. |
 | D10 | Standard-level trend tracking | Not started | Query standard scores across scrapes, display in accordion drilldown. |
@@ -144,4 +144,4 @@
 
 ## What's Next
 
-**Phase 7 complete.** Q17 locked — data model v2 with full normalization. Next: Phase 7b — D1 (v2 migration script).
+**D1–D5 + D7 done.** v2 data model fully validated against live portal (12 assertions, 2.77s). Foundation solid. Next: D6 (seed script), then D8–D10 (UI: progress bars, instructor, standard trends).

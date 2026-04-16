@@ -134,27 +134,46 @@ function parseAssignmentRow(doc: Doc, row: El): Assignment | null {
   const cells = row.find("td");
   if (cells.length < 4) return null;
 
-  const cell = (i: number) => doc(cells[i]).find("span.tablesaw-cell-content");
+  // Cell content: try tablesaw-cell-content span first, fall back to td itself.
+  // Live pages may or may not have the responsive wrapper span.
+  const cell = (i: number) => {
+    const td = doc(cells[i]);
+    const span = td.find("span.tablesaw-cell-content");
+    return span.length > 0 ? span : td;
+  };
 
   const dueDate = cell(0).text().trim();
-  const nameSpan = cell(1);
-  const nameLink = nameSpan.find("a");
-  const name = nameLink.text().trim() || nameSpan.text().trim();
+  const nameCell = cell(1);
+  const nameLink = nameCell.find("a");
+  const name = nameLink.text().trim() || nameCell.text().trim();
   const weight = cell(2).text().trim();
+
+  // Extract TestNameID: prefer data-testnameid attr on <tr>, fall back to link href
+  let testNameId = 0;
+  const dataAttr = row.attr("data-testnameid");
+  if (dataAttr) {
+    testNameId = Number.parseInt(dataAttr, 10) || 0;
+  } else {
+    const href = nameLink.attr("href") ?? "";
+    const tnMatch = href.match(/TestNameID=(\d+)/);
+    if (tnMatch?.[1]) {
+      testNameId = Number.parseInt(tnMatch[1], 10);
+    }
+  }
 
   let grade = "";
   let gradeNumeric = 0;
   let gradeLetter = "";
   let isMissing = false;
 
-  const gradeSpan = cell(3);
-  const statusImg = gradeSpan.find("img[title]");
+  const gradeCell = cell(3);
+  const statusImg = gradeCell.find("img[title]");
   if (statusImg.length > 0) {
     const title = statusImg.attr("title") ?? "";
     grade = title;
     if (title === "Missing") isMissing = true;
   } else {
-    const gradeText = gradeSpan.text().trim();
+    const gradeText = gradeCell.text().trim();
     grade = gradeText;
     if (gradeText.includes("=")) {
       const [numStr, letter] = gradeText.split("=", 2) as [string, string];
@@ -166,10 +185,20 @@ function parseAssignmentRow(doc: Doc, row: El): Assignment | null {
   if (nameLink.attr("style")?.includes("color:red")) isMissing = true;
   if (row.attr("data-bmissing") === "1") isMissing = true;
 
-  const feedback =
-    cells.length > 4 ? doc(cells[4]).find("span.tablesaw-cell-content").text().trim() : "";
+  const feedbackCell = cells.length > 4 ? cell(4) : null;
+  const feedback = feedbackCell ? feedbackCell.text().trim() : "";
 
-  return { dueDate, name, weight, grade, gradeNumeric, gradeLetter, isMissing, feedback };
+  return {
+    testNameId,
+    dueDate,
+    name,
+    weight,
+    grade,
+    gradeNumeric,
+    gradeLetter,
+    isMissing,
+    feedback,
+  };
 }
 
 function parseStandardItem(doc: Doc, element: El): Standard | null {

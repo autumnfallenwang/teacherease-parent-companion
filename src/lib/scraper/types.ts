@@ -85,6 +85,7 @@ export interface GradesOverview {
 // ---------------------------------------------------------------------------
 
 export interface Assignment {
+  readonly testNameId: number;
   readonly dueDate: string;
   readonly name: string;
   readonly weight: string;

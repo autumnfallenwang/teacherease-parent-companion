@@ -16,7 +16,13 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import Database from "@tauri-apps/plugin-sql";
-import type { ChildRecord, ClassDetails, GradesOverview, Standard } from "./scraper/types";
+import type {
+  ChildRecord,
+  ClassDetails,
+  ClassOverview,
+  GradesOverview,
+  Standard,
+} from "./scraper/types";
 
 // ---------------------------------------------------------------------------
 // DB singleton
@@ -168,12 +174,14 @@ export interface ScrapeResult {
 }
 
 /**
- * Persist a scrape run and its results. Inserts into scrapes, raw_payloads,
- * grades, and assignments tables in one batch.
+ * Persist a scrape run and its results (v2 schema — Q17).
+ * Upserts classes, inserts grades with progress, standards tree,
+ * and deduplicated assignments.
  */
 export async function persistScrape(result: ScrapeResult): Promise<number> {
   const d = await getDb();
 
+  // 1. Insert scrape record
   const scrapeRes = await d.execute(
     `INSERT INTO scrapes (child_id, status, duration_ms, error_message)
      VALUES ($1, $2, $3, $4)`,
@@ -184,6 +192,7 @@ export async function persistScrape(result: ScrapeResult): Promise<number> {
     throw new Error("INSERT scrape returned no lastInsertId");
   }
 
+  // 2. Raw payload (full JSON for drilldown)
   if (result.rawPayload) {
     await d.execute("INSERT INTO raw_payloads (scrape_id, json) VALUES ($1, $2)", [
       scrapeId,
@@ -191,19 +200,47 @@ export async function persistScrape(result: ScrapeResult): Promise<number> {
     ]);
   }
 
+  // 3. Upsert classes + insert grades with progress
   if (result.overview) {
+    const classIdMap = await upsertClasses(d, result.childId, result.overview.classes);
+
     for (const cls of result.overview.classes) {
+      const classId = classIdMap.get(cls.classId);
+      const notAssessed = cls.totalTargets - cls.targetsMeeting - cls.targetsNotMeeting;
       await d.execute(
-        `INSERT INTO grades (scrape_id, class_name, current_grade, status, needs_attention)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [scrapeId, cls.name, `${cls.statusCode}`, cls.status, cls.needsAttention ? 1 : 0],
+        `INSERT INTO grades (scrape_id, class_id, class_name, current_grade, status, needs_attention,
+                             targets_meeting, targets_not_meeting, targets_not_assessed)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          scrapeId,
+          classId ?? null,
+          cls.name,
+          `${cls.statusCode}`,
+          cls.status,
+          cls.needsAttention ? 1 : 0,
+          cls.targetsMeeting,
+          cls.targetsNotMeeting,
+          notAssessed,
+        ],
       );
     }
-  }
 
-  if (result.classDetails) {
-    for (const detail of result.classDetails) {
-      await persistAssignments(d, scrapeId, detail);
+    // 4. Insert standards tree + deduplicated assignments per class detail
+    if (result.classDetails) {
+      for (const detail of result.classDetails) {
+        const cls = result.overview.classes.find((c) => c.name === detail.className);
+        const classId = cls ? classIdMap.get(cls.classId) : undefined;
+        if (!classId) continue;
+
+        await persistStandards(d, scrapeId, classId, detail.standards, null);
+        await persistAssignmentsDeduplicated(
+          d,
+          scrapeId,
+          classId,
+          detail.className,
+          detail.standards,
+        );
+      }
     }
   }
 
@@ -213,41 +250,106 @@ export async function persistScrape(result: ScrapeResult): Promise<number> {
   return scrapeId;
 }
 
-async function persistAssignments(
+async function upsertClasses(
   d: Database,
-  scrapeId: number,
-  detail: ClassDetails,
-): Promise<void> {
-  for (const standard of detail.standards) {
-    await persistStandardAssignments(d, scrapeId, detail.className, standard);
+  childId: number,
+  classes: readonly ClassOverview[],
+): Promise<Map<number, number>> {
+  const classIdMap = new Map<number, number>();
+
+  for (const cls of classes) {
+    await d.execute(
+      `INSERT INTO classes (child_id, te_class_id, te_cgpid, name, instructor, updated_at)
+       VALUES ($1, $2, $3, $4, $5, datetime('now'))
+       ON CONFLICT(child_id, te_class_id) DO UPDATE SET
+         te_cgpid = $3, name = $4, instructor = $5, updated_at = datetime('now')`,
+      [childId, cls.classId, cls.cgpId, cls.name, cls.instructor],
+    );
+    const rows = await d.select<Array<{ id: number }>>(
+      "SELECT id FROM classes WHERE child_id = $1 AND te_class_id = $2",
+      [childId, cls.classId],
+    );
+    const row = rows[0];
+    if (row) classIdMap.set(cls.classId, row.id);
   }
+
+  return classIdMap;
 }
 
-async function persistStandardAssignments(
+async function persistStandards(
   d: Database,
   scrapeId: number,
-  className: string,
-  standard: Standard,
+  classId: number,
+  standards: readonly Standard[],
+  parentId: number | null,
 ): Promise<void> {
-  for (const asn of standard.assignments) {
-    await d.execute(
-      `INSERT INTO assignments (scrape_id, class_name, assignment_name, score, max_score, status, due_date)
+  for (const std of standards) {
+    const res = await d.execute(
+      `INSERT INTO standards (scrape_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         scrapeId,
-        className,
-        asn.name,
-        asn.grade,
-        null,
-        asn.isMissing ? "missing" : asn.gradeLetter || null,
-        asn.dueDate || null,
+        classId,
+        parentId,
+        std.name,
+        std.scoreNumeric || null,
+        std.scoreLetter || null,
+        std.isMeeting ? 1 : 0,
       ],
     );
+    const stdId = res.lastInsertId;
+    if (std.children.length > 0 && stdId != null) {
+      await persistStandards(d, scrapeId, classId, std.children, stdId);
+    }
+  }
+}
+
+async function persistAssignmentsDeduplicated(
+  d: Database,
+  scrapeId: number,
+  classId: number,
+  className: string,
+  standards: readonly Standard[],
+): Promise<void> {
+  const seen = new Set<number>();
+
+  async function walk(stds: readonly Standard[]): Promise<void> {
+    for (const std of stds) {
+      for (const asn of std.assignments) {
+        // Deduplicate: same assignment can appear under multiple standards
+        if (asn.testNameId > 0 && seen.has(asn.testNameId)) continue;
+        if (asn.testNameId > 0) seen.add(asn.testNameId);
+
+        await d.execute(
+          `INSERT INTO assignments (scrape_id, class_id, class_name, assignment_name,
+                                    te_assignment_id, name, score, score_numeric, score_letter,
+                                    weight, is_missing, due_date, feedback,
+                                    max_score, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          [
+            scrapeId,
+            classId,
+            className,
+            asn.name,
+            asn.testNameId || null,
+            asn.name,
+            asn.grade || null,
+            asn.gradeNumeric || null,
+            asn.gradeLetter || null,
+            asn.weight ? Number.parseInt(asn.weight, 10) || null : null,
+            asn.isMissing ? 1 : 0,
+            asn.dueDate || null,
+            asn.feedback || null,
+            null, // max_score (legacy)
+            asn.isMissing ? "missing" : asn.gradeLetter || null, // status (legacy)
+          ],
+        );
+      }
+      if (std.children.length > 0) await walk(std.children);
+    }
   }
 
-  for (const child of standard.children) {
-    await persistStandardAssignments(d, scrapeId, className, child);
-  }
+  await walk(standards);
 }
 
 // ---------------------------------------------------------------------------
@@ -266,21 +368,30 @@ export interface ScrapeRecord {
 export interface GradeRecord {
   id: number;
   scrapeId: number;
+  classId: number | null;
   className: string;
   currentGrade: string | null;
   status: string | null;
   needsAttention: boolean;
+  targetsMeeting: number | null;
+  targetsNotMeeting: number | null;
+  targetsNotAssessed: number | null;
 }
 
 export interface AssignmentRecord {
   id: number;
   scrapeId: number;
+  classId: number | null;
   className: string;
   assignmentName: string;
   score: string | null;
-  maxScore: string | null;
-  status: string | null;
+  scoreNumeric: number | null;
+  scoreLetter: string | null;
+  weight: number | null;
+  isMissing: boolean;
   dueDate: string | null;
+  feedback: string | null;
+  teAssignmentId: number | null;
 }
 
 interface RawScrapeRow {
@@ -295,21 +406,31 @@ interface RawScrapeRow {
 interface RawGradeRow {
   id: number;
   scrape_id: number;
+  class_id: number | null;
   class_name: string;
   current_grade: string | null;
   status: string | null;
   needs_attention: number;
+  targets_meeting: number | null;
+  targets_not_meeting: number | null;
+  targets_not_assessed: number | null;
 }
 
 interface RawAssignmentRow {
   id: number;
   scrape_id: number;
+  class_id: number | null;
   class_name: string;
   assignment_name: string;
+  te_assignment_id: number | null;
+  name: string;
   score: string | null;
-  max_score: string | null;
-  status: string | null;
+  score_numeric: number | null;
+  score_letter: string | null;
+  weight: number | null;
+  is_missing: number;
   due_date: string | null;
+  feedback: string | null;
 }
 
 export async function getLatestScrape(childId: number): Promise<ScrapeRecord | null> {
@@ -330,19 +451,45 @@ export async function getLatestScrape(childId: number): Promise<ScrapeRecord | n
   };
 }
 
+function mapGradeRow(r: RawGradeRow): GradeRecord {
+  return {
+    id: r.id,
+    scrapeId: r.scrape_id,
+    classId: r.class_id,
+    className: r.class_name,
+    currentGrade: r.current_grade,
+    status: r.status,
+    needsAttention: r.needs_attention === 1,
+    targetsMeeting: r.targets_meeting,
+    targetsNotMeeting: r.targets_not_meeting,
+    targetsNotAssessed: r.targets_not_assessed,
+  };
+}
+
+function mapAssignmentRow(r: RawAssignmentRow): AssignmentRecord {
+  return {
+    id: r.id,
+    scrapeId: r.scrape_id,
+    classId: r.class_id,
+    className: r.class_name,
+    assignmentName: r.assignment_name ?? r.name,
+    score: r.score,
+    scoreNumeric: r.score_numeric,
+    scoreLetter: r.score_letter,
+    weight: r.weight,
+    isMissing: r.is_missing === 1,
+    dueDate: r.due_date,
+    feedback: r.feedback,
+    teAssignmentId: r.te_assignment_id,
+  };
+}
+
 export async function getGradesForScrape(scrapeId: number): Promise<GradeRecord[]> {
   const d = await getDb();
   const rows = await d.select<RawGradeRow[]>("SELECT * FROM grades WHERE scrape_id = $1", [
     scrapeId,
   ]);
-  return rows.map((r) => ({
-    id: r.id,
-    scrapeId: r.scrape_id,
-    className: r.class_name,
-    currentGrade: r.current_grade,
-    status: r.status,
-    needsAttention: r.needs_attention === 1,
-  }));
+  return rows.map(mapGradeRow);
 }
 
 export async function getAssignmentsForScrape(scrapeId: number): Promise<AssignmentRecord[]> {
@@ -351,16 +498,7 @@ export async function getAssignmentsForScrape(scrapeId: number): Promise<Assignm
     "SELECT * FROM assignments WHERE scrape_id = $1",
     [scrapeId],
   );
-  return rows.map((r) => ({
-    id: r.id,
-    scrapeId: r.scrape_id,
-    className: r.class_name,
-    assignmentName: r.assignment_name,
-    score: r.score,
-    maxScore: r.max_score,
-    status: r.status,
-    dueDate: r.due_date,
-  }));
+  return rows.map(mapAssignmentRow);
 }
 
 export async function getNeedsAttentionGrades(scrapeId: number): Promise<GradeRecord[]> {
@@ -369,14 +507,7 @@ export async function getNeedsAttentionGrades(scrapeId: number): Promise<GradeRe
     "SELECT * FROM grades WHERE scrape_id = $1 AND needs_attention = 1",
     [scrapeId],
   );
-  return rows.map((r) => ({
-    id: r.id,
-    scrapeId: r.scrape_id,
-    className: r.class_name,
-    currentGrade: r.current_grade,
-    status: r.status,
-    needsAttention: true,
-  }));
+  return rows.map(mapGradeRow);
 }
 
 // ---------------------------------------------------------------------------
@@ -471,20 +602,12 @@ export async function getClassDetail(
 
 export async function getMissingAssignments(scrapeId: number): Promise<AssignmentRecord[]> {
   const d = await getDb();
+  // Query both old (status='missing') and new (is_missing=1) columns for compat
   const rows = await d.select<RawAssignmentRow[]>(
-    "SELECT * FROM assignments WHERE scrape_id = $1 AND status = 'missing'",
+    "SELECT * FROM assignments WHERE scrape_id = $1 AND (is_missing = 1 OR status = 'missing')",
     [scrapeId],
   );
-  return rows.map((r) => ({
-    id: r.id,
-    scrapeId: r.scrape_id,
-    className: r.class_name,
-    assignmentName: r.assignment_name,
-    score: r.score,
-    maxScore: r.max_score,
-    status: r.status,
-    dueDate: r.due_date,
-  }));
+  return rows.map(mapAssignmentRow);
 }
 
 // ---------------------------------------------------------------------------

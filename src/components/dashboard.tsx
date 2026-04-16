@@ -120,7 +120,7 @@ export function Dashboard() {
       const overview = parseGradesOverview(gradesHtml);
 
       const classDetails: ClassDetails[] = [];
-      for (const cls of overview.classes.filter((c) => c.needsAttention)) {
+      for (const cls of overview.classes) {
         const detailUrl = new URL(
           `/common/StudentProgressStandardsDetails.aspx?ClassID=${cls.classId}&CGPID=${cls.cgpId}`,
           session.baseUrl,
