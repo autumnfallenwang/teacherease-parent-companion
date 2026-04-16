@@ -15,5 +15,17 @@ const SettingsChildren = dynamic(
 );
 
 export default function SettingsPage() {
-  return <SettingsChildren />;
+  return (
+    <div>
+      <SettingsChildren />
+      <div className="mx-auto max-w-lg border-t px-5 py-4">
+        <a
+          href="/about"
+          className="text-[13px] text-muted-foreground underline-offset-4 hover:underline"
+        >
+          About &amp; Legal
+        </a>
+      </div>
+    </div>
+  );
 }

@@ -58,18 +58,9 @@ This project is a rewrite of [`teacherease_parents_helper`](https://github.com/a
 
 ## Disclaimer
 
-This is an unofficial, community-built tool. It is **not** affiliated with, endorsed by, or connected to TeacherEase, Common Goal Systems Inc., or any school district.
+This is an unofficial tool — **not** affiliated with TeacherEase or Common Goal Systems Inc. Full disclaimer, privacy notice, and responsible-use policy: **[DISCLAIMER.md](DISCLAIMER.md)**.
 
-This software accesses TeacherEase using credentials that **you** provide for **your own** parent account. It exercises the same access you have when logging in through a web browser — no additional permissions, no security bypasses, no access to other users' data.
-
-By using this software, you acknowledge that:
-
-- You are the authorized parent/guardian for the TeacherEase account(s) you configure.
-- You accept responsibility for your use of this tool in accordance with your school's policies and TeacherEase's Terms of Service.
-- The developer provides this software "as is" with no warranty of any kind (see [LICENSE](LICENSE)).
-- The developer is not responsible for any consequences of using this software, including but not limited to account restrictions that may be imposed by TeacherEase or your school.
-
-If you are a TeacherEase representative and have questions or concerns about this tool, please open a GitHub issue or contact the maintainer directly.
+The same text is shown inside the app (wizard welcome screen + Settings → About). The single source of truth for all legal text is [`src/lib/legal.ts`](src/lib/legal.ts).
 
 ## License
 

@@ -1,5 +1,6 @@
 import { ArrowRight, GraduationCap, Shield, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DISCLAIMER_SHORT } from "@/lib/legal";
 
 interface WizardWelcomeProps {
   onNext: () => void;
@@ -61,6 +62,11 @@ export function WizardWelcome({ onNext, onSkip }: WizardWelcomeProps) {
             Skip setup
           </button>
         </div>
+
+        <p className="mt-4 text-center text-[10px] leading-relaxed text-muted-foreground/70">
+          {DISCLAIMER_SHORT} By continuing, you agree to use this tool in accordance with your
+          school&apos;s policies.
+        </p>
       </div>
     </div>
   );
