@@ -6,10 +6,34 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+use tauri_plugin_log::{Target, TargetKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let log_level = if cfg!(debug_assertions) {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Info
+    };
+
+    let mut log_targets = vec![
+        Target::new(TargetKind::LogDir { file_name: None }),
+        Target::new(TargetKind::Webview),
+    ];
+
+    if cfg!(debug_assertions) {
+        log_targets.push(Target::new(TargetKind::Stdout));
+    }
+
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log_level)
+                .targets(log_targets)
+                .max_file_size(2_000_000)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                .build(),
+        )
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:app.db", migrations::initial())
@@ -27,13 +51,31 @@ pub fn run() {
             keychain::keychain_delete,
         ])
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            let app_data = app
+                .path()
+                .app_data_dir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+            let app_log = app
+                .path()
+                .app_log_dir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+
+            log::info!(
+                "TeacherEase Parent Companion v{}",
+                env!("CARGO_PKG_VERSION")
+            );
+            log::info!("data dir: {}", app_data);
+            log::info!("log dir: {}", app_log);
+            log::info!(
+                "build: {}",
+                if cfg!(debug_assertions) {
+                    "debug"
+                } else {
+                    "release"
+                }
+            );
 
             // System tray: Open / Refresh / Quit
             let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;

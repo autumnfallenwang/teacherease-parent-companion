@@ -139,7 +139,8 @@
               "@tauri-apps/plugin-notification": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
               "@tauri-apps/plugin-autostart": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
               "@tauri-apps/plugin-updater": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
-              "@tauri-apps/plugin-store": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable."
+              "@tauri-apps/plugin-store": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
+              "@tauri-apps/plugin-log": "Import through src/lib/ipc.ts — use log(), logWarning(), logErr() wrappers."
             }
           }
         },

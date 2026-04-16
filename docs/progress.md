@@ -77,8 +77,8 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| L1 | Configure `tauri-plugin-log` properly | Not started | File + console targets, rotation (5×2MB), level by build mode (DEBUG dev, INFO release), log DB path + app version on startup. Q14 locked. |
-| L2 | Add TS logging to scraper + IPC | Not started | `@tauri-apps/plugin-log` JS API at key points: scrape lifecycle, child CRUD, errors. Never log PII/secrets. |
+| L1 | Configure `tauri-plugin-log` properly | ✅ Done | File (LogDir, rotation 2MB) + Stdout (dev only) + Webview targets. DEBUG in dev, INFO in release. Logs app version, data dir, log dir on startup. |
+| L2 | Add TS logging to scraper + IPC | ✅ Done | `log()`, `logWarning()`, `logErr()`, `initLogging()` wrappers in ipc.ts. Dashboard logs child count on load, errors on scrape failure. `@tauri-apps/plugin-log` added to biome restricted imports. |
 | L3 | "View logs" in Settings → About | Not started | Button opens log directory in OS file manager. For user bug reports. |
 | L4 | Document logging rules | ✅ Done | Q14 in design-plan, CLAUDE.md security constraint, progress tasks. |
 | L5 | Legal disclaimer — single source of truth | ✅ Done | `src/lib/legal.ts` → wizard, /about, Settings, DISCLAIMER.md, README. Q15 locked. |
@@ -129,4 +129,4 @@
 
 ## What's Next
 
-**Phase 6 complete.** Next: **Phase 6b, Task L1** — configure `tauri-plugin-log` with file targets + rotation + build-mode level control. This will also reveal the DB path for fixing the seed script.
+**L1+L2 done.** Logging configured — file + console + webview. Next: launch `tauri dev` to see the DB path in logs, fix the seed script, then L3 (View logs UI).

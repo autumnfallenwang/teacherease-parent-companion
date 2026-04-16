@@ -15,6 +15,9 @@ import {
   getLatestScrape,
   getMissingAssignments,
   getNeedsAttentionGrades,
+  initLogging,
+  log,
+  logErr,
   notifyNeedsAttention,
   persistScrape,
   setupAutostart,
@@ -43,10 +46,12 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    void initLogging().catch(() => undefined);
     void setupAutostart().catch(() => undefined);
 
     void getChildren()
-      .then((children) => {
+      .then(async (children) => {
+        await log(`dashboard: found ${children.length} children`);
         setAllChildren(children);
         const first = children[0];
         if (first) {
@@ -129,6 +134,7 @@ export function Dashboard() {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
+      await logErr(`scrape failed: ${msg}`);
       setError(msg);
       await persistScrape({
         childId,
