@@ -245,6 +245,76 @@ function statusToCode(s: string): string {
   return "0";
 }
 
+/**
+ * Build a ClassDetails-shaped object for raw_payloads JSON.
+ * Groups assignments under dummy standards to exercise the StandardsTree component.
+ */
+function buildClassDetails(cls: ClassDef, day: number) {
+  // Only build details for needs_attention classes (matches real scraper behavior)
+  if (cls.baseStatus !== "needs_attention") return null;
+
+  const visibleAssignments = cls.assignments.filter((a) => day >= a.dueOffset - 1);
+  const missingAsns = visibleAssignments.filter((a) => a.isMissing);
+  const gradedAsns = visibleAssignments.filter((a) => !a.isMissing && a.score);
+
+  // Create 2 standards: one meeting, one not meeting (with the missing work)
+  // biome-ignore lint/suspicious/noExplicitAny: seed script, shape matches ClassDetails.standards
+  const standards: any[] = [];
+
+  if (gradedAsns.length > 0) {
+    standards.push({
+      name: `${cls.name.replace(/\s+\d+$/, "")} Foundations`,
+      score: "3.0",
+      scoreNumeric: 3,
+      scoreLetter: "M",
+      isMeeting: true,
+      children: [],
+      assignments: gradedAsns.map((a) => ({
+        dueDate: formatDueDate(a.dueOffset),
+        name: a.name,
+        weight: "1",
+        grade: a.score || "",
+        gradeNumeric: a.score ? Number.parseFloat(a.score) || 0 : 0,
+        gradeLetter: a.score ? a.score.split("=")[1] || "" : "",
+        isMissing: false,
+        feedback: "",
+      })),
+      missingCount: 0,
+      lowScoreCount: 0,
+    });
+  }
+
+  if (missingAsns.length > 0 || gradedAsns.some((a) => a.score.startsWith("1"))) {
+    const problemAsns = [...missingAsns, ...gradedAsns.filter((a) => a.score.startsWith("1"))];
+    standards.push({
+      name: `${cls.name.replace(/\s+\d+$/, "")} Application`,
+      score: "1.5",
+      scoreNumeric: 1.5,
+      scoreLetter: "B",
+      isMeeting: false,
+      children: [],
+      assignments: problemAsns.map((a) => ({
+        dueDate: formatDueDate(a.dueOffset),
+        name: a.name,
+        weight: "1",
+        grade: a.isMissing ? "" : a.score || "",
+        gradeNumeric: a.isMissing ? 0 : Number.parseFloat(a.score) || 0,
+        gradeLetter: a.isMissing || !a.score ? "" : a.score.split("=")[1] || "",
+        isMissing: a.isMissing,
+        feedback: "",
+      })),
+      missingCount: missingAsns.length,
+      lowScoreCount: gradedAsns.filter((a) => a.score.startsWith("1")).length,
+    });
+  }
+
+  return {
+    className: cls.name,
+    standards,
+    summary: { missingAssignments: missingAsns.length },
+  };
+}
+
 function main() {
   console.info(`Opening DB at: ${DB_PATH}`);
   const db = new Database(DB_PATH);
@@ -349,7 +419,14 @@ function main() {
             }
           }
 
-          insertPayload.run(scrapeId, JSON.stringify({ seeded: true, day, hour: hourOffset }));
+          // Build classDetails for needs_attention classes (matches real scraper)
+          const classDetails = childDef.classes
+            .map((cls) => buildClassDetails(cls, day))
+            .filter(Boolean);
+          insertPayload.run(
+            scrapeId,
+            JSON.stringify({ seeded: true, day, hour: hourOffset, classDetails }),
+          );
           scrapeCount++;
         }
       }

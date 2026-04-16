@@ -259,6 +259,157 @@ File rotation: 5 files × 2 MB max. `tauri-plugin-log` handles this automaticall
 
 "TeacherEase Parent Companion." Repo: `github.com/autumnfallenwang/teacherease-parent-companion`, MIT license. Local working copy: `/home/aaronwang/agentic/homework/teacherease-parent-companion/`. Predecessor (`teacherease_parents_helper`, Python + Playwright) stays as-is; the new repo is the rewrite. A local reference copy of the predecessor lives at `ref/teacherease_parents_helper/` (gitignored) for HTML fixture mining and parser cross-checks — never committed because it contains real portal dumps with PII.
 
+### Q16 — Dashboard UX (Phase 7)
+
+**The dashboard is a living progress report.** Each class is a section you can open to see the full standard-by-standard breakdown, with a gentle status timeline showing change over time. No separate pages — everything is progressive disclosure within the main scroll.
+
+**Design direction:** warm editorial — deepening the existing Newsreader + DM Sans / oklch earth-tone / binder-tab / paper-texture aesthetic. The dashboard evolves from a flat class list into an interactive report card.
+
+#### Status history strip (T33)
+
+Each class row gets a **5-dot timeline** between the class name and status badge:
+
+- 5 small circles (8px) representing the last 5 scrapes, oldest→newest left→right.
+- Colors use existing tokens: `--meeting` (teal-green), `--attention` (warm amber), `--ungraded` (cool gray).
+- Filled circles for data, empty ring-only circles for "no data yet" (fewer than 5 scrapes).
+- Solid fills with subtle 1px inset shadow for an "ink stamp on paper" feel.
+- Optional trend arrow alongside the status badge: `↑` (improved, teal) / `↓` (declined, amber) / nothing if unchanged.
+
+#### Class accordion drilldown (T34)
+
+Clicking a class row expands an **inline detail panel** below it:
+
+- **Background**: `bg-secondary/50` with a subtle top border matching the class's binder-tab color — like opening a tabbed folder section.
+- **Animation**: CSS `grid-template-rows: 0fr → 1fr` transition (pure CSS, no motion library).
+- **Chevron**: `ChevronRight` rotates to `ChevronDown` on expand.
+- **One class at a time**: clicking another collapses the previous.
+
+**Standards tree inside the accordion:**
+- Each standard is a section header in Newsreader serif with a meeting/not-meeting indicator.
+- Sub-standards indent with left-margin steps (no tree lines — clean).
+- Assignments listed under their parent standard: `name · grade letter · score`. Missing items use the existing amber attention treatment (`bg-attention/5 + border-attention/20`).
+- Standards with no assignments show "(no assignments yet)" in muted text.
+
+**Data source:** `raw_payloads` JSON contains the full recursive `Standard[]` tree, already persisted by `persistScrape()`.
+
+#### New IPC queries
+
+| Query | Purpose |
+|---|---|
+| `getStatusHistory(childId, className, limit=5)` | Last N scrape statuses for one class (JOIN grades ↔ scrapes) |
+| `getClassDetail(scrapeId, className)` | Parse `ClassDetails` from `raw_payloads` JSON for one class |
+
+#### New components
+
+| Component | Task | Description |
+|---|---|---|
+| `StatusDots` | T33 | 5 colored circles showing status history, inline in class row |
+| `ClassRow` | T33 | Refactored clickable class row (replaces current static row in GradesTable) |
+| `ClassAccordion` | T34 | Expandable panel below class row with smooth CSS transition |
+| `StandardsTree` | T34 | Recursive standard → sub-standard → assignment renderer |
+
+#### Explicit non-goals
+
+- No chart library (recharts, D3) — status is categorical (3 values), dots are sufficient.
+- No date range picker — always latest scrape + last 5 for history.
+- No separate trends page — everything in the dashboard via progressive disclosure.
+- No per-assignment history across scrapes — only class-level status history.
+- No assignment editing — read-only always.
+
+### Q17 — Data model v2: full normalization + fetch all detail pages
+
+**Fetch detail pages for ALL classes (not just needs_attention) and normalize the data model.**
+
+#### Decision
+
+The v1 model stored class-level status only, discarded ClassID/CGPID/instructor/progress numbers, and only fetched detail pages for needs_attention classes. After exploring the live portal (2026-04-16), we found rich per-class data being thrown away and confirmed that the standards tree structure varies across classes (2-3 layers, different grading scales).
+
+v2 changes:
+1. **Scraper fetches detail pages for ALL 8 classes**, not just needs_attention. Cost: ~8 extra HTTP requests per scrape (~12s total). Acceptable for a 6-hour interval.
+2. **New `classes` table** — persists class metadata (ClassID, CGPID, instructor, grading scale). Upserted each scrape, not snapshotted.
+3. **New `standards` table** — self-referential tree (adjacency list via `parent_id`). Snapshotted each scrape for trend tracking.
+4. **Enhanced `grades`** — FK to `classes`, adds progress numbers (targets_meeting/not_meeting/not_assessed). Drops redundant `current_grade` column.
+5. **Enhanced `assignments`** — FK to `classes`, adds `te_assignment_id` (TestNameID for deduplication), weight, score breakdown. Deduplicated per scrape (one row per assignment, not per standard-assignment link).
+6. **No junction table** — the many-to-many (assignment under multiple standards) stays in `raw_payloads` JSON only. The drilldown UI parses JSON; SQL doesn't need the junction.
+
+#### Schema (v2 migration)
+
+```sql
+CREATE TABLE classes (
+  id              INTEGER PRIMARY KEY,
+  child_id        INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  te_class_id     INTEGER NOT NULL,
+  te_cgpid        INTEGER NOT NULL,
+  name            TEXT NOT NULL,
+  instructor      TEXT,
+  grading_scale   TEXT,
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(child_id, te_class_id)
+);
+
+-- grades: FK to classes, add progress, drop current_grade
+ALTER TABLE grades ADD COLUMN class_id INTEGER REFERENCES classes(id);
+ALTER TABLE grades ADD COLUMN targets_meeting INTEGER;
+ALTER TABLE grades ADD COLUMN targets_not_meeting INTEGER;
+ALTER TABLE grades ADD COLUMN targets_not_assessed INTEGER;
+-- (migration backfills class_id from class_name, then drops class_name + current_grade)
+
+CREATE TABLE standards (
+  id              INTEGER PRIMARY KEY,
+  scrape_id       INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
+  class_id        INTEGER NOT NULL REFERENCES classes(id),
+  parent_id       INTEGER REFERENCES standards(id),
+  name            TEXT NOT NULL,
+  score_numeric   REAL,
+  score_letter    TEXT,
+  is_meeting      INTEGER
+);
+
+-- assignments: FK to classes, add weight + score breakdown + te_assignment_id
+ALTER TABLE assignments ADD COLUMN class_id INTEGER REFERENCES classes(id);
+ALTER TABLE assignments ADD COLUMN te_assignment_id INTEGER;
+ALTER TABLE assignments ADD COLUMN score_numeric REAL;
+ALTER TABLE assignments ADD COLUMN score_letter TEXT;
+ALTER TABLE assignments ADD COLUMN weight INTEGER;
+ALTER TABLE assignments ADD COLUMN is_missing INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE assignments ADD COLUMN feedback TEXT;
+-- (migration backfills class_id, renames status→is_missing where status='missing')
+
+CREATE INDEX idx_classes_child ON classes(child_id);
+CREATE INDEX idx_standards_scrape ON standards(scrape_id);
+CREATE INDEX idx_standards_class ON standards(class_id, scrape_id);
+CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
+```
+
+#### Table roles
+
+| Table | Role | Growth pattern |
+|---|---|---|
+| `children` | Who | Static (1-2 rows) |
+| `classes` | What classes exist | Upsert (~8 rows, stable) |
+| `scrapes` | Timeline (when) | +1 per scrape |
+| `grades` | Class status snapshot | +8 per scrape |
+| `standards` | Standard scores snapshot | +~50 per scrape |
+| `assignments` | Assignment grades snapshot | +~40 per scrape |
+| `raw_payloads` | Full tree for drilldown | +1 per scrape |
+
+#### What this unlocks
+
+- Progress bars on class rows (targets_meeting / total)
+- Standard-level trend tracking (e.g., "Geography went from 2.5 → 2.84")
+- Instructor shown in UI
+- Build detail URLs from DB without re-scraping overview
+- Detect new/dropped classes and instructor changes
+- Foundation for smarter notifications ("Geography is declining")
+
+#### Observed structure variations (live site 2026-04-16)
+
+- Tree depth varies: Math has 3 layers, PE is mostly flat, Science is empty
+- Grading scales differ: Computer Science uses PS/FL, all others use M/P/B/NY
+- "Completes activities" standard with "Cycle 1-4 Learning Habits" sub appears in every class (school-wide behavior)
+- Standards can exist with no score (defined but no assignments graded)
+- Our recursive `Standard` type and adjacency-list `standards` table handle all variations
+
 ---
 
 ## Tech Stack
@@ -282,73 +433,77 @@ File rotation: 5 files × 2 MB max. `tauri-plugin-log` handles this automaticall
 
 ## Data Model (SQLite)
 
-Rationale: Q8.
+Rationale: Q8 (original), Q17 (v2 normalization).
+
+v1 schema shipped with initial build. v2 migration adds `classes` + `standards` tables, enhances `grades` and `assignments`. See Q17 for full rationale.
 
 ```sql
--- One row per child. Credentials NOT here — live in OS keychain keyed by child.id.
-CREATE TABLE children (
-  id            INTEGER PRIMARY KEY,
-  display_name  TEXT NOT NULL,
-  portal_type   TEXT NOT NULL DEFAULT 'teacherease',
-  base_url      TEXT NOT NULL,          -- per-school subdomain, e.g. https://myschool.teacherease.com (Q13)
-  username      TEXT NOT NULL,          -- portal login email, not a secret
-  grade         TEXT,
-  school        TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+-- Unchanged from v1
+CREATE TABLE children ( ... );    -- see Q8
+CREATE TABLE settings ( ... );    -- see Q13
+CREATE TABLE scrapes ( ... );     -- timeline, one row per scrape run
+CREATE TABLE raw_payloads ( ... );-- full JSON tree for drilldown
+
+-- NEW in v2: class metadata, upserted each scrape
+CREATE TABLE classes (
+  id              INTEGER PRIMARY KEY,
+  child_id        INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  te_class_id     INTEGER NOT NULL,
+  te_cgpid        INTEGER NOT NULL,
+  name            TEXT NOT NULL,
+  instructor      TEXT,
+  grading_scale   TEXT,
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(child_id, te_class_id)
 );
 
--- Key-value user settings (Q13). Everything editable in the UI lives here:
--- autostart, scrape_interval_hours, only_on_ac_power, notifications_enabled,
--- updater_auto_check, email_enabled, email_smtp_host, email_smtp_port,
--- email_smtp_user, email_from, email_to, etc.
--- Secrets (SMTP password, portal passwords) NOT here — they live in the OS keychain.
-CREATE TABLE settings (
-  key        TEXT PRIMARY KEY,
-  value      TEXT NOT NULL,
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- One row per scrape run.
-CREATE TABLE scrapes (
-  id            INTEGER PRIMARY KEY,
-  child_id      INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-  run_at        TEXT NOT NULL DEFAULT (datetime('now')),
-  status        TEXT NOT NULL CHECK (status IN ('success', 'failed', 'parser_error')),
-  duration_ms   INTEGER,
-  error_message TEXT
-);
-
--- Raw parsed JSON payload for retroactive re-rendering / parser-bug fixes.
-CREATE TABLE raw_payloads (
-  scrape_id     INTEGER PRIMARY KEY REFERENCES scrapes(id) ON DELETE CASCADE,
-  json          TEXT NOT NULL
-);
-
--- Normalized per-class snapshot per scrape.
+-- CHANGED in v2: FK to classes, progress numbers, drop current_grade
 CREATE TABLE grades (
-  id              INTEGER PRIMARY KEY,
-  scrape_id       INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
-  class_name      TEXT NOT NULL,
-  current_grade   TEXT,
-  status          TEXT,
-  needs_attention INTEGER NOT NULL DEFAULT 0
+  id                  INTEGER PRIMARY KEY,
+  scrape_id           INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
+  class_id            INTEGER NOT NULL REFERENCES classes(id),
+  status              TEXT,
+  needs_attention     INTEGER NOT NULL DEFAULT 0,
+  targets_meeting     INTEGER,
+  targets_not_meeting INTEGER,
+  targets_not_assessed INTEGER
 );
 
--- Normalized per-assignment snapshot per scrape.
-CREATE TABLE assignments (
+-- NEW in v2: standard scores per scrape, self-referential tree
+CREATE TABLE standards (
   id              INTEGER PRIMARY KEY,
   scrape_id       INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
-  class_name      TEXT NOT NULL,
-  assignment_name TEXT NOT NULL,
-  score           TEXT,
-  max_score       TEXT,
-  status          TEXT,
-  due_date        TEXT
+  class_id        INTEGER NOT NULL REFERENCES classes(id),
+  parent_id       INTEGER REFERENCES standards(id),
+  name            TEXT NOT NULL,
+  score_numeric   REAL,
+  score_letter    TEXT,
+  is_meeting      INTEGER
+);
+
+-- CHANGED in v2: FK to classes, add weight + score breakdown + dedup key
+CREATE TABLE assignments (
+  id                INTEGER PRIMARY KEY,
+  scrape_id         INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
+  class_id          INTEGER NOT NULL REFERENCES classes(id),
+  te_assignment_id  INTEGER,
+  name              TEXT NOT NULL,
+  score             TEXT,
+  score_numeric     REAL,
+  score_letter      TEXT,
+  weight            INTEGER,
+  is_missing        INTEGER NOT NULL DEFAULT 0,
+  due_date          TEXT,
+  feedback          TEXT
 );
 
 CREATE INDEX idx_scrapes_child_run ON scrapes(child_id, run_at DESC);
+CREATE INDEX idx_classes_child ON classes(child_id);
 CREATE INDEX idx_grades_scrape ON grades(scrape_id);
+CREATE INDEX idx_standards_scrape ON standards(scrape_id);
+CREATE INDEX idx_standards_class ON standards(class_id, scrape_id);
 CREATE INDEX idx_assignments_scrape ON assignments(scrape_id);
+CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
 ```
 
 ---
@@ -482,7 +637,7 @@ Tray-resident timer, OS notifications, autostart registration.
 Child switcher, per-child data isolation, Settings → Children page.
 
 ### Phase 7 — Dashboard UI (full)
-Trends, history, assignment drilldowns. Detailed UX designed when implementing.
+Status history dots, clickable class rows with accordion drilldowns, standards tree. UX spec: Q16.
 
 ### Phase 8 — Optional email (advanced)
 BYO SMTP form in Settings → Advanced. Tutorial copy, not wizard.

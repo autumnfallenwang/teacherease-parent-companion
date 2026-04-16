@@ -379,6 +379,96 @@ export async function getNeedsAttentionGrades(scrapeId: number): Promise<GradeRe
   }));
 }
 
+// ---------------------------------------------------------------------------
+// Status history (T33 — grade trend dots per Q16)
+// ---------------------------------------------------------------------------
+
+export interface StatusHistoryEntry {
+  status: string | null;
+  needsAttention: boolean;
+  runAt: string;
+}
+
+interface RawStatusHistoryRow {
+  class_name: string;
+  status: string | null;
+  needs_attention: number;
+  run_at: string;
+}
+
+/**
+ * Returns the last `limit` scrape statuses for ALL classes of a child.
+ * Grouped by class name. Avoids N+1 queries (one per class row).
+ * Each array is newest-first.
+ */
+export async function getAllStatusHistory(
+  childId: number,
+  limit = 5,
+): Promise<Map<string, StatusHistoryEntry[]>> {
+  const d = await getDb();
+
+  // Window function ranks scrapes per class, then we filter to top N.
+  // SQLite supports ROW_NUMBER() since 3.25 (2018).
+  const rows = await d.select<RawStatusHistoryRow[]>(
+    `SELECT class_name, status, needs_attention, run_at FROM (
+       SELECT g.class_name, g.status, g.needs_attention, s.run_at,
+              ROW_NUMBER() OVER (PARTITION BY g.class_name ORDER BY s.run_at DESC) AS rn
+       FROM grades g JOIN scrapes s ON g.scrape_id = s.id
+       WHERE s.child_id = $1 AND s.status = 'success'
+     ) WHERE rn <= $2
+     ORDER BY class_name, run_at DESC`,
+    [childId, limit],
+  );
+
+  const result = new Map<string, StatusHistoryEntry[]>();
+  for (const r of rows) {
+    const entry: StatusHistoryEntry = {
+      status: r.status,
+      needsAttention: r.needs_attention === 1,
+      runAt: r.run_at,
+    };
+    const existing = result.get(r.class_name);
+    if (existing) {
+      existing.push(entry);
+    } else {
+      result.set(r.class_name, [entry]);
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Class detail from raw payload (T34 — accordion drilldown per Q16)
+// ---------------------------------------------------------------------------
+
+interface RawPayloadRow {
+  json: string;
+}
+
+/**
+ * Extract ClassDetails for a single class from the raw_payloads JSON.
+ * Returns null if no detail was captured for this class (only "needs attention"
+ * classes get detail pages fetched during scrape).
+ */
+export async function getClassDetail(
+  scrapeId: number,
+  className: string,
+): Promise<ClassDetails | null> {
+  const d = await getDb();
+  const rows = await d.select<RawPayloadRow[]>(
+    "SELECT json FROM raw_payloads WHERE scrape_id = $1",
+    [scrapeId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+
+  const payload = JSON.parse(row.json) as {
+    classDetails?: ClassDetails[];
+  };
+
+  return payload.classDetails?.find((cd) => cd.className === className) ?? null;
+}
+
 export async function getMissingAssignments(scrapeId: number): Promise<AssignmentRecord[]> {
   const d = await getDb();
   const rows = await d.select<RawAssignmentRow[]>(
@@ -476,4 +566,8 @@ export async function logWarning(message: string): Promise<void> {
 
 export async function logErr(message: string): Promise<void> {
   await invoke("log_error", { message });
+}
+
+export async function openLogDir(): Promise<void> {
+  await invoke("open_log_dir");
 }

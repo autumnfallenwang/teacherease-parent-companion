@@ -11,7 +11,7 @@ use tauri::{
     Emitter, Manager,
 };
 
-fn default_log_dir() -> PathBuf {
+pub(crate) fn default_log_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("dev.autumnfallenwang.teacherease-parent-companion")
@@ -64,6 +64,7 @@ pub fn run() {
             log_commands::log_info,
             log_commands::log_warn,
             log_commands::log_error,
+            log_commands::open_log_dir,
         ])
         .setup(move |app| {
             let app_data = app

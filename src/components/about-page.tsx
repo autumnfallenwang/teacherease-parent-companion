@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { openLogDir } from "@/lib/ipc";
 import {
   APP_NAME,
   APP_VERSION,
@@ -65,7 +66,7 @@ export function AboutPage() {
         <Section title="Privacy & data handling" content={PRIVACY_NOTICE} />
         <Section title="Responsible use" content={RESPONSIBLE_USE} />
 
-        <div className="border-t pt-4">
+        <div className="flex items-center gap-4 border-t pt-4">
           <a
             href={REPO_URL}
             target="_blank"
@@ -74,6 +75,15 @@ export function AboutPage() {
           >
             View source code on GitHub
           </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-[12px] text-muted-foreground"
+            onClick={() => openLogDir()}
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            View logs
+          </Button>
         </div>
       </div>
     </div>

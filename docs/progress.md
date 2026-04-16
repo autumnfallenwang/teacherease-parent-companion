@@ -79,7 +79,7 @@
 |---|------|--------|-------|
 | L1 | Configure `tauri-plugin-log` properly | ✅ Done | File (LogDir, rotation 2MB) + Stdout (dev only) + Webview targets. DEBUG in dev, INFO in release. Logs app version, data dir, log dir on startup. |
 | L2 | Add TS logging to scraper + IPC | ✅ Done | `log()`, `logWarning()`, `logErr()`, `initLogging()` wrappers in ipc.ts. Dashboard logs child count on load, errors on scrape failure. `@tauri-apps/plugin-log` added to biome restricted imports. |
-| L3 | "View logs" in Settings → About | Not started | Button opens log directory in OS file manager. For user bug reports. |
+| L3 | "View logs" in Settings → About | ✅ Done | `open_log_dir` Rust command via `open` crate → `openLogDir()` in ipc.ts → "View logs" button on About page. Opens OS file manager at log directory. |
 | L4 | Document logging rules | ✅ Done | Q14 in design-plan, CLAUDE.md security constraint, progress tasks. |
 | L5 | Legal disclaimer — single source of truth | ✅ Done | `src/lib/legal.ts` → wizard, /about, Settings, DISCLAIMER.md, README. Q15 locked. |
 
@@ -87,9 +87,24 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 32 | Dashboard UX design (separate question) | Not started | Parked — pick up when implementing Phase 7 |
-| 33 | Grade trend charts | Not started | Per-class over time |
-| 34 | Assignment drilldown | Not started | Per-class detail view with history |
+| 32 | Dashboard UX design (separate question) | ✅ Done | Q16 locked in design-plan.md: status history dots (T33), accordion drilldown with standards tree (T34), new IPC queries, 4 new components. No chart library. |
+| 33 | Grade trend charts | ✅ Done | `StatusDots` component (5 colored circles per class, ink-stamp style), `TrendArrow` (↑↓), `computeTrend()` pure function (10 tests), `getAllStatusHistory()` IPC query (window function, N+1-free), clickable class rows with chevron + accordion slot. Vitest `@/` alias added. |
+| 34 | Assignment drilldown | ✅ Done | `StandardsTree` recursive component (standard headers with meeting/not-meeting icons, nested assignments, missing in amber). `getClassDetail()` IPC query from `raw_payloads` JSON. Detail cache in dashboard, cleared on refresh/child switch. Accordion panel with `bg-secondary/40` background. Graceful empty state for meeting classes. |
+
+## Phase 7b: Data model v2 (Q17)
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| D1 | v2 migration script | Not started | Add `classes` + `standards` tables, alter `grades` + `assignments` (add columns, backfill class_id FK). Migration v2 in `migrations.rs`. |
+| D2 | Scraper: fetch all detail pages | Not started | Change `dashboard.tsx` filter from `c.needsAttention` to all classes. ~8 extra HTTP requests per scrape. |
+| D3 | Parser: extract TestNameID | Not started | Parse `te_assignment_id` from assignment link URLs in `parseClassDetails()`. Add to `Assignment` type. |
+| D4 | Persistence: rewrite `persistScrape()` | Not started | Upsert `classes`, insert `standards` tree, deduplicate `assignments` by `te_assignment_id`, populate progress numbers in `grades`. |
+| D5 | Read queries: update to use class_id FK | Not started | Update `getGradesForScrape()`, `getMissingAssignments()`, `getAllStatusHistory()`, `getClassDetail()` to join on `class_id` instead of `class_name`. |
+| D6 | Seed script: update for v2 schema | Not started | Generate proper classes, standards, assignments with new columns. |
+| D7 | E2E validation with real credentials | Not started | `sandbox/` — login → fetch all 8 detail pages → persist to v2 schema → verify all tables populated correctly. Validate standards tree, assignment dedup, progress numbers, class metadata against live portal. Must pass before any UI work. |
+| D8 | Dashboard: progress bars | Not started | Show targets_meeting / total on each class row. |
+| D9 | Dashboard: instructor display | Not started | Show instructor name in class row or accordion. |
+| D10 | Standard-level trend tracking | Not started | Query standard scores across scrapes, display in accordion drilldown. |
 
 ## Phase 8: Optional email (advanced)
 
@@ -129,4 +144,4 @@
 
 ## What's Next
 
-**L1+L2 done.** Logging configured — file + console + webview. Next: launch `tauri dev` to see the DB path in logs, fix the seed script, then L3 (View logs UI).
+**Phase 7 complete.** Q17 locked — data model v2 with full normalization. Next: Phase 7b — D1 (v2 migration script).

@@ -7,10 +7,13 @@ import { EmptyState } from "@/components/empty-state";
 import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
 import { NeedsAttention } from "@/components/needs-attention";
-import type { AssignmentRecord, GradeRecord, ScrapeRecord } from "@/lib/ipc";
+import { StandardsTree } from "@/components/standards-tree";
+import type { AssignmentRecord, GradeRecord, ScrapeRecord, StatusHistoryEntry } from "@/lib/ipc";
 import {
+  getAllStatusHistory,
   getChildPassword,
   getChildren,
+  getClassDetail,
   getGradesForScrape,
   getLatestScrape,
   getMissingAssignments,
@@ -26,6 +29,9 @@ import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login, USER_AGENT } from "@/lib/scraper/teacherease";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
 
+const EMPTY_HISTORY = new Map<string, StatusHistoryEntry[]>();
+const EMPTY_DETAIL_CACHE = new Map<string, ClassDetails | null>();
+
 export function Dashboard() {
   const router = useRouter();
   const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
@@ -33,6 +39,12 @@ export function Dashboard() {
   const [lastScrape, setLastScrape] = useState<ScrapeRecord | null>(null);
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [missing, setMissing] = useState<AssignmentRecord[]>([]);
+  const [statusHistory, setStatusHistory] =
+    useState<Map<string, StatusHistoryEntry[]>>(EMPTY_HISTORY);
+  const [expandedClass, setExpandedClass] = useState<string | null>(null);
+  const [detailCache, setDetailCache] =
+    useState<Map<string, ClassDetails | null>>(EMPTY_DETAIL_CACHE);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,8 +52,14 @@ export function Dashboard() {
     const scrape = await getLatestScrape(cId);
     setLastScrape(scrape);
     if (scrape) {
-      setGrades(await getGradesForScrape(scrape.id));
-      setMissing(await getMissingAssignments(scrape.id));
+      const [g, m, h] = await Promise.all([
+        getGradesForScrape(scrape.id),
+        getMissingAssignments(scrape.id),
+        getAllStatusHistory(cId),
+      ]);
+      setGrades(g);
+      setMissing(m);
+      setStatusHistory(h);
     }
   }, []);
 
@@ -127,6 +145,7 @@ export function Dashboard() {
         `scrape: complete childId=${childId} duration=${Date.now() - start}ms classes=${overview.classes.length} details=${classDetails.length}`,
       );
       await loadData(childId);
+      setDetailCache(EMPTY_DETAIL_CACHE);
 
       // Send OS notification if there are attention items (T27)
       const attentionGrades = await getNeedsAttentionGrades(scrapeId);
@@ -157,10 +176,32 @@ export function Dashboard() {
       setChildId(newChildId);
       setGrades([]);
       setMissing([]);
+      setStatusHistory(EMPTY_HISTORY);
+      setExpandedClass(null);
+      setDetailCache(EMPTY_DETAIL_CACHE);
       setLastScrape(null);
       void loadData(newChildId);
     },
     [loadData],
+  );
+
+  const handleClassClick = useCallback(
+    (className: string) => {
+      setExpandedClass((prev) => {
+        const next = prev === className ? null : className;
+        if (next && !detailCache.has(next) && lastScrape) {
+          setDetailLoading(true);
+          void getClassDetail(lastScrape.id, next)
+            .then((detail) => {
+              setDetailCache((cache) => new Map(cache).set(next, detail));
+            })
+            .catch(() => undefined)
+            .finally(() => setDetailLoading(false));
+        }
+        return next;
+      });
+    },
+    [detailCache, lastScrape],
   );
 
   const goSettings = useCallback(() => router.push("/settings"), [router]);
@@ -192,7 +233,21 @@ export function Dashboard() {
             {error}
           </div>
         )}
-        <GradesTable grades={grades} />
+        <GradesTable
+          grades={grades}
+          history={statusHistory}
+          expandedClass={expandedClass}
+          onClassClick={handleClassClick}
+        >
+          {(className) => (
+            <StandardsTree
+              detail={detailCache.get(className) ?? null}
+              isLoading={
+                detailLoading && expandedClass === className && !detailCache.has(className)
+              }
+            />
+          )}
+        </GradesTable>
         <NeedsAttention missingAssignments={missing} />
       </main>
     </div>
