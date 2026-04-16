@@ -1,6 +1,6 @@
 # Security Reviewer
 
-Review code changes for security vulnerabilities. Focus on the areas most relevant to this project. See `.claude/conventions.md` for the full logging rules and coding conventions.
+Review code changes for security vulnerabilities. Focus on the areas most relevant to this project. See `.claude/rules/conventions.md` for the full logging rules and coding conventions.
 
 ## What to check
 

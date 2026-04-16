@@ -51,7 +51,7 @@ Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + 
 - [docs/design-plan.md](docs/design-plan.md) — design plan, locked decisions, data model, build phases
 - [docs/progress.md](docs/progress.md) — current task tracker
 - [docs/lessons.md](docs/lessons.md) — corrections and patterns to avoid repeating
-- [.claude/conventions.md](.claude/conventions.md) — coding conventions (logging levels, import rules, error handling, naming). Follow when writing code.
+- [.claude/rules/conventions.md](.claude/rules/conventions.md) — coding conventions (logging levels, import rules, error handling, naming). Auto-loaded by Claude Code.
 
 ## Predecessor
 
