@@ -657,6 +657,78 @@ This gives:
 - No assignment editing — read-only always
 - No per-child separate pages — one scroll, tab-switch for child selection
 
+### Q19 — Homework scraping (Google Sites, Phase 8)
+
+**Scrape daily homework assignments from a public Google Sites page and display in the dashboard.** No authentication needed. Optional per-child feature — if no URL configured, homework section is hidden.
+
+#### Source
+
+Public Google Sites page maintained by the school team (e.g., `sites.google.com/lexingtonma.org/explorer-team/homework`). Verified: plain `fetch` + cheerio works — content is server-rendered in `div.hJDwNd-AhqUyc-uQSCkd`. No Playwright needed.
+
+#### Data structure
+
+```
+Homework for 4/16/26
+Science:
+Unnatural selection video and worksheet due Friday. Video on Google classroom
+Due: Friday 4/17
+
+World Geography:
+None
+Due: Friday 4/17
+
+English
+Read Chapter 3 of The Giver and answer the questions in the packet for Chapter 3
+Due: Friday 4/17
+
+Math:
+MCAS Packet #3 (due Fri)
+Due: Friday 4/17
+```
+
+Parsed into: `HomeworkEntry { date, subjects: [{ name, content, dueDate }] }`
+
+#### Configuration
+
+- `homework_url` column on `children` table (nullable)
+- Set during child setup wizard or settings page
+- If null → homework feature completely hidden for this child
+
+#### Schema (migration v3)
+
+```sql
+ALTER TABLE children ADD COLUMN homework_url TEXT;
+
+CREATE TABLE homework (
+  id         INTEGER PRIMARY KEY,
+  child_id   INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  hw_date    TEXT NOT NULL,
+  subject    TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  due_date   TEXT,
+  scraped_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(child_id, hw_date, subject)
+);
+
+CREATE INDEX idx_homework_child_date ON homework(child_id, hw_date DESC);
+```
+
+#### Dashboard integration
+
+"Tonight's Homework" card between the Attention section and Classes list. Shows today's (or tomorrow's if after school hours) homework by subject. Only renders when `homework_url` is configured and homework data exists.
+
+#### Scrape behavior
+
+- Fetched on dashboard refresh (alongside TeacherEase scrape)
+- Upsert by `(child_id, hw_date, subject)` — idempotent
+- Only current month's entries persisted (matches original behavior)
+
+#### Future (not v1): cross-referencing with TeacherEase
+
+- Class name mapping: "Science" in homework ↔ "Science 7" in TeacherEase
+- Assignment correlation: homework "Lab worksheet" → TeacherEase "Lab worksheet" graded
+- Would need manual class mapping per child in settings
+
 ### Q17 — Data model v2: full normalization + fetch all detail pages
 
 **Fetch detail pages for ALL classes (not just needs_attention) and normalize the data model.**
@@ -980,13 +1052,16 @@ Child switcher, per-child data isolation, Settings → Children page.
 ### Phase 7 — Dashboard UI (full)
 Status history dots, clickable class rows with accordion drilldowns, standards tree. UX spec: Q16.
 
-### Phase 8 — Optional email (advanced)
-BYO SMTP form in Settings → Advanced. Tutorial copy, not wizard.
+### Phase 8 — Homework scraping (Google Sites)
+Public Google Sites homework page. Optional per-child. Plain `fetch` + cheerio. Spec: Q19.
 
-### Phase 9 — Updater + release pipeline
+### Phase 9 — Optional email (advanced)
+BYO SMTP form in Settings → Advanced. Tutorial copy, not wizard. Covers both grades and homework reports.
+
+### Phase 10 — Updater + release pipeline
 `tauri-plugin-updater` wired up, GitHub Actions building per-OS installers, signed update payloads, first release.
 
-### Phase 10 — First-launch warning docs
+### Phase 11 — First-launch warning docs
 Screenshots and walkthrough for Windows SmartScreen / macOS Gatekeeper bypass. Brief mention of the Linux GNOME "create default keyring" one-time dialog for fresh user accounts (per Q3) — not our bug, but worth pre-warning users who see it.
 
 See [progress.md](progress.md) for the concrete task list tracking these phases.

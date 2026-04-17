@@ -118,15 +118,27 @@
 | U8 | StandardsTree: full detail for all classes | ✅ Done | Empty state updated to "No standards data available." |
 | U9 | Seed script: v2 schema + time-varying data | ✅ Done | `evolveAssignment()` varies data over 7 days: missing work resolves on day -1 (→ 2=P), meeting scores start low early on (2.5=P → 3=M). Status transitions + score evolution verified in DB. |
 
-## Phase 8: Optional email (advanced)
+## Phase 8: Homework scraping (Google Sites)
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| H1 | Homework parser | Not started | `homework-parser.ts` — cheerio `.text()` on `div.hJDwNd-AhqUyc-uQSCkd`, split by "Homework for", parse subjects by name + "Due:" markers. Pure function, unit tests. |
+| H2 | Homework DB schema | Not started | `homework` table (child_id, hw_date, subject, content, due_date). `homework_url` column on `children` table. Migration v3. |
+| H3 | Homework fetch + persist | Not started | Plain `fetch` (no auth), parse, upsert homework entries. Called from dashboard on refresh. |
+| H4 | Homework URL in settings | Not started | Add homework URL field to child setup wizard + settings page. Optional — if not set, homework feature hidden. |
+| H5 | Homework dashboard section | Not started | "Tonight's Homework" card showing today's assignments by subject. |
+| H6 | Homework notifications | Not started | OS notification when new homework detected. |
+| H7 | POC + e2e test | Not started | Sandbox POC against live Google Sites page. Integration test. |
+
+## Phase 9: Optional email (advanced)
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 35 | Settings → Advanced → Email form | Not started | SMTP host/port/user/pass, BYO only |
-| 36 | Email sender + templates | Not started | Port HTML template from ref repo |
+| 36 | Email sender + templates | Not started | Port HTML template from ref repo (grades + homework) |
 | 37 | Gmail App Password tutorial | Not started | Static page with screenshots |
 
-## Phase 9: Updater + release pipeline
+## Phase 10: Updater + release pipeline
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
@@ -135,7 +147,7 @@
 | 40 | GitHub Actions release workflow | Not started | Tag → build 3 OSes → publish release + latest.json feed |
 | 41 | First public release | Not started | v0.1.0 |
 
-## Phase 10: First-launch warning docs
+## Phase 11: First-launch warning docs
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
@@ -156,4 +168,4 @@
 
 ## What's Next
 
-**U1–U4, U6–U9 done.** Dashboard fully redesigned with AttentionSection + time-varying seed data. Next: U5 (RecentActivity — time-based 24h change tracking).
+**U1–U4, U6–U9 done.** Dashboard redesigned. Homework feature planned (Phase 7d). Next: U5 (RecentActivity) or H1 (homework parser).
