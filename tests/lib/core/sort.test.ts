@@ -5,7 +5,7 @@ import type { GradeRecord } from "@/lib/ipc";
 function grade(status: string, className: string): GradeRecord {
   return {
     id: 0,
-    scrapeId: 0,
+    fetchRunId: 0,
     classId: null,
     className,
     currentGrade: null,

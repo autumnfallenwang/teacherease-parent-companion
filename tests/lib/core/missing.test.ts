@@ -5,7 +5,7 @@ import type { AssignmentRecord } from "@/lib/ipc";
 function missing(name: string, dueDate: string | null): AssignmentRecord {
   return {
     id: 0,
-    scrapeId: 0,
+    fetchRunId: 0,
     classId: null,
     className: "Test Class",
     assignmentName: name,

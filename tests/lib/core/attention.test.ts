@@ -8,7 +8,7 @@ function asn(
 ): AssignmentRecord {
   return {
     id: Math.random() * 10000,
-    scrapeId: 0,
+    fetchRunId: 0,
     classId: null,
     className: "Test Class",
     assignmentName: name,

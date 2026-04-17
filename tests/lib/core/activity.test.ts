@@ -8,7 +8,7 @@ function grade(
 ): GradeRecord {
   return {
     id: Math.floor(Math.random() * 100000),
-    scrapeId: 0,
+    fetchRunId: 0,
     classId: null,
     className,
     currentGrade: opts.currentGrade ?? null,
@@ -32,7 +32,7 @@ function asn(
 ): AssignmentRecord {
   return {
     id: Math.floor(Math.random() * 100000),
-    scrapeId: 0,
+    fetchRunId: 0,
     classId: null,
     className,
     assignmentName: name,

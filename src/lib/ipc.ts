@@ -10,12 +10,8 @@ import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
-import {
-  isPermissionGranted,
-  requestPermission,
-  sendNotification,
-} from "@tauri-apps/plugin-notification";
 import Database from "@tauri-apps/plugin-sql";
+import { hwDateToIso, resolveDueDate } from "./core/homework-date";
 import type {
   ChildRecord,
   ClassDetails,
@@ -174,93 +170,127 @@ export async function getChild(childId: number): Promise<ChildRecord | null> {
 // Scrape persistence (T14)
 // ---------------------------------------------------------------------------
 
-export type ScrapeStatus = "success" | "failed" | "parser_error";
-
-export interface ScrapeResult {
-  childId: number;
-  status: ScrapeStatus;
-  durationMs: number;
-  errorMessage?: string;
-  overview?: GradesOverview;
-  classDetails?: ClassDetails[];
-  rawPayload?: string;
-}
+export type FetchRunStatus = "success" | "failed" | "parser_error";
 
 /**
  * Persist a scrape run and its results (v2 schema — Q17).
  * Upserts classes, inserts grades with progress, standards tree,
  * and deduplicated assignments.
  */
-export async function persistScrape(result: ScrapeResult): Promise<number> {
+// ---------------------------------------------------------------------------
+// FetchRunner lifecycle helpers (P3 / Q20)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a `fetch_runs` row for a source about to run. Returns the id so the
+ * source can FK its data rows (grades, homework, etc.) to this run.
+ *
+ * Note: placeholder `status='success'` during the run — flipped to the real
+ * status by `completeFetchRun`. We don't introduce a 'running' state because
+ * the existing CHECK constraint rejects it and migrating the constraint is
+ * more cost than the observability gain (the window is a few seconds and the
+ * app is single-user).
+ */
+export async function startFetchRun(childId: number, source: string): Promise<number> {
+  const d = await getDb();
+  const res = await d.execute(
+    "INSERT INTO fetch_runs (child_id, source, status) VALUES ($1, $2, 'success')",
+    [childId, source],
+  );
+  if (res.lastInsertId == null) {
+    throw new Error("startFetchRun: INSERT returned no lastInsertId");
+  }
+  return res.lastInsertId;
+}
+
+/**
+ * Finalize a `fetch_runs` row with the outcome. Called by `FetchRunner` after
+ * the source's `run()` returns or throws.
+ */
+export async function completeFetchRun(
+  id: number,
+  result: { status: FetchRunStatus; durationMs: number; errorMessage?: string },
+): Promise<void> {
+  const d = await getDb();
+  await d.execute(
+    "UPDATE fetch_runs SET status = $1, duration_ms = $2, error_message = $3 WHERE id = $4",
+    [result.status, result.durationMs, result.errorMessage ?? null, id],
+  );
+}
+
+/**
+ * Persist TeacherEase scrape data against an existing `fetch_runs` row
+ * (created by `FetchRunner.runAll` via `startFetchRun`). Writes the raw
+ * payload, upserts classes, and inserts grades + standards tree + deduped
+ * assignments. Does NOT touch `fetch_runs` itself — the runner owns
+ * lifecycle (status, duration, error).
+ */
+export async function persistTeacherEaseData(
+  fetchRunId: number,
+  overview: GradesOverview,
+  classDetails: readonly ClassDetails[],
+): Promise<void> {
   const d = await getDb();
 
-  // 1. Insert scrape record
-  const scrapeRes = await d.execute(
-    `INSERT INTO scrapes (child_id, status, duration_ms, error_message)
-     VALUES ($1, $2, $3, $4)`,
-    [result.childId, result.status, result.durationMs, result.errorMessage ?? null],
+  // Raw payload (full JSON for drilldown).
+  await d.execute("INSERT INTO raw_payloads (fetch_run_id, json) VALUES ($1, $2)", [
+    fetchRunId,
+    JSON.stringify({ overview, classDetails }),
+  ]);
+
+  // Look up childId from the fetch_runs row for upsertClasses.
+  const runRows = await d.select<Array<{ child_id: number }>>(
+    "SELECT child_id FROM fetch_runs WHERE id = $1",
+    [fetchRunId],
   );
-  const scrapeId = scrapeRes.lastInsertId;
-  if (scrapeId == null) {
-    throw new Error("INSERT scrape returned no lastInsertId");
+  const childId = runRows[0]?.child_id;
+  if (childId == null) {
+    throw new Error(`persistTeacherEaseData: fetch_run_id=${fetchRunId} not found`);
   }
 
-  // 2. Raw payload (full JSON for drilldown)
-  if (result.rawPayload) {
-    await d.execute("INSERT INTO raw_payloads (scrape_id, json) VALUES ($1, $2)", [
-      scrapeId,
-      result.rawPayload,
-    ]);
+  // Upsert classes + insert grades with progress.
+  const classIdMap = await upsertClasses(d, childId, overview.classes);
+
+  for (const cls of overview.classes) {
+    const classId = classIdMap.get(cls.classId);
+    const notAssessed = cls.totalTargets - cls.targetsMeeting - cls.targetsNotMeeting;
+    await d.execute(
+      `INSERT INTO grades (fetch_run_id, class_id, class_name, current_grade, status, needs_attention,
+                           targets_meeting, targets_not_meeting, targets_not_assessed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        fetchRunId,
+        classId ?? null,
+        cls.name,
+        `${cls.statusCode}`,
+        cls.status,
+        cls.needsAttention ? 1 : 0,
+        cls.targetsMeeting,
+        cls.targetsNotMeeting,
+        notAssessed,
+      ],
+    );
   }
 
-  // 3. Upsert classes + insert grades with progress
-  if (result.overview) {
-    const classIdMap = await upsertClasses(d, result.childId, result.overview.classes);
+  // Insert standards tree + deduplicated assignments per class detail.
+  for (const detail of classDetails) {
+    const cls = overview.classes.find((c) => c.name === detail.className);
+    const classId = cls ? classIdMap.get(cls.classId) : undefined;
+    if (!classId) continue;
 
-    for (const cls of result.overview.classes) {
-      const classId = classIdMap.get(cls.classId);
-      const notAssessed = cls.totalTargets - cls.targetsMeeting - cls.targetsNotMeeting;
-      await d.execute(
-        `INSERT INTO grades (scrape_id, class_id, class_name, current_grade, status, needs_attention,
-                             targets_meeting, targets_not_meeting, targets_not_assessed)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          scrapeId,
-          classId ?? null,
-          cls.name,
-          `${cls.statusCode}`,
-          cls.status,
-          cls.needsAttention ? 1 : 0,
-          cls.targetsMeeting,
-          cls.targetsNotMeeting,
-          notAssessed,
-        ],
-      );
-    }
-
-    // 4. Insert standards tree + deduplicated assignments per class detail
-    if (result.classDetails) {
-      for (const detail of result.classDetails) {
-        const cls = result.overview.classes.find((c) => c.name === detail.className);
-        const classId = cls ? classIdMap.get(cls.classId) : undefined;
-        if (!classId) continue;
-
-        await persistStandards(d, scrapeId, classId, detail.standards, null);
-        await persistAssignmentsDeduplicated(
-          d,
-          scrapeId,
-          classId,
-          detail.className,
-          detail.standards,
-        );
-      }
-    }
+    await persistStandards(d, fetchRunId, classId, detail.standards, null);
+    await persistAssignmentsDeduplicated(
+      d,
+      fetchRunId,
+      classId,
+      detail.className,
+      detail.standards,
+    );
   }
 
   await invoke("log_info", {
-    message: `persistScrape: scrapeId=${scrapeId} childId=${result.childId} status=${result.status} duration=${result.durationMs}ms`,
+    message: `persistTeacherEaseData: fetchRunId=${fetchRunId} childId=${childId} classes=${overview.classes.length} details=${classDetails.length}`,
   });
-  return scrapeId;
 }
 
 async function upsertClasses(
@@ -291,17 +321,17 @@ async function upsertClasses(
 
 async function persistStandards(
   d: Database,
-  scrapeId: number,
+  fetchRunId: number,
   classId: number,
   standards: readonly Standard[],
   parentId: number | null,
 ): Promise<void> {
   for (const std of standards) {
     const res = await d.execute(
-      `INSERT INTO standards (scrape_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting)
+      `INSERT INTO standards (fetch_run_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
-        scrapeId,
+        fetchRunId,
         classId,
         parentId,
         std.name,
@@ -312,14 +342,14 @@ async function persistStandards(
     );
     const stdId = res.lastInsertId;
     if (std.children.length > 0 && stdId != null) {
-      await persistStandards(d, scrapeId, classId, std.children, stdId);
+      await persistStandards(d, fetchRunId, classId, std.children, stdId);
     }
   }
 }
 
 async function persistAssignmentsDeduplicated(
   d: Database,
-  scrapeId: number,
+  fetchRunId: number,
   classId: number,
   className: string,
   standards: readonly Standard[],
@@ -334,13 +364,13 @@ async function persistAssignmentsDeduplicated(
         if (asn.testNameId > 0) seen.add(asn.testNameId);
 
         await d.execute(
-          `INSERT INTO assignments (scrape_id, class_id, class_name, assignment_name,
+          `INSERT INTO assignments (fetch_run_id, class_id, class_name, assignment_name,
                                     te_assignment_id, name, score, score_numeric, score_letter,
                                     weight, is_missing, due_date, feedback,
                                     max_score, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
           [
-            scrapeId,
+            fetchRunId,
             classId,
             className,
             asn.name,
@@ -369,18 +399,19 @@ async function persistAssignmentsDeduplicated(
 // Read queries for UI (T15)
 // ---------------------------------------------------------------------------
 
-export interface ScrapeRecord {
+export interface FetchRunRecord {
   id: number;
   childId: number;
+  source: string;
   runAt: string;
-  status: ScrapeStatus;
+  status: FetchRunStatus;
   durationMs: number | null;
   errorMessage: string | null;
 }
 
 export interface GradeRecord {
   id: number;
-  scrapeId: number;
+  fetchRunId: number;
   classId: number | null;
   className: string;
   currentGrade: string | null;
@@ -393,7 +424,7 @@ export interface GradeRecord {
 
 export interface AssignmentRecord {
   id: number;
-  scrapeId: number;
+  fetchRunId: number;
   classId: number | null;
   className: string;
   assignmentName: string;
@@ -407,18 +438,19 @@ export interface AssignmentRecord {
   teAssignmentId: number | null;
 }
 
-interface RawScrapeRow {
+interface RawFetchRunRow {
   id: number;
   child_id: number;
+  source: string;
   run_at: string;
-  status: ScrapeStatus;
+  status: FetchRunStatus;
   duration_ms: number | null;
   error_message: string | null;
 }
 
 interface RawGradeRow {
   id: number;
-  scrape_id: number;
+  fetch_run_id: number;
   class_id: number | null;
   class_name: string;
   current_grade: string | null;
@@ -431,7 +463,7 @@ interface RawGradeRow {
 
 interface RawAssignmentRow {
   id: number;
-  scrape_id: number;
+  fetch_run_id: number;
   class_id: number | null;
   class_name: string;
   assignment_name: string;
@@ -446,10 +478,11 @@ interface RawAssignmentRow {
   feedback: string | null;
 }
 
-function mapScrapeRow(row: RawScrapeRow): ScrapeRecord {
+function mapFetchRunRow(row: RawFetchRunRow): FetchRunRecord {
   return {
     id: row.id,
     childId: row.child_id,
+    source: row.source,
     runAt: row.run_at,
     status: row.status,
     durationMs: row.duration_ms,
@@ -457,37 +490,37 @@ function mapScrapeRow(row: RawScrapeRow): ScrapeRecord {
   };
 }
 
-export async function getLatestScrape(childId: number): Promise<ScrapeRecord | null> {
+export async function getLatestFetchRun(childId: number): Promise<FetchRunRecord | null> {
   const d = await getDb();
-  const rows = await d.select<RawScrapeRow[]>(
-    "SELECT * FROM scrapes WHERE child_id = $1 ORDER BY run_at DESC LIMIT 1",
+  const rows = await d.select<RawFetchRunRow[]>(
+    "SELECT * FROM fetch_runs WHERE child_id = $1 ORDER BY run_at DESC LIMIT 1",
     [childId],
   );
   const row = rows[0];
-  return row ? mapScrapeRow(row) : null;
+  return row ? mapFetchRunRow(row) : null;
 }
 
 /**
- * Nearest successful scrape strictly before `isoDate`.
+ * Nearest successful fetch run strictly before `isoDate`.
  * Used for 24h-ago comparisons in the Recent Activity section.
  */
-export async function getScrapeBefore(
+export async function getFetchRunBefore(
   childId: number,
   isoDate: string,
-): Promise<ScrapeRecord | null> {
+): Promise<FetchRunRecord | null> {
   const d = await getDb();
-  const rows = await d.select<RawScrapeRow[]>(
-    "SELECT * FROM scrapes WHERE child_id = $1 AND run_at < $2 AND status = 'success' ORDER BY run_at DESC LIMIT 1",
+  const rows = await d.select<RawFetchRunRow[]>(
+    "SELECT * FROM fetch_runs WHERE child_id = $1 AND run_at < $2 AND status = 'success' ORDER BY run_at DESC LIMIT 1",
     [childId, isoDate],
   );
   const row = rows[0];
-  return row ? mapScrapeRow(row) : null;
+  return row ? mapFetchRunRow(row) : null;
 }
 
 function mapGradeRow(r: RawGradeRow): GradeRecord {
   return {
     id: r.id,
-    scrapeId: r.scrape_id,
+    fetchRunId: r.fetch_run_id,
     classId: r.class_id,
     className: r.class_name,
     currentGrade: r.current_grade,
@@ -502,7 +535,7 @@ function mapGradeRow(r: RawGradeRow): GradeRecord {
 function mapAssignmentRow(r: RawAssignmentRow): AssignmentRecord {
   return {
     id: r.id,
-    scrapeId: r.scrape_id,
+    fetchRunId: r.fetch_run_id,
     classId: r.class_id,
     className: r.class_name,
     assignmentName: r.assignment_name ?? r.name,
@@ -517,28 +550,28 @@ function mapAssignmentRow(r: RawAssignmentRow): AssignmentRecord {
   };
 }
 
-export async function getGradesForScrape(scrapeId: number): Promise<GradeRecord[]> {
+export async function getGradesForFetchRun(fetchRunId: number): Promise<GradeRecord[]> {
   const d = await getDb();
-  const rows = await d.select<RawGradeRow[]>("SELECT * FROM grades WHERE scrape_id = $1", [
-    scrapeId,
+  const rows = await d.select<RawGradeRow[]>("SELECT * FROM grades WHERE fetch_run_id = $1", [
+    fetchRunId,
   ]);
   return rows.map(mapGradeRow);
 }
 
-export async function getAssignmentsForScrape(scrapeId: number): Promise<AssignmentRecord[]> {
+export async function getAssignmentsForFetchRun(fetchRunId: number): Promise<AssignmentRecord[]> {
   const d = await getDb();
   const rows = await d.select<RawAssignmentRow[]>(
-    "SELECT * FROM assignments WHERE scrape_id = $1",
-    [scrapeId],
+    "SELECT * FROM assignments WHERE fetch_run_id = $1",
+    [fetchRunId],
   );
   return rows.map(mapAssignmentRow);
 }
 
-export async function getNeedsAttentionGrades(scrapeId: number): Promise<GradeRecord[]> {
+export async function getNeedsAttentionGrades(fetchRunId: number): Promise<GradeRecord[]> {
   const d = await getDb();
   const rows = await d.select<RawGradeRow[]>(
-    "SELECT * FROM grades WHERE scrape_id = $1 AND needs_attention = 1",
-    [scrapeId],
+    "SELECT * FROM grades WHERE fetch_run_id = $1 AND needs_attention = 1",
+    [fetchRunId],
   );
   return rows.map(mapGradeRow);
 }
@@ -609,14 +642,14 @@ export async function getAllStatusHistory(
 ): Promise<Map<string, StatusHistoryEntry[]>> {
   const d = await getDb();
 
-  // Window function ranks scrapes per class, then we filter to top N.
+  // Window function ranks fetch runs per class, then we filter to top N.
   // SQLite supports ROW_NUMBER() since 3.25 (2018).
   const rows = await d.select<RawStatusHistoryRow[]>(
     `SELECT class_name, status, needs_attention, run_at FROM (
-       SELECT g.class_name, g.status, g.needs_attention, s.run_at,
-              ROW_NUMBER() OVER (PARTITION BY g.class_name ORDER BY s.run_at DESC) AS rn
-       FROM grades g JOIN scrapes s ON g.scrape_id = s.id
-       WHERE s.child_id = $1 AND s.status = 'success'
+       SELECT g.class_name, g.status, g.needs_attention, f.run_at,
+              ROW_NUMBER() OVER (PARTITION BY g.class_name ORDER BY f.run_at DESC) AS rn
+       FROM grades g JOIN fetch_runs f ON g.fetch_run_id = f.id
+       WHERE f.child_id = $1 AND f.status = 'success'
      ) WHERE rn <= $2
      ORDER BY class_name, run_at DESC`,
     [childId, limit],
@@ -653,13 +686,13 @@ interface RawPayloadRow {
  * classes get detail pages fetched during scrape).
  */
 export async function getClassDetail(
-  scrapeId: number,
+  fetchRunId: number,
   className: string,
 ): Promise<ClassDetails | null> {
   const d = await getDb();
   const rows = await d.select<RawPayloadRow[]>(
-    "SELECT json FROM raw_payloads WHERE scrape_id = $1",
-    [scrapeId],
+    "SELECT json FROM raw_payloads WHERE fetch_run_id = $1",
+    [fetchRunId],
   );
   const row = rows[0];
   if (!row) return null;
@@ -671,12 +704,12 @@ export async function getClassDetail(
   return payload.classDetails?.find((cd) => cd.className === className) ?? null;
 }
 
-export async function getMissingAssignments(scrapeId: number): Promise<AssignmentRecord[]> {
+export async function getMissingAssignments(fetchRunId: number): Promise<AssignmentRecord[]> {
   const d = await getDb();
   // Query both old (status='missing') and new (is_missing=1) columns for compat
   const rows = await d.select<RawAssignmentRow[]>(
-    "SELECT * FROM assignments WHERE scrape_id = $1 AND (is_missing = 1 OR status = 'missing')",
-    [scrapeId],
+    "SELECT * FROM assignments WHERE fetch_run_id = $1 AND (is_missing = 1 OR status = 'missing')",
+    [fetchRunId],
   );
   return rows.map(mapAssignmentRow);
 }
@@ -693,6 +726,7 @@ export interface HomeworkRecord {
   subject: string;
   content: string;
   dueDate: string | null;
+  dueDateInferred: boolean;
   scrapedAt: string;
 }
 
@@ -703,6 +737,7 @@ interface RawHomeworkRow {
   subject: string;
   content: string;
   due_date: string | null;
+  due_date_inferred: number;
   scraped_at: string;
 }
 
@@ -714,22 +749,9 @@ function mapHomeworkRow(r: RawHomeworkRow): HomeworkRecord {
     subject: r.subject,
     content: r.content,
     dueDate: r.due_date,
+    dueDateInferred: r.due_date_inferred === 1,
     scrapedAt: r.scraped_at,
   };
-}
-
-/**
- * Normalize "M/D/YY" → "YYYY-MM-DD". Returns null on unparseable input.
- */
-function homeworkDateToIso(raw: string): string | null {
-  const match = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
-  if (!match) return null;
-  const m = Number.parseInt(match[1] ?? "", 10);
-  const d = Number.parseInt(match[2] ?? "", 10);
-  const yy = Number.parseInt(match[3] ?? "", 10);
-  if (!Number.isFinite(m) || !Number.isFinite(d) || !Number.isFinite(yy)) return null;
-  const year = 2000 + yy;
-  return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 /**
@@ -747,8 +769,9 @@ export async function persistHomework(
   const currentYear = now.getFullYear();
 
   let persisted = 0;
+  let inferredCount = 0;
   for (const entry of entries) {
-    const iso = homeworkDateToIso(entry.date);
+    const iso = hwDateToIso(entry.date);
     if (!iso) continue;
     const [yearStr, monthStr] = iso.split("-");
     if (Number.parseInt(yearStr ?? "", 10) !== currentYear) continue;
@@ -756,21 +779,24 @@ export async function persistHomework(
     if (entry.subjects.length === 0) continue;
 
     for (const subj of entry.subjects) {
+      const resolved = resolveDueDate(subj.dueDate, iso);
+      if (resolved.inferred) inferredCount += 1;
       await d.execute(
-        `INSERT INTO homework (child_id, hw_date, subject, content, due_date)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO homework (child_id, hw_date, subject, content, due_date, due_date_inferred)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT(child_id, hw_date, subject) DO UPDATE SET
            content = excluded.content,
            due_date = excluded.due_date,
+           due_date_inferred = excluded.due_date_inferred,
            scraped_at = datetime('now')`,
-        [childId, iso, subj.name, subj.content, subj.dueDate],
+        [childId, iso, subj.name, subj.content, resolved.iso, resolved.inferred ? 1 : 0],
       );
       persisted += 1;
     }
   }
 
   await invoke("log_info", {
-    message: `homework: persisted childId=${childId} rows=${persisted} entries=${entries.length}`,
+    message: `homework: persisted childId=${childId} rows=${persisted} entries=${entries.length} inferredDueDates=${inferredCount}`,
   });
   return persisted;
 }
@@ -822,71 +848,27 @@ export async function getRecentHomework(childId: number, limit = 7): Promise<Hom
 }
 
 // ---------------------------------------------------------------------------
-// Notifications (T27)
+// Settings (Q13) — key/value store. Booleans stored as "1" / "0".
 // ---------------------------------------------------------------------------
 
-export async function ensureNotificationPermission(): Promise<boolean> {
-  let granted = await isPermissionGranted();
-  if (!granted) {
-    const result = await requestPermission();
-    granted = result === "granted";
-  }
-  return granted;
+export async function getSettingBool(key: string, defaultValue: boolean): Promise<boolean> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ value: string }>>(
+    "SELECT value FROM settings WHERE key = $1",
+    [key],
+  );
+  const row = rows[0];
+  if (!row) return defaultValue;
+  return row.value === "1";
 }
 
-export async function notifyNeedsAttention(
-  childName: string,
-  attentionCount: number,
-  missingCount: number,
-): Promise<void> {
-  const granted = await ensureNotificationPermission();
-  if (!granted) {
-    await invoke("log_warn", { message: "notification: permission not granted, skipping" });
-    return;
-  }
-
-  const parts: string[] = [];
-  if (attentionCount > 0)
-    parts.push(`${attentionCount} class${attentionCount > 1 ? "es" : ""} need attention`);
-  if (missingCount > 0)
-    parts.push(`${missingCount} missing assignment${missingCount > 1 ? "s" : ""}`);
-  if (parts.length === 0) return;
-
-  await invoke("log_info", {
-    message: `notification: sent attention=${attentionCount} missing=${missingCount}`,
-  });
-  sendNotification({
-    title: `${childName}: Grade update`,
-    body: parts.join(", "),
-  });
-}
-
-function formatShortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
-  const monthDay = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `${weekday} · ${monthDay}`;
-}
-
-export async function notifyNewHomework(
-  childName: string,
-  isoDate: string,
-  subjectCount: number,
-): Promise<void> {
-  if (subjectCount <= 0) return;
-  const granted = await ensureNotificationPermission();
-  if (!granted) {
-    await invoke("log_warn", { message: "notification: permission not granted, skipping" });
-    return;
-  }
-  await invoke("log_info", {
-    message: `notification: homework childName=${childName} date=${isoDate} subjects=${subjectCount}`,
-  });
-  sendNotification({
-    title: `${childName}: New homework`,
-    body: `${subjectCount} subject${subjectCount === 1 ? "" : "s"} posted for ${formatShortDate(isoDate)}`,
-  });
+export async function setSettingBool(key: string, value: boolean): Promise<void> {
+  const d = await getDb();
+  await d.execute(
+    `INSERT INTO settings (key, value) VALUES ($1, $2)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+    [key, value ? "1" : "0"],
+  );
 }
 
 // ---------------------------------------------------------------------------

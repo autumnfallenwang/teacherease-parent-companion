@@ -133,5 +133,48 @@ pub fn initial() -> Vec<Migration> {
         "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "v4_homework_due_date_inferred",
+            sql: r#"
+            ALTER TABLE homework ADD COLUMN due_date_inferred INTEGER NOT NULL DEFAULT 0;
+        "#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "v5_rename_scrapes_to_fetch_runs",
+            sql: r#"
+            ALTER TABLE scrapes RENAME TO fetch_runs;
+            ALTER TABLE fetch_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'teacherease';
+
+            ALTER TABLE raw_payloads RENAME COLUMN scrape_id TO fetch_run_id;
+            ALTER TABLE grades       RENAME COLUMN scrape_id TO fetch_run_id;
+            ALTER TABLE standards    RENAME COLUMN scrape_id TO fetch_run_id;
+            ALTER TABLE assignments  RENAME COLUMN scrape_id TO fetch_run_id;
+
+            DROP INDEX IF EXISTS idx_scrapes_child_run;
+            CREATE INDEX IF NOT EXISTS idx_fetch_runs_child_run ON fetch_runs(child_id, run_at DESC);
+
+            DROP INDEX IF EXISTS idx_grades_scrape;
+            CREATE INDEX IF NOT EXISTS idx_grades_fetch_run ON grades(fetch_run_id);
+
+            DROP INDEX IF EXISTS idx_standards_scrape;
+            CREATE INDEX IF NOT EXISTS idx_standards_fetch_run ON standards(fetch_run_id);
+
+            DROP INDEX IF EXISTS idx_standards_class;
+            CREATE INDEX IF NOT EXISTS idx_standards_class ON standards(class_id, fetch_run_id);
+
+            DROP INDEX IF EXISTS idx_assignments_scrape;
+            CREATE INDEX IF NOT EXISTS idx_assignments_fetch_run ON assignments(fetch_run_id);
+
+            DROP INDEX IF EXISTS idx_assignments_class;
+            CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments(class_id, fetch_run_id);
+
+            CREATE INDEX IF NOT EXISTS idx_fetch_runs_child_source
+                ON fetch_runs(child_id, source, run_at DESC);
+        "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }

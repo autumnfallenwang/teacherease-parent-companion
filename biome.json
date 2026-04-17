@@ -182,7 +182,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/lib/ipc.ts"],
+      "includes": ["src/lib/ipc.ts", "src/lib/notify/os-channel.ts"],
       "linter": {
         "rules": {
           "style": {

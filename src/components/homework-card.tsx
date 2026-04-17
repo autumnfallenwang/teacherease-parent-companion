@@ -7,12 +7,31 @@ interface HomeworkCardProps {
   entries: HomeworkRecord[];
 }
 
+function parseIsoDay(iso: string): Date | null {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function formatHomeworkDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "long" });
-  const month = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const d = parseIsoDay(iso);
+  if (!d) return iso;
+  const weekday = d.toLocaleDateString(undefined, { weekday: "long", timeZone: "UTC" });
+  const month = d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
   return `${weekday} · ${month}`;
+}
+
+function formatDueChip(iso: string, inferred: boolean): string {
+  const d = parseIsoDay(iso);
+  if (!d) return iso;
+  const weekday = d.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
+  const mm = d.getUTCMonth() + 1;
+  const dd = d.getUTCDate();
+  const label = `${weekday} ${mm}/${dd}`;
+  return inferred ? `~${label}` : label;
 }
 
 function isEmptyContent(content: string): boolean {
@@ -60,9 +79,20 @@ export function HomeworkCard({ entries }: HomeworkCardProps) {
                 )}
               </div>
               {entry.dueDate && (
-                <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] text-muted-foreground">
+                <span
+                  className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] ${
+                    entry.dueDateInferred
+                      ? "italic text-muted-foreground/70"
+                      : "text-muted-foreground"
+                  }`}
+                  title={
+                    entry.dueDateInferred
+                      ? "Due date not posted — estimated to be the next school day"
+                      : undefined
+                  }
+                >
                   <Clock className="h-3 w-3" />
-                  {entry.dueDate}
+                  {formatDueChip(entry.dueDate, entry.dueDateInferred)}
                 </span>
               )}
             </div>

@@ -35,12 +35,12 @@ function loadEnv(): Record<string, string> {
 const V2_SCHEMA = `
 CREATE TABLE children (id INTEGER PRIMARY KEY, display_name TEXT NOT NULL, portal_type TEXT NOT NULL DEFAULT 'teacherease', base_url TEXT NOT NULL, username TEXT NOT NULL, grade TEXT, school TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
-CREATE TABLE scrapes (id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id), run_at TEXT NOT NULL DEFAULT (datetime('now')), status TEXT NOT NULL, duration_ms INTEGER, error_message TEXT);
-CREATE TABLE raw_payloads (scrape_id INTEGER PRIMARY KEY REFERENCES scrapes(id), json TEXT NOT NULL);
+CREATE TABLE fetch_runs (id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id), run_at TEXT NOT NULL DEFAULT (datetime('now')), status TEXT NOT NULL, duration_ms INTEGER, error_message TEXT);
+CREATE TABLE raw_payloads (fetch_run_id INTEGER PRIMARY KEY REFERENCES fetch_runs(id), json TEXT NOT NULL);
 CREATE TABLE classes (id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id), te_class_id INTEGER NOT NULL, te_cgpid INTEGER NOT NULL, name TEXT NOT NULL, instructor TEXT, grading_scale TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(child_id, te_class_id));
-CREATE TABLE grades (id INTEGER PRIMARY KEY, scrape_id INTEGER NOT NULL REFERENCES scrapes(id), class_id INTEGER REFERENCES classes(id), class_name TEXT NOT NULL, current_grade TEXT, status TEXT, needs_attention INTEGER NOT NULL DEFAULT 0, targets_meeting INTEGER, targets_not_meeting INTEGER, targets_not_assessed INTEGER);
-CREATE TABLE standards (id INTEGER PRIMARY KEY, scrape_id INTEGER NOT NULL REFERENCES scrapes(id), class_id INTEGER NOT NULL REFERENCES classes(id), parent_id INTEGER REFERENCES standards(id), name TEXT NOT NULL, score_numeric REAL, score_letter TEXT, is_meeting INTEGER);
-CREATE TABLE assignments (id INTEGER PRIMARY KEY, scrape_id INTEGER NOT NULL REFERENCES scrapes(id), class_id INTEGER REFERENCES classes(id), class_name TEXT NOT NULL, assignment_name TEXT NOT NULL, te_assignment_id INTEGER, name TEXT, score TEXT, score_numeric REAL, score_letter TEXT, max_score TEXT, weight INTEGER, status TEXT, is_missing INTEGER NOT NULL DEFAULT 0, due_date TEXT, feedback TEXT);
+CREATE TABLE grades (id INTEGER PRIMARY KEY, fetch_run_id INTEGER NOT NULL REFERENCES fetch_runs(id), class_id INTEGER REFERENCES classes(id), class_name TEXT NOT NULL, current_grade TEXT, status TEXT, needs_attention INTEGER NOT NULL DEFAULT 0, targets_meeting INTEGER, targets_not_meeting INTEGER, targets_not_assessed INTEGER);
+CREATE TABLE standards (id INTEGER PRIMARY KEY, fetch_run_id INTEGER NOT NULL REFERENCES fetch_runs(id), class_id INTEGER NOT NULL REFERENCES classes(id), parent_id INTEGER REFERENCES standards(id), name TEXT NOT NULL, score_numeric REAL, score_letter TEXT, is_meeting INTEGER);
+CREATE TABLE assignments (id INTEGER PRIMARY KEY, fetch_run_id INTEGER NOT NULL REFERENCES fetch_runs(id), class_id INTEGER REFERENCES classes(id), class_name TEXT NOT NULL, assignment_name TEXT NOT NULL, te_assignment_id INTEGER, name TEXT, score TEXT, score_numeric REAL, score_letter TEXT, max_score TEXT, weight INTEGER, status TEXT, is_missing INTEGER NOT NULL DEFAULT 0, due_date TEXT, feedback TEXT);
 `;
 
 // Persistence helpers (mirrors ipc.ts logic, adapted for better-sqlite3)
@@ -64,17 +64,17 @@ function upsertClasses(
 
 function insertStandards(
   db: Database.Database,
-  scrapeId: number,
+  fetchRunId: number,
   classId: number,
   standards: readonly Standard[],
   parentId: number | null,
 ): void {
   const ins = db.prepare(
-    "INSERT INTO standards (scrape_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO standards (fetch_run_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   for (const std of standards) {
     const res = ins.run(
-      scrapeId,
+      fetchRunId,
       classId,
       parentId,
       std.name,
@@ -83,27 +83,27 @@ function insertStandards(
       std.isMeeting ? 1 : 0,
     );
     if (std.children.length > 0)
-      insertStandards(db, scrapeId, classId, std.children, Number(res.lastInsertRowid));
+      insertStandards(db, fetchRunId, classId, std.children, Number(res.lastInsertRowid));
   }
 }
 
 function insertAssignments(
   db: Database.Database,
-  scrapeId: number,
+  fetchRunId: number,
   classId: number,
   className: string,
   standards: readonly Standard[],
   seen: Set<number>,
 ): void {
   const ins = db.prepare(
-    "INSERT INTO assignments (scrape_id, class_id, class_name, assignment_name, te_assignment_id, name, score, score_numeric, score_letter, weight, is_missing, due_date, feedback, max_score, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO assignments (fetch_run_id, class_id, class_name, assignment_name, te_assignment_id, name, score, score_numeric, score_letter, weight, is_missing, due_date, feedback, max_score, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   for (const std of standards) {
     for (const asn of std.assignments) {
       if (asn.testNameId > 0 && seen.has(asn.testNameId)) continue;
       if (asn.testNameId > 0) seen.add(asn.testNameId);
       ins.run(
-        scrapeId,
+        fetchRunId,
         classId,
         className,
         asn.name,
@@ -121,7 +121,7 @@ function insertAssignments(
       );
     }
     if (std.children.length > 0)
-      insertAssignments(db, scrapeId, classId, className, std.children, seen);
+      insertAssignments(db, fetchRunId, classId, className, std.children, seen);
   }
 }
 
@@ -179,9 +179,11 @@ describe("D7: live e2e v2 persistence", () => {
           )
           .run(baseUrl, username).lastInsertRowid,
       );
-      const scrapeId = Number(
+      const fetchRunId = Number(
         db
-          .prepare("INSERT INTO scrapes (child_id, status, duration_ms) VALUES (?, 'success', 0)")
+          .prepare(
+            "INSERT INTO fetch_runs (child_id, status, duration_ms) VALUES (?, 'success', 0)",
+          )
           .run(childId).lastInsertRowid,
       );
 
@@ -191,13 +193,13 @@ describe("D7: live e2e v2 persistence", () => {
 
       // Persist: grades with progress
       const insGrade = db.prepare(
-        "INSERT INTO grades (scrape_id, class_id, class_name, current_grade, status, needs_attention, targets_meeting, targets_not_meeting, targets_not_assessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO grades (fetch_run_id, class_id, class_name, current_grade, status, needs_attention, targets_meeting, targets_not_meeting, targets_not_assessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
       for (const cls of overview.classes) {
         const classId = classIdMap.get(cls.classId);
         const notAssessed = cls.totalTargets - cls.targetsMeeting - cls.targetsNotMeeting;
         insGrade.run(
-          scrapeId,
+          fetchRunId,
           classId,
           cls.name,
           `${cls.statusCode}`,
@@ -214,13 +216,13 @@ describe("D7: live e2e v2 persistence", () => {
         const cls = overview.classes.find((c) => c.name === detail.className);
         const classId = cls ? classIdMap.get(cls.classId) : undefined;
         if (!classId) continue;
-        insertStandards(db, scrapeId, classId, detail.standards, null);
-        insertAssignments(db, scrapeId, classId, detail.className, detail.standards, new Set());
+        insertStandards(db, fetchRunId, classId, detail.standards, null);
+        insertAssignments(db, fetchRunId, classId, detail.className, detail.standards, new Set());
       }
 
       // Persist: raw_payloads
-      db.prepare("INSERT INTO raw_payloads (scrape_id, json) VALUES (?, ?)").run(
-        scrapeId,
+      db.prepare("INSERT INTO raw_payloads (fetch_run_id, json) VALUES (?, ?)").run(
+        fetchRunId,
         JSON.stringify({ overview, classDetails }),
       );
 

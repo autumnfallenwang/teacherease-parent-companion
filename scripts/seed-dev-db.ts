@@ -19,6 +19,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { resolveDueDate } from "../src/lib/core/homework-date";
 
 const APP_ID = "dev.autumnfallenwang.teacherease-parent-companion";
 const DB_PATH = process.env.XDG_CONFIG_HOME
@@ -39,17 +40,19 @@ CREATE TABLE IF NOT EXISTS children (
 CREATE TABLE IF NOT EXISTS homework (
   id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
   hw_date TEXT NOT NULL, subject TEXT NOT NULL, content TEXT NOT NULL, due_date TEXT,
+  due_date_inferred INTEGER NOT NULL DEFAULT 0,
   scraped_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(child_id, hw_date, subject)
 );
 CREATE INDEX IF NOT EXISTS idx_homework_child_date ON homework(child_id, hw_date DESC);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
-CREATE TABLE IF NOT EXISTS scrapes (
+CREATE TABLE IF NOT EXISTS fetch_runs (
   id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
   run_at TEXT NOT NULL DEFAULT (datetime('now')), status TEXT NOT NULL CHECK (status IN ('success','failed','parser_error')),
-  duration_ms INTEGER, error_message TEXT
+  duration_ms INTEGER, error_message TEXT,
+  source TEXT NOT NULL DEFAULT 'teacherease'
 );
-CREATE TABLE IF NOT EXISTS raw_payloads (scrape_id INTEGER PRIMARY KEY REFERENCES scrapes(id) ON DELETE CASCADE, json TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS raw_payloads (fetch_run_id INTEGER PRIMARY KEY REFERENCES fetch_runs(id) ON DELETE CASCADE, json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS classes (
   id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
   te_class_id INTEGER NOT NULL, te_cgpid INTEGER NOT NULL, name TEXT NOT NULL,
@@ -57,30 +60,31 @@ CREATE TABLE IF NOT EXISTS classes (
   UNIQUE(child_id, te_class_id)
 );
 CREATE TABLE IF NOT EXISTS grades (
-  id INTEGER PRIMARY KEY, scrape_id INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
+  id INTEGER PRIMARY KEY, fetch_run_id INTEGER NOT NULL REFERENCES fetch_runs(id) ON DELETE CASCADE,
   class_id INTEGER REFERENCES classes(id), class_name TEXT NOT NULL, current_grade TEXT,
   status TEXT, needs_attention INTEGER NOT NULL DEFAULT 0,
   targets_meeting INTEGER, targets_not_meeting INTEGER, targets_not_assessed INTEGER
 );
 CREATE TABLE IF NOT EXISTS standards (
-  id INTEGER PRIMARY KEY, scrape_id INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
+  id INTEGER PRIMARY KEY, fetch_run_id INTEGER NOT NULL REFERENCES fetch_runs(id) ON DELETE CASCADE,
   class_id INTEGER NOT NULL REFERENCES classes(id), parent_id INTEGER REFERENCES standards(id),
   name TEXT NOT NULL, score_numeric REAL, score_letter TEXT, is_meeting INTEGER
 );
 CREATE TABLE IF NOT EXISTS assignments (
-  id INTEGER PRIMARY KEY, scrape_id INTEGER NOT NULL REFERENCES scrapes(id) ON DELETE CASCADE,
+  id INTEGER PRIMARY KEY, fetch_run_id INTEGER NOT NULL REFERENCES fetch_runs(id) ON DELETE CASCADE,
   class_id INTEGER REFERENCES classes(id), class_name TEXT NOT NULL, assignment_name TEXT NOT NULL,
   te_assignment_id INTEGER, name TEXT, score TEXT, score_numeric REAL, score_letter TEXT,
   max_score TEXT, weight INTEGER, status TEXT, is_missing INTEGER NOT NULL DEFAULT 0,
   due_date TEXT, feedback TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_scrapes_child_run ON scrapes(child_id, run_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fetch_runs_child_run ON fetch_runs(child_id, run_at DESC);
+CREATE INDEX IF NOT EXISTS idx_fetch_runs_child_source ON fetch_runs(child_id, source, run_at DESC);
 CREATE INDEX IF NOT EXISTS idx_classes_child ON classes(child_id);
-CREATE INDEX IF NOT EXISTS idx_grades_scrape ON grades(scrape_id);
-CREATE INDEX IF NOT EXISTS idx_standards_scrape ON standards(scrape_id);
-CREATE INDEX IF NOT EXISTS idx_standards_class ON standards(class_id, scrape_id);
-CREATE INDEX IF NOT EXISTS idx_assignments_scrape ON assignments(scrape_id);
-CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments(class_id, scrape_id);
+CREATE INDEX IF NOT EXISTS idx_grades_fetch_run ON grades(fetch_run_id);
+CREATE INDEX IF NOT EXISTS idx_standards_fetch_run ON standards(fetch_run_id);
+CREATE INDEX IF NOT EXISTS idx_standards_class ON standards(class_id, fetch_run_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_fetch_run ON assignments(fetch_run_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments(class_id, fetch_run_id);
 `;
 
 // ---------------------------------------------------------------------------
@@ -128,7 +132,8 @@ interface ChildDef {
 interface HomeworkSubjectDef {
   name: string;
   content: string;
-  dueDate: string;
+  /** Raw page text (e.g. `"Friday 4/17"`), or null to exercise the inferred-date fallback. */
+  dueDate: string | null;
 }
 
 interface HomeworkDayDef {
@@ -178,7 +183,8 @@ const ALEX_HOMEWORK: HomeworkDayDef[] = [
       {
         name: "World Geography",
         content: "Complete the Political Map of Southwest Asia & Northern Africa",
-        dueDate: "Wednesday 4/15",
+        // Exercise the inferred-due-date path: raw missing → inferred to next school day
+        dueDate: null,
       },
       {
         name: "English",
@@ -760,7 +766,7 @@ function insertStandards(
   parentId: number | null,
 ): void {
   const ins = db.prepare(
-    "INSERT INTO standards (scrape_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO standards (fetch_run_id, class_id, parent_id, name, score_numeric, score_letter, is_meeting) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   for (const std of standards) {
     const { numeric, letter } = parseScore(std.score);
@@ -827,7 +833,7 @@ function insertAssignments(
   seen: Set<number>,
 ): void {
   const ins = db.prepare(
-    "INSERT INTO assignments (scrape_id, class_id, class_name, assignment_name, te_assignment_id, name, score, score_numeric, score_letter, weight, is_missing, due_date, feedback, max_score, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO assignments (fetch_run_id, class_id, class_name, assignment_name, te_assignment_id, name, score, score_numeric, score_letter, weight, is_missing, due_date, feedback, max_score, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   for (const std of standards) {
     for (const asn of std.assignments) {
@@ -879,6 +885,8 @@ function main() {
       "standards",
       "grades",
       "raw_payloads",
+      "fetch_runs",
+      // legacy name — drop if upgrading from pre-v5 seeds
       "scrapes",
       "classes",
       "settings",
@@ -906,19 +914,19 @@ function main() {
     "INSERT INTO children (display_name, portal_type, base_url, username, grade, school, homework_url, created_at) VALUES (?, 'teacherease', ?, ?, ?, ?, ?, ?)",
   );
   const insertHomework = db.prepare(
-    "INSERT INTO homework (child_id, hw_date, subject, content, due_date, scraped_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO homework (child_id, hw_date, subject, content, due_date, due_date_inferred, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   const upsertClass = db.prepare(
     "INSERT INTO classes (child_id, te_class_id, te_cgpid, name, instructor, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(child_id, te_class_id) DO UPDATE SET te_cgpid = excluded.te_cgpid, name = excluded.name, instructor = excluded.instructor, updated_at = datetime('now')",
   );
   const lookupClass = db.prepare("SELECT id FROM classes WHERE child_id = ? AND te_class_id = ?");
   const insertScrape = db.prepare(
-    "INSERT INTO scrapes (child_id, run_at, status, duration_ms) VALUES (?, ?, 'success', ?)",
+    "INSERT INTO fetch_runs (child_id, run_at, status, duration_ms) VALUES (?, ?, 'success', ?)",
   );
   const insertGrade = db.prepare(
-    "INSERT INTO grades (scrape_id, class_id, class_name, current_grade, status, needs_attention, targets_meeting, targets_not_meeting, targets_not_assessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO grades (fetch_run_id, class_id, class_name, current_grade, status, needs_attention, targets_meeting, targets_not_meeting, targets_not_assessed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
-  const insertPayload = db.prepare("INSERT INTO raw_payloads (scrape_id, json) VALUES (?, ?)");
+  const insertPayload = db.prepare("INSERT INTO raw_payloads (fetch_run_id, json) VALUES (?, ?)");
 
   const seedAll = db.transaction(() => {
     for (const childDef of CHILDREN) {
@@ -1025,17 +1033,30 @@ function main() {
       // Homework seed (only for children with a homework_url configured).
       if (childDef.homeworkUrl) {
         let hwCount = 0;
+        let hwInferred = 0;
         for (const day of ALEX_HOMEWORK) {
           const d = new Date();
           d.setDate(d.getDate() + day.dateOffset);
           const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
           const scrapedAt = formatRunAt(day.dateOffset, 18);
           for (const subj of day.subjects) {
-            insertHomework.run(childId, iso, subj.name, subj.content, subj.dueDate, scrapedAt);
+            const resolved = resolveDueDate(subj.dueDate, iso);
+            if (resolved.inferred) hwInferred++;
+            insertHomework.run(
+              childId,
+              iso,
+              subj.name,
+              subj.content,
+              resolved.iso,
+              resolved.inferred ? 1 : 0,
+              scrapedAt,
+            );
             hwCount++;
           }
         }
-        console.info(`    ${hwCount} homework rows across ${ALEX_HOMEWORK.length} days`);
+        console.info(
+          `    ${hwCount} homework rows across ${ALEX_HOMEWORK.length} days (${hwInferred} inferred due dates)`,
+        );
       }
     }
   });
@@ -1047,7 +1068,7 @@ function main() {
   console.info("\nSeed complete:");
   console.info(`  ${count("children")} children`);
   console.info(`  ${count("classes")} classes`);
-  console.info(`  ${count("scrapes")} scrapes`);
+  console.info(`  ${count("fetch_runs")} fetch runs`);
   console.info(`  ${count("grades")} grade records`);
   console.info(`  ${count("standards")} standard records`);
   console.info(`  ${count("assignments")} assignment records`);
