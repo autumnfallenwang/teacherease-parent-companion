@@ -823,6 +823,58 @@ CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
 - Standards can exist with no score (defined but no assignments graded)
 - Our recursive `Standard` type and adjacency-list `standards` table handle all variations
 
+### Q20 — Unified fetch pipeline (supersedes per-source inline fetch blocks)
+
+**All data sources implement a common `FetchSource` contract; a `FetchRunner` orchestrates them and records observability to a `fetch_runs` table.** Full proposal in [fetch-pipeline-proposal.md](fetch-pipeline-proposal.md).
+
+**What unifies:**
+- Runtime contract — each source has `name`, `isApplicable(child)`, and `run(ctx)`; throws on failure.
+- Orchestration — `FetchRunner.runAll(child)` iterates sources sequentially, captures `started_at / completed_at / status / duration_ms / error_message` per run.
+- Observability — one `fetch_runs(id, source, child_id, ...)` table replaces the narrow `scrapes` table. Migration v4 renames `scrapes` → `fetch_runs` and adds a `source` column (existing rows default to `"teacherease"`); FK columns `scrape_id` in `grades`/`standards`/`assignments`/`raw_payloads` rename to `fetch_run_id`.
+
+**What does NOT unify:** data schemas. TeacherEase (nested: class → standards tree → assignments with grades + trends) and homework (flat: subject + content + due) keep their own tables and queries. Each source owns its domain. The runner only reaches the shared observability layer.
+
+**What's rejected:** dynamic plugin registration, per-source scheduling, auth abstractions. Sources are a hardcoded array for v1.
+
+**Consequence:** `handleRefresh` shrinks from two inline fetch/parse/persist blocks to `await runner.runAll(child)`. Adding a 3rd source = adding one file under `src/lib/fetch/`.
+
+### Q21 — Unified notification pipeline (supersedes direct `sendNotification` call sites)
+
+**Notifications flow through a `NotifyRouter` with pluggable `NotifyChannel` modules** (OS notification today, email Phase 9, future channels). Full proposal in [notify-pipeline-proposal.md](notify-pipeline-proposal.md).
+
+**Shape:**
+- Domain events are a discriminated union: `gradesAttention`, `newHomework`, `fetchFailed` (new — surfaces scrape failures the user doesn't otherwise see).
+- Each channel has `isEnabled(event)` + `send(event)`. OS channel wraps `tauri-plugin-notification`; email channel (Phase 9) wraps SMTP.
+- Router iterates channels sequentially, swallows per-channel failures, logs each delivery.
+- **First real use of the `settings` table** (which has existed empty since v1): per-event-type per-channel user toggles, keyed `notify.{eventType}.{channelName} = "1" | "0"`. Each channel's `isEnabled` consults the setting.
+
+**Integration with Q20:** `FetchContext` carries `notify: NotifyRouter`. Sources dispatch events during `run()`. Notifications move out of `handleRefresh` and into the source modules that own the domain logic.
+
+**Non-goals:** no message queue (synchronous), no subscription registry (channels are hardcoded), no template engine (TS string concatenation per channel until a real driver exists).
+
+### Q22 — Sidebar shell UI architecture (supersedes Q18's one-scroll layout claim)
+
+**Replaces the single-scroll dashboard with a sidebar-shell app: five route-backed sections (Today / Classes / History / Settings / About) and a bounded Today view.** Full proposal in [ui-architecture-proposal.md](ui-architecture-proposal.md).
+
+**Q18's peace-of-mind tone, editorial aesthetic (Q16), attention-first priority, and family-wide hero remain in force.** What changes is the container: Today holds the glance+scan view (Hero + Child Tabs + Attention + Tonight's Homework) at bounded density, not an ever-growing scroll. All Classes + drilldown move to their own Classes section. History hosts past homework and `fetch_runs` observability. Settings / About become sidebar items rather than header-icon routes.
+
+**Sections:**
+| Section | Content |
+|---|---|
+| Today | Status Hero + Child Tabs + Attention + Tonight's Homework (bounded) |
+| Classes | Full class list + per-class accordion drilldown + per-class history |
+| History | Past homework entries + past scrape runs (from `fetch_runs`) + future trend views |
+| Settings | Children · Notifications · Email (Phase 9) · Advanced, tab-organized |
+| About | Disclaimer + version + links + View Logs |
+
+**Desktop-native posture:**
+- **Sidebar IS the navigation** — each item is a Next.js route. Persistent shell layout; the dashboard is one route among peers.
+- **No OS menu bar.** Tauri's menu API has cross-platform quirks (GTK / macOS role attribution / Windows positioning) that aren't worth debugging for a 5-section app. The tray already handles Quit.
+- **No keyboard shortcuts in v1.** Deferred until a user asks. Click targets are large and the sidebar is always visible — parents don't need power-user affordances.
+- **Tray menu** (existing) unchanged.
+
+**Q18 supersede scope:** only the layout claim ("one vertical scroll, no separate pages") is revised. The aesthetic direction, priority ordering, and multi-child behavior are preserved.
+
 ---
 
 ## Tech Stack
@@ -1055,13 +1107,19 @@ Status history dots, clickable class rows with accordion drilldowns, standards t
 ### Phase 8 — Homework scraping (Google Sites)
 Public Google Sites homework page. Optional per-child. Plain `fetch` + cheerio. Spec: Q19.
 
-### Phase 9 — Optional email (advanced)
-BYO SMTP form in Settings → Advanced. Tutorial copy, not wizard. Covers both grades and homework reports.
+### Phase 9 — Platform refactor (backend foundation)
+Unified fetch pipeline (Q20) + unified notify pipeline (Q21) + homework date normalization. `handleRefresh` becomes `runner.runAll(child)`. `scrapes` table renamed to `fetch_runs` with a `source` column. Notifications flow through a router. No user-visible UI change.
 
-### Phase 10 — Updater + release pipeline
-`tauri-plugin-updater` wired up, GitHub Actions building per-OS installers, signed update payloads, first release.
+### Phase 10 — Desktop shell (UI architecture)
+Sidebar-shell app per Q22: Today / Classes / History / Settings / About as route-backed sections. Window-state persistence. Supersedes Q18's one-scroll layout while preserving its aesthetic and priority principles.
 
-### Phase 11 — First-launch warning docs
+### Phase 11 — Email reports (Phase 9's original scope, reshaped onto Q21)
+BYO SMTP as a second `NotifyChannel` plugging into the Phase 9 router. Settings → Email tab, per-event toggles, HTML + plaintext templates, Gmail App Password tutorial. Q4 realized.
+
+### Phase 12 — Release pipeline
+`tauri-plugin-updater` wired up, GitHub Actions building per-OS installers, signed update payloads, first v0.1.0 release.
+
+### Phase 13 — First-launch warning docs
 Screenshots and walkthrough for Windows SmartScreen / macOS Gatekeeper bypass. Brief mention of the Linux GNOME "create default keyring" one-time dialog for fresh user accounts (per Q3) — not our bug, but worth pre-warning users who see it.
 
 See [progress.md](progress.md) for the concrete task list tracking these phases.

@@ -122,36 +122,80 @@
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| H1 | Homework parser | Not started | `homework-parser.ts` — cheerio `.text()` on `div.hJDwNd-AhqUyc-uQSCkd`, split by "Homework for", parse subjects by name + "Due:" markers. Pure function, unit tests. |
-| H2 | Homework DB schema | Not started | `homework` table (child_id, hw_date, subject, content, due_date). `homework_url` column on `children` table. Migration v3. |
-| H3 | Homework fetch + persist | Not started | Plain `fetch` (no auth), parse, upsert homework entries. Called from dashboard on refresh. |
-| H4 | Homework URL in settings | Not started | Add homework URL field to child setup wizard + settings page. Optional — if not set, homework feature hidden. |
-| H5 | Homework dashboard section | Not started | "Tonight's Homework" card showing today's assignments by subject. |
-| H6 | Homework notifications | Not started | OS notification when new homework detected. |
-| H7 | POC + e2e test | Not started | Sandbox POC against live Google Sites page. Integration test. |
+| H1 | Homework parser | ✅ Done | `src/lib/scraper/homework-parser.ts` — pure cheerio parser (13 tests). `parseHomework(html, { subjects? })` returns `HomeworkEntry[]`. Handles Google Sites concatenated-text format: entry anchor regex, position-based subject scan against known-subjects list, end-anchored `Due:` marker to avoid matching lowercase `due` in content. Types in `types.ts`. Default subject list: Science/World Geography/English/Math. Developed against real `ref/` capture (137 entries parsed cleanly). |
+| H2 | Homework DB schema | ✅ Done | Migration v3 in `migrations.rs`: `ALTER TABLE children ADD COLUMN homework_url`, `homework` table (child_id, hw_date, subject, content, due_date, scraped_at; `UNIQUE(child_id, hw_date, subject)` for H3 upsert), `idx_homework_child_date` index. Matches Q19 locked schema. |
+| H3 | Homework fetch + persist | ✅ Done | `persistHomework()` in `ipc.ts` normalizes `M/D/YY` → ISO `YYYY-MM-DD`, filters to current month per Q19, upserts via `ON CONFLICT(child_id, hw_date, subject) DO UPDATE`. `setHomeworkUrl()`, `getHomeworkForDate()`, `getRecentHomework()` helpers added. `homeworkUrl` added to `ChildRecord` + `AddChildParams`. Dashboard `handleRefresh` fetches + parses + persists when `homework_url` is set; errors logged but don't fail the grades scrape. |
+| H4 | Homework URL in settings | ✅ Done | Optional `type="url"` input in `WizardAddChild` and Settings→Children `AddChildForm` (persists via `addChild({ homeworkUrl })`). New `ChildRow` component shows "Homework: not set / <url>" per child with inline Edit/Save/Cancel that calls `setHomeworkUrl()`. |
+| H5 | Homework dashboard section | ✅ Done | `HomeworkCard` component renders between Attention and All Classes. Hides itself when empty. Header + date subtitle (`Wednesday · Apr 17`) + per-subject card (subject bold, content preserving line breaks, optional due-date chip). New `getLatestHomework(childId)` IPC query selects the newest `hw_date` via a subselect (uses `idx_homework_child_date`). Dashboard loads + resets homework on child switch. |
+| H6 | Homework notifications | ✅ Done | `getMaxHomeworkDate()` + `notifyNewHomework()` in `ipc.ts`. Dashboard captures maxDate before/after persist in `handleRefresh`; when newest `hw_date` advances, sends OS notification with subject count for that date (`"3 subjects posted for Fri · Apr 17"`). Same-day content edits don't fire a notification. |
+| H7 | POC + e2e test | ✅ Done | `sandbox/capture-homework-page.ts` POC fetches live page (1.3MB), saves to `sandbox/captures/homework-page.html`, parses → **138 entries, 135 populated**. `tests/integration/homework-live.integration.test.ts` (4/4 passing with `TEACHEREASE_LIVE=1`). `tests/integration/homework-real-fixture.integration.test.ts` (4/4 passing when fixture present, skip otherwise). `HOMEWORK_PAGE_URL` added to `sandbox/.env`. |
 
-## Phase 9: Optional email (advanced)
+## Phase 9: Platform refactor (Q20 + Q21 + homework polish)
 
-| # | Task | Status | Notes |
-|---|------|--------|-------|
-| 35 | Settings → Advanced → Email form | Not started | SMTP host/port/user/pass, BYO only |
-| 36 | Email sender + templates | Not started | Port HTML template from ref repo (grades + homework) |
-| 37 | Gmail App Password tutorial | Not started | Static page with screenshots |
-
-## Phase 10: Updater + release pipeline
+Backend foundation. No UI change — `handleRefresh` gets slimmer, the DB gains a unified observability table, notifications flow through a router. Sets up Phase 10 (UI shell) and Phase 11 (email) to be mechanical. Spec: design-plan Q20 + Q21. Sources: [fetch-pipeline-proposal.md](fetch-pipeline-proposal.md), [notify-pipeline-proposal.md](notify-pipeline-proposal.md), [homework-followups.md](homework-followups.md).
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 38 | Updater signing keypair + GH secrets | Not started | One-time setup |
-| 39 | `tauri-plugin-updater` wiring | Not started | Update banner in dashboard header |
-| 40 | GitHub Actions release workflow | Not started | Tag → build 3 OSes → publish release + latest.json feed |
-| 41 | First public release | Not started | v0.1.0 |
+| P1 | Normalize `homework.due_date` to ISO | Not started | Addresses [homework-followups.md Q2](homework-followups.md). `persistHomework` anchors on `hw_date` year, emits `YYYY-MM-DD`. `HomeworkCard` reformats to weekday + short-date at render time. Low-risk warm-up for the phase. |
+| P2 | Migration v4: rename `scrapes` → `fetch_runs` | Not started | Add `source TEXT NOT NULL` (existing rows default `"teacherease"`). Rename FK columns `scrape_id` → `fetch_run_id` in `grades` / `standards` / `assignments` / `raw_payloads`. Update `migrations.rs` and `seed-dev-db.ts` `SCHEMA_SQL`. TypeScript catches every rename at compile time. |
+| P3 | `FetchSource` contract + `FetchRunner` | Not started | `src/lib/fetch/types.ts` (interface) + `runner.ts` (orchestrator writing to `fetch_runs`). New IPC helpers `startFetchRun` / `completeFetchRun`. Sequential execution for v1. |
+| P4 | Extract TeacherEase source | Not started | `src/lib/fetch/teacherease-source.ts` — move login + overview + class-detail + `persistScrape` out of `dashboard.tsx`. `persistScrape` takes the renamed `fetch_run_id`. |
+| P5 | Extract Homework source | Not started | `src/lib/fetch/homework-source.ts` — move fetch/parse/persist/notify block out of `handleRefresh`. Consumes P1's ISO dates. |
+| P6 | `NotifyRouter` + `OSChannel` + event types | Not started | `src/lib/notify/types.ts` + `router.ts` + `os-channel.ts`. Port `notifyNeedsAttention` + `notifyNewHomework` into `OSChannel.send(event)` switch. Delete legacy wrapper functions. |
+| P7 | Per-event notification prefs in `settings` | Not started | First real writes to the `settings` table. `notify.{eventType}.{channelName}` keys; `getSettingBool(key, default)` helper. Channels consult the table via `isEnabled(event)`. |
+| P8 | Wire notify into the runner | Not started | `FetchContext.notify: NotifyRouter`. Sources dispatch events during `run()`. Emit new `fetchFailed` event from the runner's catch block (surfaces scrape failures that today get silently logged). |
 
-## Phase 11: First-launch warning docs
+**End state of Phase 9:** `handleRefresh` is a thin `await runner.runAll(child)` call. All scrape history lives in `fetch_runs`. All notifications flow through `NotifyRouter`. Dashboard UI visually unchanged.
+
+## Phase 10: Desktop shell (Q22)
+
+UI architecture: sidebar-shell app with 5 route-backed sections. Resolves the "scroll forever" problem and gives every future feature a designated home. Spec: design-plan Q22 (supersedes Q18's layout claim). Source: [ui-architecture-proposal.md](ui-architecture-proposal.md).
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 42 | `docs/first-launch.md` | Not started | Windows SmartScreen and macOS Gatekeeper bypass walkthroughs with screenshots |
+| S1 | Sidebar shell + route restructure | Not started | Persistent layout component with 5 sidebar items (Today / Classes / History / Settings / About). Move existing `/settings` and `/about` into the shell. New `/classes` and `/history` routes. `lucide` icons; expanded-by-default sidebar with collapse toggle. |
+| S2 | Reshape Today view | Not started | Remove `GradesTable` + accordion from the Today route. Keep Hero + Child Tabs + Attention + Tonight's Homework. Add "View all in Classes →" bridge link. Bound Today to ~one viewport at comfortable density. |
+| S3 | Build Classes page | Not started | `/classes` hosts the full class list + per-class accordion drilldown + per-class history. Near-zero new code; relocates `GradesTable` + `StandardsTree`. |
+| S4 | Build History page | Not started | `/history` with sub-tabs "Homework" (past days via `getRecentHomework`) + "Scrapes" (reads P2's `fetch_runs` table — columns: source, started_at, status, duration, error). Addresses [homework-followups.md Q1](homework-followups.md) (viewing previous homework). |
+| S5 | Expand Settings page | Not started | `/settings` gets sub-tabs: Children (existing) · Notifications (UI for P7's `notify.*` keys) · Email (placeholder — populated in Phase 11) · Advanced (autostart toggle, clear history, export DB, updater on/off). |
+| S6 | Window state persistence | Not started | `tauri-plugin-window-state` for size/position between launches. Sidebar collapsed/expanded state stored in `settings` table (`ui.sidebarCollapsed`). |
+| S7 | Recent Activity revive-or-delete decision | Not started | Addresses [homework-followups.md Q3](homework-followups.md). Either revive with renamed heading ("Since last check") and drop `agingMissing`, or delete `recent-activity.tsx` + `core/activity.ts` outright. Decide once the new Today layout is settled in S2. |
+
+**End state of Phase 10:** Desktop-native feel with sidebar navigation, bounded Today view, and designated homes for every planned future feature.
+
+## Phase 11: Email reports
+
+Second `NotifyChannel` (SMTP) plugs into Phase 9's router. Also fills the Email tab placeholder from S5. BYO SMTP per Q4.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| E1 | `EmailChannel` implementation | Not started | `src/lib/notify/email-channel.ts` — implements `NotifyChannel`. `channelAvailable()` checks SMTP settings present + keychain has `smtp-main`. Uses a minimal SMTP client (likely `nodemailer` or a lighter alternative if we can find one). |
+| E2 | Event → email template system | Not started | Per-event HTML + plaintext templates (template literals, no engine). Port the existing HTML design from `ref/teacherease_parents_helper/` for grades. New template for homework. |
+| E3 | Settings → Email tab | Not started | Form: host / port / user / from / to, password written to keychain as `smtp-main` (never shown back). Per-event-type email toggles (writes `notify.{eventType}.email` keys from P7). "Send test email" button. |
+| E4 | Gmail App Password tutorial | Not started | Static page under `/about/gmail-app-password` or linked from the Email tab. Screenshots of the Google Account → Security → App Passwords flow. No in-app automation. |
+| E5 | Live-send integration test | Not started | Gated behind `EMAIL_LIVE=1` env var reading test-SMTP creds from `sandbox/.env`. One smoke test per template. Never runs in CI. |
+
+**End state of Phase 11:** Parent with a laptop that closes during the day can still receive a daily email summary. Q4 fully realized.
+
+## Phase 12: Release pipeline
+
+Shipping foundation. Once this lands, users outside this machine can install the app.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| R1 | Updater signing keypair + GH secrets | Not started | `tauri signer generate`. Public key baked into the app at build. Private key only in GitHub Actions secrets. Documents the rotation/loss recovery plan. |
+| R2 | `tauri-plugin-updater` wiring | Not started | Check JSON feed on app launch and once per day. Non-intrusive banner in the shell's top bar (fits the new sidebar layout from Phase 10). "Later" remembers per version. Kill-switch in Advanced tab (S5). |
+| R3 | GitHub Actions release workflow | Not started | Tag → build 3 OSes → sign update payloads → publish GitHub Release + `latest.json` feed. Reuses existing CI matrix. |
+| R4 | First public release v0.1.0 | Not started | Tag, release, smoke-test the installer on each OS, confirm the updater path works by shipping a v0.1.1 patch end-to-end. |
+
+## Phase 13: First-launch documentation
+
+OS signing is deferred (Q9); documented warnings instead. Ships alongside v0.1.0.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| FL1 | `docs/first-launch-windows.md` | Not started | SmartScreen "Windows protected your PC" bypass walkthrough with screenshots. Reference from README + the release-notes template. |
+| FL2 | `docs/first-launch-macos.md` | Not started | Gatekeeper "cannot verify developer" bypass: right-click → Open. Screenshots of both Sequoia and earlier dialogs. Note for Apple Silicon vs Intel if behavior differs. Brief mention of the Linux GNOME one-time keyring dialog (per Q3). |
 
 ---
 
@@ -169,4 +213,12 @@
 
 ## What's Next
 
-**Phase 7c complete (U1–U9).** Dashboard redesigned with v2 data model + time-based Recent Activity. Next: H1 (homework parser) — start of Phase 8.
+**Phases 0–8 complete.** Homework feature shipped end-to-end (138 entries parsed against live data). Roadmap to v0.1.0 restructured into five coherent phases:
+
+1. **Phase 9 — Platform refactor (P1–P8)** backend foundation: fetch + notify pipelines, homework due-date ISO polish. No UI change.
+2. **Phase 10 — Desktop shell (S1–S7)** sidebar app with Today / Classes / History / Settings / About. Window-state persistence. Recent Activity decision.
+3. **Phase 11 — Email reports (E1–E5)** second notify channel, Settings → Email tab, templates, Gmail tutorial.
+4. **Phase 12 — Release pipeline (R1–R4)** updater signing, GH Actions, first v0.1.0 release.
+5. **Phase 13 — First-launch docs (FL1–FL2)** SmartScreen + Gatekeeper walkthroughs.
+
+**Start with P1** (homework due-date ISO normalization) — lowest-risk warm-up for Phase 9.
