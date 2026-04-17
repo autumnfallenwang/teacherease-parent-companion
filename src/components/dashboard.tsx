@@ -7,9 +7,11 @@ import { ChildTabs } from "@/components/child-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
+import { RecentActivity } from "@/components/recent-activity";
 import { StandardsTree } from "@/components/standards-tree";
 import type { ChildStatus } from "@/components/status-hero";
 import { StatusHero } from "@/components/status-hero";
+import { computeRecentActivity } from "@/lib/core/activity";
 import type { AssignmentRecord, GradeRecord, ScrapeRecord, StatusHistoryEntry } from "@/lib/ipc";
 import {
   getAllStatusHistory,
@@ -22,6 +24,7 @@ import {
   getLatestScrape,
   getMissingAssignments,
   getNeedsAttentionGrades,
+  getScrapeBefore,
   initLogging,
   log,
   logErr,
@@ -45,6 +48,8 @@ export function Dashboard() {
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [missing, setMissing] = useState<AssignmentRecord[]>([]);
   const [allAssignments, setAllAssignments] = useState<AssignmentRecord[]>([]);
+  const [prevGrades, setPrevGrades] = useState<GradeRecord[] | null>(null);
+  const [prevAssignments, setPrevAssignments] = useState<AssignmentRecord[] | null>(null);
   const [statusHistory, setStatusHistory] =
     useState<Map<string, StatusHistoryEntry[]>>(EMPTY_HISTORY);
   const [instructors, setInstructors] = useState<Map<number, string>>(EMPTY_INSTRUCTORS);
@@ -62,6 +67,11 @@ export function Dashboard() {
     [heroStatuses],
   );
 
+  const activities = useMemo(
+    () => computeRecentActivity(grades, allAssignments, prevGrades, prevAssignments),
+    [grades, allAssignments, prevGrades, prevAssignments],
+  );
+
   const loadData = useCallback(async (cId: number) => {
     const scrape = await getLatestScrape(cId);
     setLastScrape(scrape);
@@ -76,6 +86,23 @@ export function Dashboard() {
       setMissing(m);
       setStatusHistory(h);
       setAllAssignments(a);
+
+      // Load the prior successful scrape for Recent Activity diffing
+      const prev = await getScrapeBefore(cId, scrape.runAt);
+      if (prev) {
+        const [pg, pa] = await Promise.all([
+          getGradesForScrape(prev.id),
+          getAssignmentsForScrape(prev.id),
+        ]);
+        setPrevGrades(pg);
+        setPrevAssignments(pa);
+      } else {
+        setPrevGrades(null);
+        setPrevAssignments(null);
+      }
+    } else {
+      setPrevGrades(null);
+      setPrevAssignments(null);
     }
 
     // Load instructor map from classes table
@@ -232,6 +259,8 @@ export function Dashboard() {
       setGrades([]);
       setMissing([]);
       setAllAssignments([]);
+      setPrevGrades(null);
+      setPrevAssignments(null);
       setStatusHistory(EMPTY_HISTORY);
       setInstructors(EMPTY_INSTRUCTORS);
       setExpandedClass(null);
@@ -301,6 +330,9 @@ export function Dashboard() {
             {error}
           </div>
         )}
+
+        {/* Layer 2: Recent Activity (time-based diff vs prior scrape) */}
+        <RecentActivity activities={activities} />
 
         {/* Layer 3: Missing Work (if any) */}
         <AttentionSection missingAssignments={missing} allAssignments={allAssignments} />

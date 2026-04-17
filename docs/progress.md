@@ -112,7 +112,7 @@
 | U2 | ChildTabs component | ✅ Done | Tab bar below hero, replaces header dropdown. Hidden if 1 child. Amber dot for attention children. |
 | U3 | ProgressBar component | ✅ Done | Thin 4px bar with teal/amber segments. Label "5/20". |
 | U4 | GradesTable: progress bars + instructor + sort | ✅ Done | ProgressBar + instructor per row. Sorted by urgency via `sortClassesByUrgency()`. |
-| U5 | RecentActivity component + core logic | Not started | `computeRecentActivity()` in `core/activity.ts`. Time-based (24h). |
+| U5 | RecentActivity component + core logic | ✅ Done | `computeRecentActivity()` in `core/activity.ts` (12 tests) diffs current vs prior-scrape grades + assignments → improved/declined/newScores/agingMissing. `getScrapeBefore(childId, isoDate)` IPC query loads nearest prior successful scrape. `RecentActivity` component renders icon+text rows with "Show N more" overflow. Wired into dashboard between ChildTabs and AttentionSection. |
 | U6 | AttentionSection: missing + low scores | ✅ Done | `AttentionSection` replaces `MissingWork`. Shows missing (urgency groups) + low scores (below M/3.0, sorted worst first). `getLowScoreAssignments()` in `core/attention.ts` (5 tests). Dashboard passes all assignments for filtering. |
 | U7 | Dashboard wiring | ✅ Done | StatusHero + ChildTabs wired. Auto-selects attention child on load. Hero loads all children's grades. Header simplified (no children slot). `getClasses()` IPC query for instructor map. |
 | U8 | StandardsTree: full detail for all classes | ✅ Done | Empty state updated to "No standards data available." |
@@ -157,15 +157,16 @@
 
 ## What's Working
 
-- Phase 0 scaffolding complete. Repo builds end-to-end on Linux.
-- Planning docs committed (design-plan.md with Q1–Q12 locked decisions, progress.md).
-- `pnpm check` (lint + typecheck + test) green — 10 files Biome-clean, tsc clean, 1/1 Vitest smoke test passing.
-- `next build` produces static export to `out/`.
-- `src-tauri/` scaffolded and compiles — `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` all green.
-- GitHub Actions CI with ts + rust jobs and 3-OS build matrix at `.github/workflows/ci.yml`.
-- Dev env verified: node 25.9, pnpm 10.29, rustup + rustc 1.94.1 (rust-analyzer component), webkit2gtk-4.1, typescript-language-server.
-- Reference Python predecessor checked out at `ref/teacherease_parents_helper/` (gitignored) for HTML fixture mining and parser cross-checks.
+- **Scraper** — login, grades overview (embedded JSON), class detail (cheerio) all tested against real fixtures and live portal.
+- **Persistence** — SQLite v2 schema (children, scrapes, raw_payloads, classes, standards, grades, assignments); keychain-backed credentials; child CRUD with atomic rollback; full scrape persistence with standards tree + deduplicated assignments.
+- **Dashboard UX v2 (Q18)** — StatusHero (family-wide) + ChildTabs + RecentActivity (24h diff) + AttentionSection (missing + low scores, grouped by recency) + All Classes with progress bars/instructor/status dots + one-at-a-time accordion drilldown.
+- **First-run wizard** — 4 screens with live login validation, inline first scrape + summary, skippable at every step.
+- **Scheduler + notifications** — tray icon with Open/Refresh/Quit; 6h internal timer on dashboard mount; OS notifications when attention items detected; autostart enabled by default.
+- **Multi-child** — switcher via ChildTabs; Settings → Children CRUD page with trash-to-remove and live-validation add form.
+- **Logging + legal** — `tauri-plugin-log` to file + stdout + webview (DEBUG dev / INFO release); "View logs" in Settings → About; single-source legal disclaimer.
+- **CI + checks** — 3-OS build matrix (`.github/workflows/ci.yml`); `pnpm check` (Biome + tsc + Vitest) green with 106 tests passing; `cargo fmt` / `cargo clippy -D warnings` / `cargo test` all green.
+- **Seed data** — v2-schema time-varying seed script (7 days of evolving assignments) for offline dashboard development.
 
 ## What's Next
 
-**U1–U4, U6–U9 done.** Dashboard redesigned. Homework feature planned (Phase 7d). Next: U5 (RecentActivity) or H1 (homework parser).
+**Phase 7c complete (U1–U9).** Dashboard redesigned with v2 data model + time-based Recent Activity. Next: H1 (homework parser) — start of Phase 8.

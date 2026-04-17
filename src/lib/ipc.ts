@@ -433,14 +433,7 @@ interface RawAssignmentRow {
   feedback: string | null;
 }
 
-export async function getLatestScrape(childId: number): Promise<ScrapeRecord | null> {
-  const d = await getDb();
-  const rows = await d.select<RawScrapeRow[]>(
-    "SELECT * FROM scrapes WHERE child_id = $1 ORDER BY run_at DESC LIMIT 1",
-    [childId],
-  );
-  const row = rows[0];
-  if (!row) return null;
+function mapScrapeRow(row: RawScrapeRow): ScrapeRecord {
   return {
     id: row.id,
     childId: row.child_id,
@@ -449,6 +442,33 @@ export async function getLatestScrape(childId: number): Promise<ScrapeRecord | n
     durationMs: row.duration_ms,
     errorMessage: row.error_message,
   };
+}
+
+export async function getLatestScrape(childId: number): Promise<ScrapeRecord | null> {
+  const d = await getDb();
+  const rows = await d.select<RawScrapeRow[]>(
+    "SELECT * FROM scrapes WHERE child_id = $1 ORDER BY run_at DESC LIMIT 1",
+    [childId],
+  );
+  const row = rows[0];
+  return row ? mapScrapeRow(row) : null;
+}
+
+/**
+ * Nearest successful scrape strictly before `isoDate`.
+ * Used for 24h-ago comparisons in the Recent Activity section.
+ */
+export async function getScrapeBefore(
+  childId: number,
+  isoDate: string,
+): Promise<ScrapeRecord | null> {
+  const d = await getDb();
+  const rows = await d.select<RawScrapeRow[]>(
+    "SELECT * FROM scrapes WHERE child_id = $1 AND run_at < $2 AND status = 'success' ORDER BY run_at DESC LIMIT 1",
+    [childId, isoDate],
+  );
+  const row = rows[0];
+  return row ? mapScrapeRow(row) : null;
 }
 
 function mapGradeRow(r: RawGradeRow): GradeRecord {
