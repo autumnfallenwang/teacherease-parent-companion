@@ -2,15 +2,14 @@
 
 A cross-platform desktop app that keeps track of your child's grades and homework from TeacherEase. Everything stays on your computer — no accounts, no servers, no cloud.
 
-> **Status:** early development. See `docs/design-plan.md` for architecture and locked decisions.
-
 ## What it does
 
-- Checks your child's TeacherEase portal in the background every few hours.
-- Sends a desktop notification when there's a new missing assignment or a low score.
-- Shows a dashboard with grades, homework, and trends over time.
-- Supports multiple children in one install.
-- Optional email reports via your own SMTP account (advanced setting).
+- **Dashboard** — a "Today" view that surfaces which classes need attention, what's missing, and any recent grade changes across all your children in one place.
+- **Homework** — parses the Google Sites page your teachers post to and shows today's assignments with due-date inference.
+- **Notifications** — desktop alerts when a class slips into attention status, when new homework is posted, or when a scrape fails.
+- **Email reports (optional)** — daily per-event email summaries via your own SMTP account (Gmail App Password tutorial included).
+- **Multi-child** — one install handles several children; switch between them with one click.
+- **Auto-updates** — signed update payloads, non-intrusive banner when a new version is available.
 
 ## Platforms
 
@@ -39,9 +38,11 @@ This app is designed to be a respectful, lightweight client for TeacherEase:
 
 ## Download
 
-Pre-built installers are published on the [Releases page](https://github.com/autumnfallenwang/teacherease-parent-companion/releases) once v1 is available.
+Pre-built installers are on the [Releases page](https://github.com/autumnfallenwang/teacherease-parent-companion/releases).
 
-Because the v1 builds are unsigned, Windows SmartScreen and macOS Gatekeeper will show a warning on first launch. Step-by-step instructions for bypassing these warnings are in `docs/first-launch.md` (coming soon).
+Because v1 builds are unsigned at the OS level, Windows SmartScreen and macOS Gatekeeper will show a warning on first launch. Walkthroughs for bypassing them: `docs/first-launch-windows.md` and `docs/first-launch-macos.md` (ships alongside v0.1.0).
+
+Updater payloads are cryptographically signed — the app verifies every downloaded update against a public key baked into the installed build before applying it.
 
 ## Tech stack
 

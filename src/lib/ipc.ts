@@ -936,6 +936,58 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
   await invoke("send_email", { args });
 }
 
+// ---------------------------------------------------------------------------
+// Updater (R2) — wraps tauri-plugin-updater + tauri-plugin-process.
+// ---------------------------------------------------------------------------
+
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+  date: string | null;
+}
+
+export async function checkForUpdate(): Promise<UpdateInfo | null> {
+  const { check } = await import("@tauri-apps/plugin-updater");
+  const update = await check();
+  if (!update) return null;
+  return {
+    version: update.version,
+    notes: update.body ?? null,
+    date: update.date ?? null,
+  };
+}
+
+export async function installUpdate(): Promise<void> {
+  const { check } = await import("@tauri-apps/plugin-updater");
+  const { relaunch } = await import("@tauri-apps/plugin-process");
+  const update = await check();
+  if (!update) throw new Error("No update available");
+  await update.downloadAndInstall();
+  await relaunch();
+}
+
+const DISMISSED_UPDATE_KEY = "updater.dismissedVersion";
+const LAST_CHECKED_KEY = "updater.lastCheckedAt";
+
+export async function getDismissedUpdateVersion(): Promise<string | null> {
+  const v = await getSettingString(DISMISSED_UPDATE_KEY, "");
+  return v || null;
+}
+
+export async function dismissUpdateVersion(version: string): Promise<void> {
+  await setSettingString(DISMISSED_UPDATE_KEY, version);
+}
+
+export async function getLastUpdateCheckMs(): Promise<number> {
+  const v = await getSettingString(LAST_CHECKED_KEY, "");
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export async function setLastUpdateCheckMs(ms: number): Promise<void> {
+  await setSettingString(LAST_CHECKED_KEY, String(ms));
+}
+
 /**
  * Send a canned test email using the currently-saved SMTP config + keychain.
  * Throws "SMTP not configured" if any required field is missing — matches the

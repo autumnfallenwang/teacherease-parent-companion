@@ -59,6 +59,8 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             keychain::keychain_set,
             keychain::keychain_get,
