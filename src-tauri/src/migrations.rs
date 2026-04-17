@@ -112,5 +112,26 @@ pub fn initial() -> Vec<Migration> {
         "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "v3_homework_table",
+            sql: r#"
+            ALTER TABLE children ADD COLUMN homework_url TEXT;
+
+            CREATE TABLE IF NOT EXISTS homework (
+                id         INTEGER PRIMARY KEY,
+                child_id   INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+                hw_date    TEXT NOT NULL,
+                subject    TEXT NOT NULL,
+                content    TEXT NOT NULL,
+                due_date   TEXT,
+                scraped_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(child_id, hw_date, subject)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_homework_child_date ON homework(child_id, hw_date DESC);
+        "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }

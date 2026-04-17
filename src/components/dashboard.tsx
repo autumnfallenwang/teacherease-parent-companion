@@ -7,12 +7,17 @@ import { ChildTabs } from "@/components/child-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
-import { RecentActivity } from "@/components/recent-activity";
+import { HomeworkCard } from "@/components/homework-card";
 import { StandardsTree } from "@/components/standards-tree";
 import type { ChildStatus } from "@/components/status-hero";
 import { StatusHero } from "@/components/status-hero";
-import { computeRecentActivity } from "@/lib/core/activity";
-import type { AssignmentRecord, GradeRecord, ScrapeRecord, StatusHistoryEntry } from "@/lib/ipc";
+import type {
+  AssignmentRecord,
+  GradeRecord,
+  HomeworkRecord,
+  ScrapeRecord,
+  StatusHistoryEntry,
+} from "@/lib/ipc";
 import {
   getAllStatusHistory,
   getAssignmentsForScrape,
@@ -21,17 +26,22 @@ import {
   getClassDetail,
   getClasses,
   getGradesForScrape,
+  getHomeworkForDate,
+  getLatestHomework,
   getLatestScrape,
+  getMaxHomeworkDate,
   getMissingAssignments,
   getNeedsAttentionGrades,
-  getScrapeBefore,
   initLogging,
   log,
   logErr,
   notifyNeedsAttention,
+  notifyNewHomework,
+  persistHomework,
   persistScrape,
   setupAutostart,
 } from "@/lib/ipc";
+import { parseHomework } from "@/lib/scraper/homework-parser";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login, USER_AGENT } from "@/lib/scraper/teacherease";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
@@ -48,8 +58,7 @@ export function Dashboard() {
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [missing, setMissing] = useState<AssignmentRecord[]>([]);
   const [allAssignments, setAllAssignments] = useState<AssignmentRecord[]>([]);
-  const [prevGrades, setPrevGrades] = useState<GradeRecord[] | null>(null);
-  const [prevAssignments, setPrevAssignments] = useState<AssignmentRecord[] | null>(null);
+  const [homework, setHomework] = useState<HomeworkRecord[]>([]);
   const [statusHistory, setStatusHistory] =
     useState<Map<string, StatusHistoryEntry[]>>(EMPTY_HISTORY);
   const [instructors, setInstructors] = useState<Map<number, string>>(EMPTY_INSTRUCTORS);
@@ -67,11 +76,6 @@ export function Dashboard() {
     [heroStatuses],
   );
 
-  const activities = useMemo(
-    () => computeRecentActivity(grades, allAssignments, prevGrades, prevAssignments),
-    [grades, allAssignments, prevGrades, prevAssignments],
-  );
-
   const loadData = useCallback(async (cId: number) => {
     const scrape = await getLatestScrape(cId);
     setLastScrape(scrape);
@@ -86,23 +90,6 @@ export function Dashboard() {
       setMissing(m);
       setStatusHistory(h);
       setAllAssignments(a);
-
-      // Load the prior successful scrape for Recent Activity diffing
-      const prev = await getScrapeBefore(cId, scrape.runAt);
-      if (prev) {
-        const [pg, pa] = await Promise.all([
-          getGradesForScrape(prev.id),
-          getAssignmentsForScrape(prev.id),
-        ]);
-        setPrevGrades(pg);
-        setPrevAssignments(pa);
-      } else {
-        setPrevGrades(null);
-        setPrevAssignments(null);
-      }
-    } else {
-      setPrevGrades(null);
-      setPrevAssignments(null);
     }
 
     // Load instructor map from classes table
@@ -112,6 +99,9 @@ export function Dashboard() {
       if (cls.instructor) instrMap.set(cls.id, cls.instructor);
     }
     setInstructors(instrMap);
+
+    // Latest homework entries (H5)
+    setHomework(await getLatestHomework(cId));
   }, []);
 
   // Load hero statuses for ALL children
@@ -220,6 +210,31 @@ export function Dashboard() {
         rawPayload: JSON.stringify({ overview, classDetails }),
       });
 
+      // Homework (Q19 / H3) — best-effort, never fails the grades scrape.
+      // H6: notify when the newest hw_date advances (new school-day posted).
+      if (child.homeworkUrl) {
+        try {
+          await log(`homework: started childId=${childId}`);
+          const prevMaxDate = await getMaxHomeworkDate(childId);
+          const hwRes = await fetch(child.homeworkUrl, {
+            headers: { "User-Agent": USER_AGENT },
+          });
+          const hwHtml = await hwRes.text();
+          const entries = parseHomework(hwHtml);
+          await persistHomework(childId, entries);
+          const newMaxDate = await getMaxHomeworkDate(childId);
+          if (newMaxDate && (!prevMaxDate || newMaxDate > prevMaxDate)) {
+            const newRows = await getHomeworkForDate(childId, newMaxDate);
+            if (newRows.length > 0) {
+              await notifyNewHomework(child.displayName, newMaxDate, newRows.length);
+            }
+          }
+        } catch (hwErr) {
+          const hwMsg = hwErr instanceof Error ? hwErr.message : "Unknown error";
+          await logErr(`homework failed: ${hwMsg}`);
+        }
+      }
+
       await log(
         `scrape: complete childId=${childId} duration=${Date.now() - start}ms classes=${overview.classes.length} details=${classDetails.length}`,
       );
@@ -259,8 +274,7 @@ export function Dashboard() {
       setGrades([]);
       setMissing([]);
       setAllAssignments([]);
-      setPrevGrades(null);
-      setPrevAssignments(null);
+      setHomework([]);
       setStatusHistory(EMPTY_HISTORY);
       setInstructors(EMPTY_INSTRUCTORS);
       setExpandedClass(null);
@@ -331,11 +345,13 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* Layer 2: Recent Activity (time-based diff vs prior scrape) */}
-        <RecentActivity activities={activities} />
+        {/* Layer 2 (Recent Activity) disabled — see docs/homework-followups.md Q3. */}
 
         {/* Layer 3: Missing Work (if any) */}
         <AttentionSection missingAssignments={missing} allAssignments={allAssignments} />
+
+        {/* Tonight's Homework (Q19 / H5) — renders only if data exists */}
+        <HomeworkCard entries={homework} />
 
         {/* Layer 4: All Classes + Layer 5: Accordion */}
         <GradesTable

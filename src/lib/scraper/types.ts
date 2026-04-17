@@ -48,6 +48,7 @@ export interface ChildRecord {
   readonly username: string;
   readonly grade: string | null;
   readonly school: string | null;
+  readonly homeworkUrl: string | null;
   readonly createdAt: string;
 }
 
@@ -114,4 +115,19 @@ export interface ClassDetails {
   readonly summary: {
     readonly missingAssignments: number;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Homework (H1) — Google Sites daily homework page
+// ---------------------------------------------------------------------------
+
+export interface HomeworkSubject {
+  readonly name: string;
+  readonly content: string;
+  readonly dueDate: string | null;
+}
+
+export interface HomeworkEntry {
+  readonly date: string;
+  readonly subjects: readonly HomeworkSubject[];
 }

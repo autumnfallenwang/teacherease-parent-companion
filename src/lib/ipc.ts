@@ -21,6 +21,7 @@ import type {
   ClassDetails,
   ClassOverview,
   GradesOverview,
+  HomeworkEntry,
   Standard,
 } from "./scraper/types";
 
@@ -68,20 +69,22 @@ export interface AddChildParams {
   password: string;
   grade?: string;
   school?: string;
+  homeworkUrl?: string | null;
 }
 
 export async function addChild(params: AddChildParams): Promise<number> {
   const d = await getDb();
 
   const result = await d.execute(
-    `INSERT INTO children (display_name, base_url, username, grade, school)
-     VALUES ($1, $2, $3, $4, $5)`,
+    `INSERT INTO children (display_name, base_url, username, grade, school, homework_url)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
     [
       params.displayName,
       params.baseUrl,
       params.username,
       params.grade ?? null,
       params.school ?? null,
+      params.homeworkUrl ?? null,
     ],
   );
   const childId = result.lastInsertId;
@@ -116,6 +119,14 @@ export async function updateChildPassword(childId: number, password: string): Pr
   await keychainSet(childKeychainKey(childId), password);
 }
 
+export async function setHomeworkUrl(childId: number, url: string | null): Promise<void> {
+  const d = await getDb();
+  await d.execute("UPDATE children SET homework_url = $1 WHERE id = $2", [url, childId]);
+  await invoke("log_info", {
+    message: `setHomeworkUrl: childId=${childId} configured=${url ? "true" : "false"}`,
+  });
+}
+
 export async function getChildPassword(childId: number): Promise<string | null> {
   return await keychainGet(childKeychainKey(childId));
 }
@@ -128,6 +139,7 @@ interface RawChildRow {
   username: string;
   grade: string | null;
   school: string | null;
+  homework_url: string | null;
   created_at: string;
 }
 
@@ -140,6 +152,7 @@ function mapChildRow(row: RawChildRow): ChildRecord {
     username: row.username,
     grade: row.grade,
     school: row.school,
+    homeworkUrl: row.homework_url,
     createdAt: row.created_at,
   };
 }
@@ -669,6 +682,146 @@ export async function getMissingAssignments(scrapeId: number): Promise<Assignmen
 }
 
 // ---------------------------------------------------------------------------
+// Homework (Q19 / H3) — persisted as ISO dates (YYYY-MM-DD) so the
+// idx_homework_child_date index sorts correctly across month/year boundaries.
+// ---------------------------------------------------------------------------
+
+export interface HomeworkRecord {
+  id: number;
+  childId: number;
+  hwDate: string;
+  subject: string;
+  content: string;
+  dueDate: string | null;
+  scrapedAt: string;
+}
+
+interface RawHomeworkRow {
+  id: number;
+  child_id: number;
+  hw_date: string;
+  subject: string;
+  content: string;
+  due_date: string | null;
+  scraped_at: string;
+}
+
+function mapHomeworkRow(r: RawHomeworkRow): HomeworkRecord {
+  return {
+    id: r.id,
+    childId: r.child_id,
+    hwDate: r.hw_date,
+    subject: r.subject,
+    content: r.content,
+    dueDate: r.due_date,
+    scrapedAt: r.scraped_at,
+  };
+}
+
+/**
+ * Normalize "M/D/YY" → "YYYY-MM-DD". Returns null on unparseable input.
+ */
+function homeworkDateToIso(raw: string): string | null {
+  const match = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (!match) return null;
+  const m = Number.parseInt(match[1] ?? "", 10);
+  const d = Number.parseInt(match[2] ?? "", 10);
+  const yy = Number.parseInt(match[3] ?? "", 10);
+  if (!Number.isFinite(m) || !Number.isFinite(d) || !Number.isFinite(yy)) return null;
+  const year = 2000 + yy;
+  return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * Upsert homework entries for a child. Filters to the current month+year
+ * per Q19 ("Only current month's entries persisted"). Idempotent via
+ * `UNIQUE(child_id, hw_date, subject)`.
+ */
+export async function persistHomework(
+  childId: number,
+  entries: readonly HomeworkEntry[],
+  now: Date = new Date(),
+): Promise<number> {
+  const d = await getDb();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  let persisted = 0;
+  for (const entry of entries) {
+    const iso = homeworkDateToIso(entry.date);
+    if (!iso) continue;
+    const [yearStr, monthStr] = iso.split("-");
+    if (Number.parseInt(yearStr ?? "", 10) !== currentYear) continue;
+    if (Number.parseInt(monthStr ?? "", 10) !== currentMonth) continue;
+    if (entry.subjects.length === 0) continue;
+
+    for (const subj of entry.subjects) {
+      await d.execute(
+        `INSERT INTO homework (child_id, hw_date, subject, content, due_date)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT(child_id, hw_date, subject) DO UPDATE SET
+           content = excluded.content,
+           due_date = excluded.due_date,
+           scraped_at = datetime('now')`,
+        [childId, iso, subj.name, subj.content, subj.dueDate],
+      );
+      persisted += 1;
+    }
+  }
+
+  await invoke("log_info", {
+    message: `homework: persisted childId=${childId} rows=${persisted} entries=${entries.length}`,
+  });
+  return persisted;
+}
+
+export async function getHomeworkForDate(
+  childId: number,
+  hwDateIso: string,
+): Promise<HomeworkRecord[]> {
+  const d = await getDb();
+  const rows = await d.select<RawHomeworkRow[]>(
+    "SELECT * FROM homework WHERE child_id = $1 AND hw_date = $2 ORDER BY id",
+    [childId, hwDateIso],
+  );
+  return rows.map(mapHomeworkRow);
+}
+
+/**
+ * Returns the newest `hw_date` (ISO `YYYY-MM-DD`) stored for this child, or null.
+ * Used to detect whether a scrape introduced a new homework day (H6).
+ */
+export async function getMaxHomeworkDate(childId: number): Promise<string | null> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ m: string | null }>>(
+    "SELECT MAX(hw_date) AS m FROM homework WHERE child_id = $1",
+    [childId],
+  );
+  return rows[0]?.m ?? null;
+}
+
+export async function getLatestHomework(childId: number): Promise<HomeworkRecord[]> {
+  const d = await getDb();
+  const rows = await d.select<RawHomeworkRow[]>(
+    `SELECT * FROM homework
+     WHERE child_id = $1
+       AND hw_date = (SELECT MAX(hw_date) FROM homework WHERE child_id = $1)
+     ORDER BY id`,
+    [childId],
+  );
+  return rows.map(mapHomeworkRow);
+}
+
+export async function getRecentHomework(childId: number, limit = 7): Promise<HomeworkRecord[]> {
+  const d = await getDb();
+  const rows = await d.select<RawHomeworkRow[]>(
+    "SELECT * FROM homework WHERE child_id = $1 ORDER BY hw_date DESC, id LIMIT $2",
+    [childId, limit],
+  );
+  return rows.map(mapHomeworkRow);
+}
+
+// ---------------------------------------------------------------------------
 // Notifications (T27)
 // ---------------------------------------------------------------------------
 
@@ -705,6 +858,34 @@ export async function notifyNeedsAttention(
   sendNotification({
     title: `${childName}: Grade update`,
     body: parts.join(", "),
+  });
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
+  const monthDay = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return `${weekday} · ${monthDay}`;
+}
+
+export async function notifyNewHomework(
+  childName: string,
+  isoDate: string,
+  subjectCount: number,
+): Promise<void> {
+  if (subjectCount <= 0) return;
+  const granted = await ensureNotificationPermission();
+  if (!granted) {
+    await invoke("log_warn", { message: "notification: permission not granted, skipping" });
+    return;
+  }
+  await invoke("log_info", {
+    message: `notification: homework childName=${childName} date=${isoDate} subjects=${subjectCount}`,
+  });
+  sendNotification({
+    title: `${childName}: New homework`,
+    body: `${subjectCount} subject${subjectCount === 1 ? "" : "s"} posted for ${formatShortDate(isoDate)}`,
   });
 }
 

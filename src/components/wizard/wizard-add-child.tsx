@@ -18,6 +18,7 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
   const [baseUrl] = useState("https://www.teacherease.com");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [homeworkUrl, setHomeworkUrl] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +36,7 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
         baseUrl,
         username,
         password,
+        homeworkUrl: homeworkUrl.trim() || null,
       });
       onNext(childId);
     } catch (err) {
@@ -115,6 +117,23 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
               onChange={(e) => setPassword(e.target.value)}
               className="h-10 rounded-lg"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="homeworkUrl" className="text-[13px]">
+              Homework page URL
+            </Label>
+            <Input
+              id="homeworkUrl"
+              type="url"
+              placeholder="https://sites.google.com/..."
+              value={homeworkUrl}
+              onChange={(e) => setHomeworkUrl(e.target.value)}
+              className="h-10 rounded-lg"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Optional — public Google Sites page. Leave blank to skip.
+            </p>
           </div>
 
           {error && (

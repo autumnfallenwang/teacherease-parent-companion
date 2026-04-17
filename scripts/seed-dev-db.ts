@@ -33,9 +33,16 @@ const RESET = process.argv.includes("--reset");
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS children (
   id INTEGER PRIMARY KEY, display_name TEXT NOT NULL, portal_type TEXT NOT NULL DEFAULT 'teacherease',
-  base_url TEXT NOT NULL, username TEXT NOT NULL, grade TEXT, school TEXT,
+  base_url TEXT NOT NULL, username TEXT NOT NULL, grade TEXT, school TEXT, homework_url TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS homework (
+  id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  hw_date TEXT NOT NULL, subject TEXT NOT NULL, content TEXT NOT NULL, due_date TEXT,
+  scraped_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(child_id, hw_date, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_homework_child_date ON homework(child_id, hw_date DESC);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS scrapes (
   id INTEGER PRIMARY KEY, child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
@@ -114,8 +121,76 @@ interface ChildDef {
   username: string;
   grade: string;
   school: string;
+  homeworkUrl?: string | null;
   classes: ClassDef[];
 }
+
+interface HomeworkSubjectDef {
+  name: string;
+  content: string;
+  dueDate: string;
+}
+
+interface HomeworkDayDef {
+  dateOffset: number; // 0 = today, -1 = yesterday, ...
+  subjects: HomeworkSubjectDef[];
+}
+
+const ALEX_HOMEWORK: HomeworkDayDef[] = [
+  {
+    dateOffset: 0,
+    subjects: [
+      {
+        name: "Science",
+        content: "Unnatural selection video and worksheet due Friday. Video on Google classroom",
+        dueDate: "Friday 4/17",
+      },
+      { name: "World Geography", content: "None", dueDate: "Friday 4/17" },
+      {
+        name: "English",
+        content: "Read Chapter 3 of The Giver and answer the questions in the packet for Chapter 3",
+        dueDate: "Friday 4/17",
+      },
+      { name: "Math", content: "MCAS Packet #3 (due Fri)", dueDate: "Friday 4/17" },
+    ],
+  },
+  {
+    dateOffset: -1,
+    subjects: [
+      {
+        name: "Science",
+        content: "Unnatural selection video and worksheet due Friday. Video on Google classroom",
+        dueDate: "Thursday 4/16",
+      },
+      { name: "World Geography", content: "None", dueDate: "Thursday 4/16" },
+      {
+        name: "English",
+        content: "Read Chapter 2 of The Giver and answer the questions in the packet for Chapter 2",
+        dueDate: "Thursday 4/16",
+      },
+      { name: "Math", content: "MCAS Packet #3 (due Fri)", dueDate: "Friday 4/17" },
+    ],
+  },
+  {
+    dateOffset: -2,
+    subjects: [
+      { name: "Science", content: "None", dueDate: "Wednesday 4/15" },
+      {
+        name: "World Geography",
+        content: "Complete the Political Map of Southwest Asia & Northern Africa",
+        dueDate: "Wednesday 4/15",
+      },
+      {
+        name: "English",
+        content: "Finish reading Ch.1 of The Giver and finish up to pg. 3 of the packet",
+        dueDate: "Wednesday 4/15",
+      },
+      { name: "Math", content: "Packet #2 (due Wed)", dueDate: "Wednesday 4/15" },
+    ],
+  },
+];
+
+const HOMEWORK_URL_ALEX = "https://sites.google.com/lexingtonma.org/explorer-team/homework";
 
 let nextTestNameId = 90000;
 function tnid(): number {
@@ -128,6 +203,7 @@ const CHILDREN: ChildDef[] = [
     username: "test@example.com",
     grade: "7",
     school: "Example Middle School",
+    homeworkUrl: HOMEWORK_URL_ALEX,
     classes: [
       {
         teClassId: 1000001,
@@ -798,6 +874,7 @@ function main() {
   if (RESET) {
     console.info("--reset: dropping all tables");
     for (const t of [
+      "homework",
       "assignments",
       "standards",
       "grades",
@@ -826,7 +903,10 @@ function main() {
   }
 
   const insertChild = db.prepare(
-    "INSERT INTO children (display_name, portal_type, base_url, username, grade, school, created_at) VALUES (?, 'teacherease', ?, ?, ?, ?, ?)",
+    "INSERT INTO children (display_name, portal_type, base_url, username, grade, school, homework_url, created_at) VALUES (?, 'teacherease', ?, ?, ?, ?, ?, ?)",
+  );
+  const insertHomework = db.prepare(
+    "INSERT INTO homework (child_id, hw_date, subject, content, due_date, scraped_at) VALUES (?, ?, ?, ?, ?, ?)",
   );
   const upsertClass = db.prepare(
     "INSERT INTO classes (child_id, te_class_id, te_cgpid, name, instructor, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(child_id, te_class_id) DO UPDATE SET te_cgpid = excluded.te_cgpid, name = excluded.name, instructor = excluded.instructor, updated_at = datetime('now')",
@@ -848,6 +928,7 @@ function main() {
         childDef.username,
         childDef.grade,
         childDef.school,
+        childDef.homeworkUrl ?? null,
         formatRunAt(-7, 0),
       );
       const childId = Number(childResult.lastInsertRowid);
@@ -940,6 +1021,22 @@ function main() {
         }
       }
       console.info(`    ${scrapeCount} scrapes, ${classIdMap.size} classes`);
+
+      // Homework seed (only for children with a homework_url configured).
+      if (childDef.homeworkUrl) {
+        let hwCount = 0;
+        for (const day of ALEX_HOMEWORK) {
+          const d = new Date();
+          d.setDate(d.getDate() + day.dateOffset);
+          const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          const scrapedAt = formatRunAt(day.dateOffset, 18);
+          for (const subj of day.subjects) {
+            insertHomework.run(childId, iso, subj.name, subj.content, subj.dueDate, scrapedAt);
+            hwCount++;
+          }
+        }
+        console.info(`    ${hwCount} homework rows across ${ALEX_HOMEWORK.length} days`);
+      }
     }
   });
 
@@ -954,6 +1051,7 @@ function main() {
   console.info(`  ${count("grades")} grade records`);
   console.info(`  ${count("standards")} standard records`);
   console.info(`  ${count("assignments")} assignment records`);
+  console.info(`  ${count("homework")} homework rows`);
   console.info(`\nRun \`pnpm tauri:dev\` and the dashboard should show populated data.`);
   console.info("NOTE: Refresh button won't work for seeded children (no keychain credentials).");
 
