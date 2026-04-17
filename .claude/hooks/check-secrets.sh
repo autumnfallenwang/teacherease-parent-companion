@@ -1,25 +1,28 @@
 #!/bin/bash
-# Pre-commit/push hook: scan staged files for secrets
+# PreToolUse(Bash) hook: before `git commit` or `git push`, scan staged files
+# for secrets, sandbox paths, and real portal URLs. Blocks via exit 2 if found.
 
-# Only run on git commit or git push
-echo "$CLAUDE_BASH_COMMAND" | grep -qE '^git (commit|push)' || exit 0
+# Bash tool input arrives as JSON on stdin; extract the command string.
+CMD=$(jq -r '.tool_input.command // empty')
 
-# Check for sensitive keywords in staged diffs
+# Only gate git commit / push — every other bash invocation passes through.
+echo "$CMD" | grep -qE '^git (commit|push)' || exit 0
+
+# Sensitive keywords in staged diffs.
 SECRETS=$(git diff --cached --diff-filter=ACM -S 'password' -S 'secret' -S 'api_key' -S 'apikey' -S 'token' -S 'private_key' --name-only 2>/dev/null)
 
-# Check for known secret patterns (API keys, private keys, etc.)
+# Known secret patterns (API keys, private keys, etc.).
 PATTERNS=$(git diff --cached --diff-filter=ACM -G '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----|AKIA[0-9A-Z]{16})' --name-only 2>/dev/null)
 
-# Check for .env files being committed
+# .env files being committed (allow .env.example).
 ENVFILES=$(git diff --cached --name-only 2>/dev/null | grep -E '\.env$|\.env\.' | grep -v '\.example$')
 
-# Check for sandbox/ paths being staged (they should never be committed — see CLAUDE.md)
+# sandbox/ paths staged (should never be committed per CLAUDE.md).
 SANDBOX=$(git diff --cached --name-only 2>/dev/null | grep -E '^sandbox/')
 
-# Check for real TeacherEase hostnames (e.g. myschool.teacherease.com).
-# Allow the dummy example domain used in tests/docs.
+# Real TeacherEase hostnames. Allow the dummy `example.teacherease.*` /
+# `school.example` domains used in tests and docs.
 TEACHEREASE_URLS=$(git diff --cached --diff-filter=ACM -G '[a-zA-Z0-9-]+\.teacherease\.(com|net|org)' --name-only 2>/dev/null | while read -r f; do
-  # If the only match in this file is an example/dummy, skip it.
   if git diff --cached -- "$f" | grep -E '\+.*[a-zA-Z0-9-]+\.teacherease\.(com|net|org)' | grep -qv 'example\.teacherease\|school\.example'; then
     echo "$f"
   fi

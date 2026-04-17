@@ -1,12 +1,22 @@
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/dev-task-plan-mode.sh\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCKED: Do not edit .env files — they may contain secrets. Use .env.example instead.' >&2; exit 2;; esac; exit 0"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-env-edits.sh\""
           }
         ]
       },
@@ -15,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-secrets.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-secrets.sh\""
           }
         ]
       }
@@ -26,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx|*.js|*.jsx|*.json) pnpm biome check --write \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0;; *.rs) rustfmt \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0;; *) exit 0;; esac"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-after-write.sh\""
           }
         ]
       }
