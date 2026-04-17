@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, Lock, Pencil, Plus, Trash2, User } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Lock, Pencil, Plus, Trash2, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,21 +31,7 @@ export function SettingsChildren() {
   );
 
   return (
-    <div className="mx-auto max-w-lg px-5 py-6">
-      <div className="mb-6 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <h1
-          className="text-xl font-medium tracking-tight"
-          style={{ fontFamily: "var(--font-heading)" }}
-        >
-          Children
-        </h1>
-      </div>
-
+    <div>
       {children.length === 0 && !showAdd && (
         <div className="rounded-lg border border-dashed py-8 text-center">
           <p className="text-sm text-muted-foreground">No children added yet.</p>

@@ -192,6 +192,16 @@
       }
     },
     {
+      "includes": ["src/app/(shell)/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/*.test.ts", "tests/**"],
       "linter": {
         "rules": {

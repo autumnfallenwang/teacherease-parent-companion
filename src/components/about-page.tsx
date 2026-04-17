@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowLeft, FolderOpen } from "lucide-react";
-import Link from "next/link";
+import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { openLogDir } from "@/lib/ipc";
 import {
@@ -32,12 +31,7 @@ function Section({ title, content }: { title: string; content: string }) {
 export function AboutPage() {
   return (
     <div className="mx-auto max-w-lg px-5 py-6">
-      <div className="mb-6 flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+      <div className="mb-6">
         <h1
           className="text-xl font-medium tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}

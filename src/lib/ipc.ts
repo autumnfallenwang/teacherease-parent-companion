@@ -517,6 +517,18 @@ export async function getFetchRunBefore(
   return row ? mapFetchRunRow(row) : null;
 }
 
+export async function getFetchRunsForChild(
+  childId: number,
+  limit = 100,
+): Promise<FetchRunRecord[]> {
+  const d = await getDb();
+  const rows = await d.select<RawFetchRunRow[]>(
+    "SELECT * FROM fetch_runs WHERE child_id = $1 ORDER BY run_at DESC LIMIT $2",
+    [childId, limit],
+  );
+  return rows.map(mapFetchRunRow);
+}
+
 function mapGradeRow(r: RawGradeRow): GradeRecord {
   return {
     id: r.id,
@@ -869,6 +881,109 @@ export async function setSettingBool(key: string, value: boolean): Promise<void>
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
     [key, value ? "1" : "0"],
   );
+}
+
+export async function getSettingString(key: string, defaultValue: string): Promise<string> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ value: string }>>(
+    "SELECT value FROM settings WHERE key = $1",
+    [key],
+  );
+  return rows[0]?.value ?? defaultValue;
+}
+
+export async function setSettingString(key: string, value: string): Promise<void> {
+  const d = await getDb();
+  await d.execute(
+    `INSERT INTO settings (key, value) VALUES ($1, $2)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+    [key, value],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SMTP (Q4 / E1) — password in keychain under "smtp-main".
+// Non-secret fields (host/port/user/from/to) live in the `settings` table.
+// ---------------------------------------------------------------------------
+
+const SMTP_KEYCHAIN_KEY = "smtp-main";
+
+export async function getSmtpPassword(): Promise<string | null> {
+  return await keychainGet(SMTP_KEYCHAIN_KEY);
+}
+
+export async function setSmtpPassword(password: string): Promise<void> {
+  await keychainSet(SMTP_KEYCHAIN_KEY, password);
+}
+
+export async function deleteSmtpPassword(): Promise<void> {
+  await keychainDelete(SMTP_KEYCHAIN_KEY);
+}
+
+export interface SendEmailArgs {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  htmlBody?: string;
+}
+
+export async function sendEmail(args: SendEmailArgs): Promise<void> {
+  await invoke("send_email", { args });
+}
+
+/**
+ * Send a canned test email using the currently-saved SMTP config + keychain.
+ * Throws "SMTP not configured" if any required field is missing — matches the
+ * behavior of `EmailChannel.send` for consistency.
+ */
+export async function sendTestEmail(): Promise<void> {
+  const host = await getSettingString("smtp.host", "");
+  const portStr = await getSettingString("smtp.port", "");
+  const port = Number.parseInt(portStr, 10);
+  const username = await getSettingString("smtp.username", "");
+  const from = await getSettingString("smtp.from", "");
+  const to = await getSettingString("smtp.to", "");
+  const password = await getSmtpPassword();
+
+  if (!host || !Number.isFinite(port) || port <= 0 || !username || !from || !to || !password) {
+    throw new Error("SMTP not configured");
+  }
+
+  const textBody =
+    "This is a test email from TeacherEase Parent Companion.\n\nIf you see this, your SMTP configuration is working.";
+  const htmlBody = `<!doctype html>
+<html><body style="font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif; padding: 24px; background: #f3f4f6; color: #111827;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; padding: 24px;">
+    <h1 style="margin: 0 0 12px; font-size: 18px;">Test email</h1>
+    <p style="margin: 0 0 8px; font-size: 14px;">This is a test email from TeacherEase Parent Companion.</p>
+    <p style="margin: 0; font-size: 14px; color: #374151;">If you see this, your SMTP configuration is working.</p>
+  </div>
+</body></html>`;
+
+  await sendEmail({
+    host,
+    port,
+    username,
+    password,
+    from,
+    to,
+    subject: "TeacherEase Parent Companion: Test email",
+    body: textBody,
+    htmlBody,
+  });
+}
+
+export async function clearHistory(): Promise<void> {
+  const d = await getDb();
+  await d.execute("DELETE FROM fetch_runs");
+  await d.execute("DELETE FROM homework");
+  await d.execute("DELETE FROM classes");
+  await invoke("log_info", { message: "settings: clearHistory executed" });
 }
 
 // ---------------------------------------------------------------------------

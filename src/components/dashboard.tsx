@@ -1,46 +1,36 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttentionSection } from "@/components/attention-section";
 import { ChildTabs } from "@/components/child-tabs";
 import { EmptyState } from "@/components/empty-state";
-import { GradesTable } from "@/components/grades-table";
 import { Header } from "@/components/header";
 import { HomeworkCard } from "@/components/homework-card";
-import { StandardsTree } from "@/components/standards-tree";
+import { RecentActivity } from "@/components/recent-activity";
 import type { ChildStatus } from "@/components/status-hero";
 import { StatusHero } from "@/components/status-hero";
+import { computeRecentActivity } from "@/lib/core/activity";
 import { buildFetchRunner } from "@/lib/fetch/default";
 import { HomeworkSource } from "@/lib/fetch/homework-source";
 import { TeacherEaseSource } from "@/lib/fetch/teacherease-source";
-import type {
-  AssignmentRecord,
-  FetchRunRecord,
-  GradeRecord,
-  HomeworkRecord,
-  StatusHistoryEntry,
-} from "@/lib/ipc";
+import type { AssignmentRecord, FetchRunRecord, GradeRecord, HomeworkRecord } from "@/lib/ipc";
 import {
-  getAllStatusHistory,
   getAssignmentsForFetchRun,
   getChildren,
-  getClassDetail,
-  getClasses,
+  getFetchRunBefore,
   getGradesForFetchRun,
   getLatestFetchRun,
   getLatestHomework,
   getMissingAssignments,
+  getSettingBool,
   initLogging,
   log,
   logErr,
   setupAutostart,
 } from "@/lib/ipc";
-import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
-
-const EMPTY_HISTORY = new Map<string, StatusHistoryEntry[]>();
-const EMPTY_DETAIL_CACHE = new Map<string, ClassDetails | null>();
-const EMPTY_INSTRUCTORS = new Map<number, string>();
+import type { ChildRecord } from "@/lib/scraper/types";
 
 export function Dashboard() {
   const router = useRouter();
@@ -50,14 +40,9 @@ export function Dashboard() {
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [missing, setMissing] = useState<AssignmentRecord[]>([]);
   const [allAssignments, setAllAssignments] = useState<AssignmentRecord[]>([]);
+  const [prevGrades, setPrevGrades] = useState<GradeRecord[]>([]);
+  const [prevAssignments, setPrevAssignments] = useState<AssignmentRecord[]>([]);
   const [homework, setHomework] = useState<HomeworkRecord[]>([]);
-  const [statusHistory, setStatusHistory] =
-    useState<Map<string, StatusHistoryEntry[]>>(EMPTY_HISTORY);
-  const [instructors, setInstructors] = useState<Map<number, string>>(EMPTY_INSTRUCTORS);
-  const [expandedClass, setExpandedClass] = useState<string | null>(null);
-  const [detailCache, setDetailCache] =
-    useState<Map<string, ClassDetails | null>>(EMPTY_DETAIL_CACHE);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,31 +53,37 @@ export function Dashboard() {
     [heroStatuses],
   );
 
+  const activities = useMemo(
+    () => computeRecentActivity(grades, allAssignments, prevGrades, prevAssignments),
+    [grades, allAssignments, prevGrades, prevAssignments],
+  );
+
   const loadData = useCallback(async (cId: number) => {
     const run = await getLatestFetchRun(cId);
     setLastFetchRun(run);
     if (run) {
-      const [g, m, h, a] = await Promise.all([
+      const [g, m, a] = await Promise.all([
         getGradesForFetchRun(run.id),
         getMissingAssignments(run.id),
-        getAllStatusHistory(cId),
         getAssignmentsForFetchRun(run.id),
       ]);
       setGrades(g);
       setMissing(m);
-      setStatusHistory(h);
       setAllAssignments(a);
-    }
 
-    // Load instructor map from classes table
-    const classes = await getClasses(cId);
-    const instrMap = new Map<number, string>();
-    for (const cls of classes) {
-      if (cls.instructor) instrMap.set(cls.id, cls.instructor);
+      const prevRun = await getFetchRunBefore(cId, run.runAt);
+      if (prevRun) {
+        const [pg, pa] = await Promise.all([
+          getGradesForFetchRun(prevRun.id),
+          getAssignmentsForFetchRun(prevRun.id),
+        ]);
+        setPrevGrades(pg);
+        setPrevAssignments(pa);
+      } else {
+        setPrevGrades([]);
+        setPrevAssignments([]);
+      }
     }
-    setInstructors(instrMap);
-
-    // Latest homework entries (H5)
     setHomework(await getLatestHomework(cId));
   }, []);
 
@@ -129,7 +120,9 @@ export function Dashboard() {
 
   useEffect(() => {
     void initLogging().catch(() => undefined);
-    void setupAutostart().catch(() => undefined);
+    void getSettingBool("autostart.enabled", true)
+      .then((enabled) => (enabled ? setupAutostart() : undefined))
+      .catch(() => undefined);
 
     void getChildren()
       .then(async (children) => {
@@ -137,10 +130,8 @@ export function Dashboard() {
         setAllChildren(children);
         if (children.length === 0) return;
 
-        // Load hero statuses for all children
         const statuses = await loadHeroStatuses(children);
 
-        // Auto-select: first child needing attention, or first child
         const attnChild = statuses.find((s) => s.attentionCount > 0);
         const selectedId = attnChild?.childId ?? children[0]?.id;
         if (selectedId != null) {
@@ -171,12 +162,8 @@ export function Dashboard() {
       }
 
       await loadData(childId);
-      setDetailCache(EMPTY_DETAIL_CACHE);
       await loadHeroStatuses(children);
     } catch (e) {
-      // Pre-runner errors only (child lookup, etc). Per-source failures are
-      // recorded in fetch_runs by the runner and surfaced via `teRun.status`
-      // above — they don't hit this catch.
       const msg = e instanceof Error ? e.message : "Unknown error";
       await logErr(`refresh failed: ${msg}`);
       setError(msg);
@@ -193,34 +180,13 @@ export function Dashboard() {
       setGrades([]);
       setMissing([]);
       setAllAssignments([]);
+      setPrevGrades([]);
+      setPrevAssignments([]);
       setHomework([]);
-      setStatusHistory(EMPTY_HISTORY);
-      setInstructors(EMPTY_INSTRUCTORS);
-      setExpandedClass(null);
-      setDetailCache(EMPTY_DETAIL_CACHE);
       setLastFetchRun(null);
       void loadData(newChildId);
     },
     [childId, loadData],
-  );
-
-  const handleClassClick = useCallback(
-    (className: string) => {
-      setExpandedClass((prev) => {
-        const next = prev === className ? null : className;
-        if (next && !detailCache.has(next) && lastFetchRun) {
-          setDetailLoading(true);
-          void getClassDetail(lastFetchRun.id, next)
-            .then((detail) => {
-              setDetailCache((cache) => new Map(cache).set(next, detail));
-            })
-            .catch(() => undefined)
-            .finally(() => setDetailLoading(false));
-        }
-        return next;
-      });
-    },
-    [detailCache, lastFetchRun],
   );
 
   const goSettings = useCallback(() => router.push("/settings"), [router]);
@@ -245,10 +211,8 @@ export function Dashboard() {
         onSettings={goSettings}
       />
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-5 py-5">
-        {/* Layer 1: Status Hero (family-wide) */}
         <StatusHero statuses={heroStatuses} onChildSelect={handleChildSelect} />
 
-        {/* Child Tabs (hidden if 1 child) */}
         {childId && (
           <ChildTabs
             items={allChildren}
@@ -264,31 +228,20 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* Layer 2 (Recent Activity) disabled — see docs/homework-followups.md Q3. */}
-
-        {/* Layer 3: Missing Work (if any) */}
         <AttentionSection missingAssignments={missing} allAssignments={allAssignments} />
 
-        {/* Tonight's Homework (Q19 / H5) — renders only if data exists */}
+        <RecentActivity activities={activities} />
+
         <HomeworkCard entries={homework} />
 
-        {/* Layer 4: All Classes + Layer 5: Accordion */}
-        <GradesTable
-          grades={grades}
-          history={statusHistory}
-          instructors={instructors}
-          expandedClass={expandedClass}
-          onClassClick={handleClassClick}
-        >
-          {(className) => (
-            <StandardsTree
-              detail={detailCache.get(className) ?? null}
-              isLoading={
-                detailLoading && expandedClass === className && !detailCache.has(className)
-              }
-            />
-          )}
-        </GradesTable>
+        <div className="pt-2 text-center">
+          <Link
+            href={childId ? `/classes?child=${childId}` : "/classes"}
+            className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            View all classes →
+          </Link>
+        </div>
       </main>
     </div>
   );

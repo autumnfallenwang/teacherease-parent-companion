@@ -47,8 +47,6 @@ function asn(
   };
 }
 
-const NOW = new Date(2026, 3, 16); // April 16, 2026
-
 describe("computeRecentActivity", () => {
   it("returns empty when no previous scrape", () => {
     const result = computeRecentActivity([grade("Math", { currentGrade: "3.0" })], [], null, null);
@@ -109,93 +107,18 @@ describe("computeRecentActivity", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("emits agingMissing when persistently missing and overdue >= 14 days", () => {
-    const curr = [
-      asn("Mount Everest", "Social Studies", {
-        teAssignmentId: 10,
-        isMissing: true,
-        dueDate: "3/25", // ~22 days before NOW (4/16)
-      }),
-    ];
-    const prev = [
-      asn("Mount Everest", "Social Studies", {
-        teAssignmentId: 10,
-        isMissing: true,
-        dueDate: "3/25",
-      }),
-    ];
-    const result = computeRecentActivity([], curr, [], prev, NOW);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      type: "agingMissing",
-      className: "Social Studies",
-      assignmentName: "Mount Everest",
-    });
-    expect(result[0]?.weeksOverdue).toBeGreaterThanOrEqual(3);
-  });
-
-  it("does not emit agingMissing for newly missing assignments", () => {
-    const curr = [
-      asn("Fresh Miss", "Math", {
-        teAssignmentId: 5,
-        isMissing: true,
-        dueDate: "3/25",
-      }),
-    ];
-    const prev: AssignmentRecord[] = [];
-    const result = computeRecentActivity([], curr, [], prev, NOW);
-    expect(result).toHaveLength(0);
-  });
-
-  it("does not emit agingMissing under the 14-day threshold", () => {
-    const curr = [
-      asn("Recent Miss", "Math", {
-        teAssignmentId: 6,
-        isMissing: true,
-        dueDate: "4/10", // 6 days before NOW
-      }),
-    ];
-    const prev = [
-      asn("Recent Miss", "Math", {
-        teAssignmentId: 6,
-        isMissing: true,
-        dueDate: "4/10",
-      }),
-    ];
-    const result = computeRecentActivity([], curr, [], prev, NOW);
-    expect(result).toHaveLength(0);
-  });
-
   it("skips classes missing from prev without crashing", () => {
     const curr = [grade("New Class", { currentGrade: "3.0" })];
     const result = computeRecentActivity(curr, [], [], []);
     expect(result).toEqual([]);
   });
 
-  it("orders items: improved → newScores → declined → agingMissing", () => {
+  it("orders items: improved → newScores → declined", () => {
     const curr = [grade("A Up", { currentGrade: "3.0" }), grade("B Down", { currentGrade: "2.0" })];
     const prev = [grade("A Up", { currentGrade: "2.5" }), grade("B Down", { currentGrade: "3.0" })];
-    const currAsns = [
-      asn("NewOne", "C New", { teAssignmentId: 99, scoreNumeric: 3.0 }),
-      asn("Old", "D Old", {
-        teAssignmentId: 100,
-        isMissing: true,
-        dueDate: "3/25",
-      }),
-    ];
-    const prevAsns = [
-      asn("Old", "D Old", {
-        teAssignmentId: 100,
-        isMissing: true,
-        dueDate: "3/25",
-      }),
-    ];
-    const result = computeRecentActivity(curr, currAsns, prev, prevAsns, NOW);
-    expect(result.map((i) => i.type)).toEqual([
-      "improved",
-      "newScores",
-      "declined",
-      "agingMissing",
-    ]);
+    const currAsns = [asn("NewOne", "C New", { teAssignmentId: 99, scoreNumeric: 3.0 })];
+    const prevAsns: AssignmentRecord[] = [];
+    const result = computeRecentActivity(curr, currAsns, prev, prevAsns);
+    expect(result.map((i) => i.type)).toEqual(["improved", "newScores", "declined"]);
   });
 });

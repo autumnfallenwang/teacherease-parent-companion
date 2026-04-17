@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const Dashboard = dynamic(() => import("@/components/dashboard").then((m) => m.Dashboard), {
+const HistoryView = dynamic(() => import("@/components/history-view").then((m) => m.HistoryView), {
   ssr: false,
   loading: () => (
     <div className="flex min-h-screen items-center justify-center">
@@ -11,6 +11,6 @@ const Dashboard = dynamic(() => import("@/components/dashboard").then((m) => m.D
   ),
 });
 
-export default function DashboardPage() {
-  return <Dashboard />;
+export default function HistoryPage() {
+  return <HistoryView />;
 }

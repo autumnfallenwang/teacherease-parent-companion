@@ -2,6 +2,7 @@ mod json_log;
 mod keychain;
 mod log_commands;
 mod migrations;
+mod smtp;
 
 use std::path::PathBuf;
 
@@ -57,6 +58,7 @@ pub fn run() {
                 .app_name("TeacherEase Parent Companion")
                 .build(),
         )
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             keychain::keychain_set,
             keychain::keychain_get,
@@ -65,6 +67,7 @@ pub fn run() {
             log_commands::log_warn,
             log_commands::log_error,
             log_commands::open_log_dir,
+            smtp::send_email,
         ])
         .setup(move |app| {
             let app_data = app

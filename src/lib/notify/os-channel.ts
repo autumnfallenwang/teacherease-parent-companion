@@ -9,6 +9,7 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import { getSettingBool, log, logWarning } from "@/lib/ipc";
+import { formatShortDate } from "./format";
 import type { NotifyChannel, NotifyEvent } from "./types";
 
 function defaultEnabledFor(eventType: NotifyEvent["type"]): boolean {
@@ -29,18 +30,6 @@ async function ensureNotificationPermission(): Promise<boolean> {
     granted = result === "granted";
   }
   return granted;
-}
-
-function formatShortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
-  const monthDay = d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-  return `${weekday} · ${monthDay}`;
 }
 
 async function sendGradesAttention(event: Extract<NotifyEvent, { type: "gradesAttention" }>) {

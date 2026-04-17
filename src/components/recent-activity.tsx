@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
+import { Sparkles, TrendingDown, TrendingUp } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import type { ActivityItem } from "@/lib/core/activity";
 
@@ -37,20 +37,11 @@ function renderItem(item: ActivityItem): { icon: ReactElement; text: string } {
         text: `${n} new score${n === 1 ? "" : "s"} in ${item.className}`,
       };
     }
-    case "agingMissing": {
-      const weeks = item.weeksOverdue ?? 0;
-      return {
-        icon: <Clock className="h-4 w-4 shrink-0 text-attention" />,
-        text: `${item.assignmentName ?? "Assignment"} still missing (${weeks} week${
-          weeks === 1 ? "" : "s"
-        })`,
-      };
-    }
   }
 }
 
 function itemKey(item: ActivityItem, idx: number): string {
-  return `${item.type}:${item.className}:${item.assignmentName ?? ""}:${idx}`;
+  return `${item.type}:${item.className}:${idx}`;
 }
 
 export function RecentActivity({ activities }: RecentActivityProps) {
@@ -63,7 +54,9 @@ export function RecentActivity({ activities }: RecentActivityProps) {
 
   return (
     <div className="border-t border-border/30 pt-3">
-      <p className="mb-2 px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Today</p>
+      <p className="mb-2 px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+        Since last check
+      </p>
       <ul className="space-y-1">
         {visible.map((item, idx) => {
           const { icon, text } = renderItem(item);
