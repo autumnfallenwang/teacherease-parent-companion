@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { SettingsAdvanced } from "@/components/settings-advanced";
+import { SettingsAppearance } from "@/components/settings-appearance";
 import { SettingsChildren } from "@/components/settings-children";
 import { SettingsEmail } from "@/components/settings-email";
 import { SettingsNotifications } from "@/components/settings-notifications";
 
-type SettingsTab = "children" | "notifications" | "email" | "advanced";
+type SettingsTab = "children" | "appearance" | "notifications" | "email" | "advanced";
 
 const TABS: Array<{ key: SettingsTab; label: string }> = [
   { key: "children", label: "Children" },
+  { key: "appearance", label: "Appearance" },
   { key: "notifications", label: "Notifications" },
   { key: "email", label: "Email" },
   { key: "advanced", label: "Advanced" },
@@ -45,6 +47,7 @@ export function SettingsView() {
       </div>
 
       {activeTab === "children" && <SettingsChildren />}
+      {activeTab === "appearance" && <SettingsAppearance />}
       {activeTab === "notifications" && <SettingsNotifications />}
       {activeTab === "email" && <SettingsEmail />}
       {activeTab === "advanced" && <SettingsAdvanced />}

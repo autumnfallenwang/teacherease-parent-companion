@@ -16,6 +16,20 @@ Corrections and patterns to avoid repeating. Append entries here whenever a user
 
 <!-- Entries below, newest first. -->
 
+## 2026-04-17 — Seed script must populate `_sqlx_migrations` or runtime migrations collide
+
+**Context:** Dev workflow — `pnpm seed` creates the DB with the final schema directly via `SCHEMA_SQL`. User ran `pnpm tauri:dev` and saw `while executing migration 3: error returned from database: (code: 1) duplicate column name: homework_url`, which killed the app at launch.
+
+**Mistake:** The seed script was producing a DB with the correct *schema* but without telling the Tauri runtime's migrator that any migrations had run. At launch, sqlx saw `_sqlx_migrations` either missing or partial (only versions 1–2 were tracked on an older DB), looked at `migrations.rs`, and tried to apply the next migration. Migration 3's `ALTER TABLE children ADD COLUMN homework_url TEXT` failed because the column already existed (seed had put it there). SQLite doesn't support `ADD COLUMN IF NOT EXISTS`, so this is fatal.
+
+**Correction:** The seed script now includes a `recordMigrations(db)` step that parses `src-tauri/src/migrations.rs` with a regex, extracts each `Migration { version, description, sql: r#"…"# }` block, computes SHA-384 of the raw SQL bytes (matching sqlx's own checksum algorithm), and inserts one `_sqlx_migrations` row per version marked as successfully applied. `--reset` now also drops `_sqlx_migrations` so stale rows don't collide when `migrations.rs` is edited.
+
+**How to avoid next time:**
+1. Any script that materializes schema outside the Tauri runtime must also manage `_sqlx_migrations`. That table is the runtime's source of truth for "what migrations ran"; skipping it means the runtime will try to re-apply everything.
+2. The sqlx checksum is SHA-384 of the raw migration SQL string (UTF-8 bytes, no framing). Match it exactly, byte-for-byte, or the runtime fails the checksum verification.
+3. When editing `migrations.rs`, remember that `pnpm seed --reset` now reads that file at seed time — keep the file's regex-extractable shape (`version: N, description: "…", sql: r#"…"#, kind: …`).
+4. If a migration absolutely has to be idempotent against partially-applied state (e.g., for users with manually-edited DBs), prefer `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`. SQLite does NOT support `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, so column additions can only be safe the first time they run.
+
 ## 2026-04-15 — TeacherEase login is NOT classic ASP.NET WebForms
 
 **Context:** T8 — writing the login flow. Design-plan Q1 warned about the ASP.NET `__VIEWSTATE` / `__EVENTVALIDATION` two-step dance as the "known caveat" of the fetch+cheerio approach.

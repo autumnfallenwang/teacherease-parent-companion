@@ -24,6 +24,8 @@ function AssignmentRow({ assignment }: { assignment: Assignment }) {
     );
   }
 
+  const hasGrade = assignment.gradeLetter !== "" || assignment.grade !== "";
+
   return (
     <div className="flex items-center justify-between rounded-md px-3 py-1.5">
       <span className="truncate text-[12px] text-foreground/80">{assignment.name}</span>
@@ -34,13 +36,21 @@ function AssignmentRow({ assignment }: { assignment: Assignment }) {
             {assignment.dueDate}
           </span>
         )}
-        {assignment.gradeLetter && (
-          <span className="min-w-[2rem] text-right text-[12px] font-medium tabular-nums">
-            {assignment.gradeLetter}
-          </span>
-        )}
-        {assignment.grade && (
-          <span className="text-[11px] tabular-nums text-muted-foreground">{assignment.grade}</span>
+        {hasGrade ? (
+          <>
+            {assignment.gradeLetter && (
+              <span className="min-w-[2rem] text-right text-[12px] font-medium tabular-nums">
+                {assignment.gradeLetter}
+              </span>
+            )}
+            {assignment.grade && (
+              <span className="text-[11px] tabular-nums text-muted-foreground">
+                {assignment.grade}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-[11px] italic text-muted-foreground">Not graded</span>
         )}
       </div>
     </div>

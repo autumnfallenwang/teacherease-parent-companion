@@ -825,7 +825,7 @@ CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
 
 ### Q20 — Unified fetch pipeline (supersedes per-source inline fetch blocks)
 
-**All data sources implement a common `FetchSource` contract; a `FetchRunner` orchestrates them and records observability to a `fetch_runs` table.** Full proposal in [fetch-pipeline-proposal.md](fetch-pipeline-proposal.md).
+**All data sources implement a common `FetchSource` contract; a `FetchRunner` orchestrates them and records observability to a `fetch_runs` table.**
 
 **What unifies:**
 - Runtime contract — each source has `name`, `isApplicable(child)`, and `run(ctx)`; throws on failure.
@@ -840,7 +840,7 @@ CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
 
 ### Q21 — Unified notification pipeline (supersedes direct `sendNotification` call sites)
 
-**Notifications flow through a `NotifyRouter` with pluggable `NotifyChannel` modules** (OS notification today, email Phase 9, future channels). Full proposal in [notify-pipeline-proposal.md](notify-pipeline-proposal.md).
+**Notifications flow through a `NotifyRouter` with pluggable `NotifyChannel` modules** (OS notification + email, plus future channels).
 
 **Shape:**
 - Domain events are a discriminated union: `gradesAttention`, `newHomework`, `fetchFailed` (new — surfaces scrape failures the user doesn't otherwise see).
@@ -854,7 +854,7 @@ CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
 
 ### Q22 — Sidebar shell UI architecture (supersedes Q18's one-scroll layout claim)
 
-**Replaces the single-scroll dashboard with a sidebar-shell app: five route-backed sections (Today / Classes / History / Settings / About) and a bounded Today view.** Full proposal in [ui-architecture-proposal.md](ui-architecture-proposal.md).
+**Replaces the single-scroll dashboard with a sidebar-shell app: five route-backed sections (Today / Classes / History / Settings / About) and a bounded Today view.**
 
 **Q18's peace-of-mind tone, editorial aesthetic (Q16), attention-first priority, and family-wide hero remain in force.** What changes is the container: Today holds the glance+scan view (Hero + Child Tabs + Attention + Tonight's Homework) at bounded density, not an ever-growing scroll. All Classes + drilldown move to their own Classes section. History hosts past homework and `fetch_runs` observability. Settings / About become sidebar items rather than header-icon routes.
 
@@ -874,6 +874,120 @@ CREATE INDEX idx_assignments_class ON assignments(class_id, scrape_id);
 - **Tray menu** (existing) unchanged.
 
 **Q18 supersede scope:** only the layout claim ("one vertical scroll, no separate pages") is revised. The aesthetic direction, priority ordering, and multi-child behavior are preserved.
+
+### Q23 — User-selectable theme profiles (supersedes Q16's palette lock only)
+
+**Supersedes Q16's claim that the warm-editorial palette is fixed.** Users pick from a curated library of theme profiles, each ships its own light + dark variants; the running app resolves palette × mode at runtime via CSS variables.
+
+**What stays locked (Q16 still holds):**
+- **Typography** — Newsreader (headings) + DM Sans (body). Profile selection does not change the font stack. Keeps the brand coherent across themes and avoids per-profile web-font loads.
+- **Layout + density** — sidebar shell (Q22), card-based surface, status-dot semantics, accordion drilldown, progress-bar component, all chrome proportions.
+- **Semantic colors** — `meeting` (green), `attention` (amber), `not-assessed` (gray) are grade-state *meaning*, not theme style. Profiles may shift the hue/saturation slightly to fit palette harmony, but the meaning-to-color mapping is invariant. Red stays "something wrong," green stays "good," amber stays "caution."
+
+**What becomes theme-driven:**
+- **Chrome neutrals** — background / card / popover / border / muted / input surfaces.
+- **Primary + accent tokens** — the teal-ish "progress" accent becomes profile-dependent.
+- **Foreground colors** — tied to the profile's contrast strategy.
+
+**Profile library (v1):**
+| Profile | Character | Mode coverage |
+|---|---|---|
+| Default (soft) | Softened warm off-white + warm slate — Q16's original direction, palette refined to feel less clinical than the current pure-white / pure-black extremes | Light + Dark |
+| Solarized | Classic warm ochre + cyan; timeless and readable | Light + Dark |
+| Nord | Cool blue-gray, modern, calm | Light + Dark |
+| Dracula | Dark-first purple/pink identity; Light variant is a muted derivation | Dark-primary, Light-derived |
+| High contrast | Near-pure black/white, maximal contrast for a11y | Light + Dark |
+
+New profiles can be added in future walkthrough findings without needing another superseding Q — the selection mechanism is the decision; individual profiles are content.
+
+**Storage:**
+- `appearance.profile` — the selected profile name (default `"default"`).
+- `appearance.theme` — mode toggle within the profile (`light` / `dark` / `system`), unchanged from A1.
+
+**Implementation shape:**
+- Each profile = a set of CSS variable overrides under a `.theme-<name>` class on `<html>`, scoped alongside the `.dark` class for mode. Dark-variant variables live inside `.theme-<name>.dark`.
+- `globals.css:5` `@custom-variant dark` still drives mode; profile is an orthogonal axis.
+- Theme provider (A1's `src/components/theme/theme-provider.tsx`) adds the class manipulation for `.theme-<name>` alongside its existing `.dark` toggle.
+
+**Rejected:**
+- Per-profile font stacks (scope creep; per above, hurts brand coherence + perf).
+- User-authored themes (YAGNI for v1; can be a future phase).
+- Monokai / syntax-highlighting-derived themes — not a fit for a parent-facing app; removed from the shortlist during planning.
+
+### Q24 — UI save-pattern rule
+
+**When a setting or form should save instantly vs. require an explicit Save button vs. commit on Enter.** Consistent interaction patterns across the app so users never ask "did that save?".
+
+| UI element | Pattern | Why |
+|---|---|---|
+| Switch / toggle | **Instant** | Binary, reversible, zero friction. |
+| Segmented control / radio group / single-choice dropdown | **Instant** | Single-choice, no intermediate invalid state. |
+| Single text / number input | **Enter or blur** | Intermediate typing isn't a valid value; commit only when the user has clearly finished. |
+| Multi-field form (SMTP config, add-child form, etc.) | **Save button** | Fields validate as a group; partial save is nonsense. Typically disable Save until required fields pass validation. |
+| Destructive action (delete, clear history) | **Button + confirmation** | Explicit `window.confirm` or dialog. Never instant. |
+| Expensive side-effect (hits network, file I/O, long compute) | **Save button** | Don't fire a scrape / upload / SMTP send on every keystroke. |
+
+**Existing code this rule applies to (already consistent with the rule):**
+- Settings → Notifications + Advanced toggles → Instant (correct).
+- Settings → Appearance profile / mode / size presets → Instant (correct).
+- Settings → Email SMTP fields → Save button (correct — multi-field with validation).
+- Settings → Children add form + Homework URL edit → Save button (correct — multi-field or expensive-side-effect).
+- Settings → Advanced Clear history → Button + `window.confirm` (correct).
+
+**Applies going forward to:**
+- Custom font-size numeric input (Enter or blur — single field, intermediate typing not valid).
+- Any future single-line search or quick-add boxes (Enter).
+- Any future multi-field config panels (Save button, validate on submit).
+
+**Rejected:** universal auto-save-on-blur even for multi-field forms (partial state can invalidate the whole form — e.g., SMTP with wrong port but valid host should not trigger a save attempt).
+
+---
+
+### Q25 — Unified attention engine (supersedes Q18's claims that class-level `needs_attention` mirrors TeacherEase's portal `status` column and that the Attention section's "This week vs older" cutoff is a fixed 7 days)
+
+**Problem.** Q18 left two attention-related logics living side-by-side with no explicit contract: the Classes list uses TeacherEase's own `status` (needs_attention / meeting / not_assessed), while the Today-tab Attention section independently harvests all missing items + low scores. A class can therefore show green on the Classes tab while its assignments light up the Attention section. Parents can't tell which signal to trust. Walkthrough surfaced the confusion: "seems like two different logics of needs_attention."
+
+**Decision.** Attention becomes a first-class signal owned by this app, computed bottom-up from assignments, propagated through standards to classes, and used consistently across every surface (Hero / ChildTabs / Attention section / Classes list / Standards tree). TeacherEase continues to own the "meeting" dimension — its M / P / B / PS rollup scores at standard and class level keep rendering exactly as they do today. The two signals are orthogonal: a standard can read `M` from TeacherEase and `!` from us simultaneously, and that's expected, not a bug.
+
+**Rule for a single assignment:** attention-worthy if it's flagged `Missing` OR its numeric grade is below the configurable low-score threshold.
+
+**Propagation:**
+- Leaf standard: `!` if any of its assignments (not yet aged out) is attention-worthy.
+- Parent standard: `!` if any child standard has `!`.
+- Class: our `needs_attention` if any standard has `!`.
+- Child / family hero: driven off our computed class status, not the portal's.
+
+A `✓` appears only when *every* assignment in the subtree is clean (or aged out). TeacherEase's M / P / B / PS letter continues to display next to our marker — same row, two independent glyphs.
+
+**Time-based decay.** Attention isn't forever. Every attention-worthy item has an age = days since its due date (or scrape date if no due date). Once age > configured forgiveness window:
+- It's no longer attention-worthy (so its standard / class may upgrade back to `✓`).
+- On the Today tab's Attention section, it's pushed into the "Older" collapsed group instead of being surfaced under "This week."
+
+The "This week vs older" split in the existing UI becomes "Within the window vs aged out." Default forgiveness window is **2 weeks**; configurable per user.
+
+**Two user-editable thresholds** (both govern how aggressive the attention engine is; live together under a new Settings sub-tab):
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `attention.forgivenessWeeks` | `2` | Missing / low-score items older than this no longer count as attention-worthy. |
+| `attention.lowScoreThreshold` | `3.0` | Numeric grades strictly below this value count as low-score. TeacherEase's rubric caps at `M=3`, so `3.0` means "flag anything below Meeting." Lowering (e.g., to `2.0`) relaxes the alert to only flag clearly-below-progressing. |
+
+**Settings UI location.** New sub-tab: **Settings → Attention** (sibling of Children / Appearance / Notifications / Email / Advanced). Tab order: Children / Appearance / Attention / Notifications / Email / Advanced — puts it between "how it looks" (Appearance) and "what it tells me" (Notifications), which matches its role of shaping what gets surfaced.
+
+**What stays locked from Q18:**
+- Dashboard layer structure (Hero, ChildTabs, Recent Activity, Attention section, Classes list) — unchanged.
+- Per-standard and per-class M / P / B / PS rollup display — unchanged (that's TeacherEase's rubric; we don't touch it).
+- Visual treatment of attention rows (amber tint, clock icon, score badge) — unchanged; the new engine just decides which rows qualify.
+- Per-child / family-level verdicts on the Status Hero — unchanged in look, now driven by our computed class attention instead of the portal's status column.
+
+**What this does not attempt (explicitly deferred):**
+- Per-child or per-class thresholds. Single global threshold for v1.
+- Custom per-item "snooze" or "remind me in X days." Out of scope.
+- Notification pipeline changes — the existing Q21 NotifyRouter continues to use its own event triggers. Whether to align `gradesAttention` notifications to the new engine's output is a separate follow-up (not promoted yet).
+
+**Why:** Without this unification, the app has two contradictory definitions of "needs attention" visible at the same time — parents don't know which to trust, and the Classes-tab red / green is dictated by a black-box TeacherEase calculation they can't tune. With it, attention becomes a predictable, transparent, parent-tunable signal; TeacherEase stays the source of truth for the official "meeting" rubric, which is what it actually is.
+
+**Promoted to:** Phase 15 in `docs/progress.md` (AT1 – AT6).
 
 ---
 

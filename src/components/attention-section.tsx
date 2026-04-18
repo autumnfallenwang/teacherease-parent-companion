@@ -42,7 +42,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
         {!isMissing && asn.score && (
           <span
             className={`text-[12px] font-semibold tabular-nums ${
-              (asn.scoreNumeric ?? 0) < 2.0 ? "text-attention-foreground" : "text-muted-foreground"
+              (asn.scoreNumeric ?? 0) < 2.0 ? "text-attention" : "text-muted-foreground"
             }`}
           >
             {asn.score}

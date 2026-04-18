@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Appearance — theme picker (Light / Dark / System).** Settings → Appearance tab with a three-option toggle. System mode follows the OS's color-scheme preference live.
+- **Appearance — theme profile library.** Choose from 5 curated palettes (Default / Solarized / Nord / Dracula / High contrast), each with light + dark variants. Orthogonal to the mode toggle — pick a profile, then pick light/dark/system.
+- **Appearance — font size.** Small / Medium / Large presets (100% / 115% / 130%) plus a custom % input (50–200%) that scales the entire UI — text, icons, spacing, borders — proportionally. Small matches the existing baseline.
+
+### Changed
+- **Softened default palette.** Light mode reads as warm off-white instead of pure white; dark mode reads as warm slate instead of pure black. Typography and layout unchanged.
+
+### Fixed
+- Dark-mode readability: the per-child "N classes need attention" banner now uses the regular foreground color over its translucent amber tint, instead of a hardcoded dark text color that disappeared in dark mode.
+- Theme profile picker no longer uses the native `<select>`, which rendered its dropdown in system colors and hid options in dark mode. Replaced with an inline stack of profile rows that honor the current theme.
+
 ## [0.1.0] — YYYY-MM-DD
 
 First public release.

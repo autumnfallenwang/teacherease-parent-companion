@@ -16,6 +16,8 @@
  * for seeded children. Use the wizard to add a real child for live scraping.
  */
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -868,6 +870,59 @@ function insertAssignments(
 }
 
 // ---------------------------------------------------------------------------
+// sqlx-migrate shim — the seed script bypasses migrations.rs and creates the
+// final schema directly, but the Tauri runtime's migrator checks
+// `_sqlx_migrations` at startup. Without matching rows (with correct SHA-384
+// checksums of each migration's SQL), the runtime tries to re-run migrations
+// and fails with "duplicate column" errors.
+//
+// This reads migrations.rs, extracts the 5 raw-string SQL blocks, and inserts
+// one row per migration with the exact checksum sqlx computes (SHA-384 of the
+// raw SQL bytes). Keeps seed + runtime in sync automatically when migrations
+// are added/edited.
+// ---------------------------------------------------------------------------
+
+function recordMigrations(db: Database.Database): void {
+  const migrationsPath = join(
+    import.meta.dirname ?? ".",
+    "..",
+    "src-tauri",
+    "src",
+    "migrations.rs",
+  );
+  const src = readFileSync(migrationsPath, "utf8");
+  const re = /version:\s*(\d+),\s*description:\s*"([^"]+)",\s*sql:\s*r#"([\s\S]+?)"#,\s*kind:/g;
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS _sqlx_migrations (
+      version BIGINT PRIMARY KEY,
+      description TEXT NOT NULL,
+      installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      success BOOLEAN NOT NULL,
+      checksum BLOB NOT NULL,
+      execution_time BIGINT NOT NULL
+    );
+  `);
+  const ins = db.prepare(
+    "INSERT OR REPLACE INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (?, ?, 1, ?, 0)",
+  );
+
+  let count = 0;
+  let m: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: standard regex.exec iteration pattern
+  while ((m = re.exec(src)) !== null) {
+    const version = Number.parseInt(m[1] ?? "", 10);
+    const description = m[2] ?? "";
+    const sql = m[3] ?? "";
+    const checksum = createHash("sha384").update(sql, "utf8").digest();
+    ins.run(version, description, checksum);
+    count += 1;
+  }
+
+  console.info(`Recorded ${count} migrations in _sqlx_migrations.`);
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -891,6 +946,10 @@ function main() {
       "classes",
       "settings",
       "children",
+      // Let recordMigrations re-populate this from migrations.rs so the
+      // runtime's migrator sees a clean slate. Without this, stale checksum
+      // rows collide with new migrations.rs edits.
+      "_sqlx_migrations",
     ]) {
       db.exec(`DROP TABLE IF EXISTS ${t}`);
     }
@@ -898,6 +957,7 @@ function main() {
 
   console.info("Running migrations...");
   db.exec(SCHEMA_SQL);
+  recordMigrations(db);
 
   const existingChildren = db.prepare("SELECT COUNT(*) as count FROM children").get() as {
     count: number;
@@ -994,30 +1054,32 @@ function main() {
             insertAssignments(db, scrapeId, classId, cls.name, cls.standards, day, seen);
           }
 
-          // Build classDetails for raw_payloads
+          // Build classDetails for raw_payloads (recursive — nested children
+          // also need their assignments mapped from StandardDef → Assignment shape)
+          const mapStandard = (std: StandardDef): unknown => ({
+            name: std.name,
+            score: std.score,
+            scoreNumeric: parseScore(std.score).numeric,
+            scoreLetter: parseScore(std.score).letter,
+            isMeeting: std.isMeeting,
+            children: (std.children ?? []).map(mapStandard),
+            assignments: std.assignments.map((a) => ({
+              testNameId: a.testNameId,
+              dueDate: formatDueDate(a.dueOffset),
+              name: a.name,
+              weight: String(a.weight),
+              grade: a.score,
+              gradeNumeric: parseScore(a.score).numeric,
+              gradeLetter: parseScore(a.score).letter,
+              isMissing: a.isMissing,
+              feedback: "",
+            })),
+            missingCount: std.assignments.filter((a) => a.isMissing).length,
+            lowScoreCount: 0,
+          });
           const classDetails = childDef.classes.map((cls) => ({
             className: cls.name,
-            standards: cls.standards.map((std) => ({
-              name: std.name,
-              score: std.score,
-              scoreNumeric: parseScore(std.score).numeric,
-              scoreLetter: parseScore(std.score).letter,
-              isMeeting: std.isMeeting,
-              children: std.children ?? [],
-              assignments: std.assignments.map((a) => ({
-                testNameId: a.testNameId,
-                dueDate: formatDueDate(a.dueOffset),
-                name: a.name,
-                weight: String(a.weight),
-                grade: a.score,
-                gradeNumeric: parseScore(a.score).numeric,
-                gradeLetter: parseScore(a.score).letter,
-                isMissing: a.isMissing,
-                feedback: "",
-              })),
-              missingCount: std.assignments.filter((a) => a.isMissing).length,
-              lowScoreCount: 0,
-            })),
+            standards: cls.standards.map(mapStandard),
             summary: {
               missingAssignments: cls.standards
                 .flatMap((s) => s.assignments)

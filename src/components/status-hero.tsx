@@ -36,7 +36,7 @@ function ChildRow({
         )}
         <div className="min-w-0 flex-1">
           <p
-            className={`text-[18px] font-medium leading-tight ${isOk ? "text-meeting" : "text-attention-foreground"}`}
+            className={`text-[18px] font-medium leading-tight ${isOk ? "text-meeting" : "text-foreground"}`}
             style={{ fontFamily: "var(--font-heading)" }}
           >
             {showName ? `${status.name} — ` : ""}
@@ -45,7 +45,7 @@ function ChildRow({
               : `${status.attentionCount} class${status.attentionCount > 1 ? "es" : ""} need${status.attentionCount === 1 ? "s" : ""} attention`}
           </p>
           {!isOk && missingTotal > 0 && (
-            <p className="mt-0.5 text-[12px] text-attention-foreground/80">
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
               {status.attentionClassNames.join(", ")}
             </p>
           )}

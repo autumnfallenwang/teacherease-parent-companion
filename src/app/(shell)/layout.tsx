@@ -9,14 +9,22 @@ const UpdateBanner = dynamic(
   { ssr: false },
 );
 
+const ThemeProvider = dynamic(
+  () => import("@/components/theme/theme-provider").then((m) => m.ThemeProvider),
+  { ssr: false },
+);
+
 export default function ShellLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-x-hidden">
-        <UpdateBanner />
-        <main className="flex-1 overflow-x-hidden">{children}</main>
+    <>
+      <ThemeProvider />
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-x-hidden">
+          <UpdateBanner />
+          <main className="flex-1 overflow-x-hidden">{children}</main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
