@@ -2,18 +2,16 @@
 
 import { AlertTriangle, BookX, ChevronRight, Clock, TrendingDown } from "lucide-react";
 import { useState } from "react";
-import type { AttentionItem } from "@/lib/core/attention";
-import { groupAttentionByRecency } from "@/lib/core/attention";
-import type { AssignmentRecord } from "@/lib/ipc";
+import { type AttentionItem, sortItemsMissingFirst } from "@/lib/core/attention-engine";
 
 interface AttentionSectionProps {
-  missingAssignments: AssignmentRecord[];
-  allAssignments: AssignmentRecord[];
+  withinWindow: AttentionItem[];
+  agedOut: AttentionItem[];
 }
 
 function AttentionRow({ item }: { item: AttentionItem }) {
-  const { assignment: asn, type } = item;
-  const isMissing = type === "missing";
+  const { assignment, reason, className } = item;
+  const isMissing = reason === "missing";
 
   return (
     <div
@@ -29,23 +27,23 @@ function AttentionRow({ item }: { item: AttentionItem }) {
         <TrendingDown className="h-3.5 w-3.5 shrink-0 text-attention/60" />
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium">{asn.assignmentName}</p>
-        <p className="text-[11px] text-muted-foreground">{asn.className}</p>
+        <p className="truncate text-[13px] font-medium">{assignment.name}</p>
+        <p className="text-[11px] text-muted-foreground">{className}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {asn.dueDate && (
+        {assignment.dueDate && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {asn.dueDate}
+            {assignment.dueDate}
           </span>
         )}
-        {!isMissing && asn.score && (
+        {!isMissing && assignment.grade && (
           <span
             className={`text-[12px] font-semibold tabular-nums ${
-              (asn.scoreNumeric ?? 0) < 2.0 ? "text-attention" : "text-muted-foreground"
+              assignment.gradeNumeric < 2.0 ? "text-attention" : "text-muted-foreground"
             }`}
           >
-            {asn.score}
+            {assignment.grade}
           </span>
         )}
       </div>
@@ -53,9 +51,10 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   );
 }
 
-export function AttentionSection({ missingAssignments, allAssignments }: AttentionSectionProps) {
-  const { thisWeek, older } = groupAttentionByRecency(missingAssignments, allAssignments);
-  const totalCount = thisWeek.length + older.length;
+export function AttentionSection({ withinWindow, agedOut }: AttentionSectionProps) {
+  const recent = sortItemsMissingFirst(withinWindow);
+  const older = sortItemsMissingFirst(agedOut);
+  const totalCount = recent.length + older.length;
   const [olderExpanded, setOlderExpanded] = useState(false);
 
   if (totalCount === 0) return null;
@@ -72,19 +71,20 @@ export function AttentionSection({ missingAssignments, allAssignments }: Attenti
         </span>
       </div>
 
-      {/* This week — expanded by default */}
-      {thisWeek.length > 0 && (
+      {/* Within forgiveness window — expanded by default */}
+      {recent.length > 0 && (
         <div className="space-y-1.5">
-          <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            This week
-          </p>
-          {thisWeek.map((item) => (
-            <AttentionRow key={item.assignment.id} item={item} />
+          <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Recent</p>
+          {recent.map((item) => (
+            <AttentionRow
+              key={`${item.className}-${item.assignment.testNameId}-${item.reason}`}
+              item={item}
+            />
           ))}
         </div>
       )}
 
-      {/* Older — collapsed by default */}
+      {/* Aged out — collapsed by default */}
       {older.length > 0 && (
         <div>
           <button
@@ -103,7 +103,10 @@ export function AttentionSection({ missingAssignments, allAssignments }: Attenti
           >
             <div className="space-y-1.5 overflow-hidden">
               {older.map((item) => (
-                <AttentionRow key={item.assignment.id} item={item} />
+                <AttentionRow
+                  key={`${item.className}-${item.assignment.testNameId}-${item.reason}`}
+                  item={item}
+                />
               ))}
             </div>
           </div>

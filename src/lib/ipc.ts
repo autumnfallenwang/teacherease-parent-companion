@@ -11,6 +11,7 @@ import {
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
 import Database from "@tauri-apps/plugin-sql";
+import { type AttentionConfig, parseAttentionConfig } from "./core/attention-engine";
 import { hwDateToIso, resolveDueDate } from "./core/homework-date";
 import type {
   ChildRecord,
@@ -716,6 +717,23 @@ export async function getClassDetail(
   return payload.classDetails?.find((cd) => cd.className === className) ?? null;
 }
 
+/**
+ * All ClassDetails captured in this scrape's raw payload. Feeds the attention
+ * engine (Phase 15 / Q25) which walks the whole tree to compute per-class and
+ * per-child attention status. Returns [] if the payload is missing.
+ */
+export async function getAllClassDetails(fetchRunId: number): Promise<ClassDetails[]> {
+  const d = await getDb();
+  const rows = await d.select<RawPayloadRow[]>(
+    "SELECT json FROM raw_payloads WHERE fetch_run_id = $1",
+    [fetchRunId],
+  );
+  const row = rows[0];
+  if (!row) return [];
+  const payload = JSON.parse(row.json) as { classDetails?: ClassDetails[] };
+  return payload.classDetails ?? [];
+}
+
 export async function getMissingAssignments(fetchRunId: number): Promise<AssignmentRecord[]> {
   const d = await getDb();
   // Query both old (status='missing') and new (is_missing=1) columns for compat
@@ -899,6 +917,18 @@ export async function setSettingString(key: string, value: string): Promise<void
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
     [key, value],
   );
+}
+
+/**
+ * Attention engine config (Phase 15 AT2). Reads `attention.forgivenessWeeks`
+ * and `attention.lowScoreThreshold` from `settings`, falls back to engine
+ * defaults (2 weeks / 3.0) via `parseAttentionConfig` when unset or invalid.
+ * The Settings → Attention sub-tab that writes these keys lands in AT5.
+ */
+export async function getAttentionConfig(): Promise<AttentionConfig> {
+  const weeks = await getSettingString("attention.forgivenessWeeks", "");
+  const threshold = await getSettingString("attention.lowScoreThreshold", "");
+  return parseAttentionConfig(weeks, threshold);
 }
 
 // ---------------------------------------------------------------------------

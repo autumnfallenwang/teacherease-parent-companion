@@ -47,4 +47,31 @@ describe("sortClassesByUrgency", () => {
     expect(sorted[0]?.className).toBe("Math");
     expect(sorted[1]?.className).toBe("X");
   });
+
+  it("puts engine-attention classes before TeacherEase needs_attention", () => {
+    const grades = [grade("needs_attention", "TE-attention"), grade("meeting", "Engine-attention")];
+    const sorted = sortClassesByUrgency(grades, new Set(["Engine-attention"]));
+    expect(sorted.map((g) => g.className)).toEqual(["Engine-attention", "TE-attention"]);
+  });
+
+  it("engine-attention is primary over meeting / not_assessed / needs_attention", () => {
+    const grades = [
+      grade("meeting", "Math"),
+      grade("not_assessed", "Art"),
+      grade("needs_attention", "TE-SS"),
+      grade("meeting", "English"), // engine-attention target
+    ];
+    const sorted = sortClassesByUrgency(grades, new Set(["English"]));
+    expect(sorted.map((g) => g.className)).toEqual(["English", "TE-SS", "Math", "Art"]);
+  });
+
+  it("no engine set == pre-AT4 behavior (sort by TeacherEase status only)", () => {
+    const grades = [
+      grade("meeting", "Math"),
+      grade("needs_attention", "Social Studies"),
+      grade("not_assessed", "Art"),
+    ];
+    const sorted = sortClassesByUrgency(grades);
+    expect(sorted.map((g) => g.className)).toEqual(["Social Studies", "Math", "Art"]);
+  });
 });

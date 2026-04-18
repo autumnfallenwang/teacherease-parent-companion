@@ -18,6 +18,10 @@ interface GradesTableProps {
   grades: GradeRecord[];
   history: Map<string, StatusHistoryEntry[]>;
   instructors: Map<number, string>;
+  /** Engine-flagged attention class names (per Q25 AT4). Drives the
+   *  "Needs Attention" badge + urgency sort. TeacherEase `status` still drives
+   *  the orthogonal "Meeting" / "Not Assessed" badges on non-attention rows. */
+  attentionClassNames: ReadonlySet<string>;
   expandedClass: string | null;
   onClassClick: (className: string) => void;
   children?: (className: string) => ReactNode;
@@ -38,8 +42,8 @@ function getClassTabColor(className: string): string {
   return "class-tab-default";
 }
 
-function StatusIndicator({ grade }: { grade: GradeRecord }) {
-  if (grade.needsAttention) {
+function StatusIndicator({ grade, isAttention }: { grade: GradeRecord; isAttention: boolean }) {
+  if (isAttention) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-attention/15 px-2.5 py-1 text-xs font-medium text-attention-foreground">
         <CircleAlert className="h-3 w-3 fill-attention text-attention" />
@@ -77,6 +81,7 @@ export function GradesTable({
   grades,
   history,
   instructors,
+  attentionClassNames,
   expandedClass,
   onClassClick,
   children,
@@ -89,7 +94,7 @@ export function GradesTable({
     );
   }
 
-  const sorted = sortClassesByUrgency(grades);
+  const sorted = sortClassesByUrgency(grades, attentionClassNames);
 
   return (
     <div className="space-y-3">
@@ -136,7 +141,10 @@ export function GradesTable({
                 )}
                 <StatusDots history={classHistory} />
                 <TrendArrow direction={trend} />
-                <StatusIndicator grade={grade} />
+                <StatusIndicator
+                  grade={grade}
+                  isAttention={attentionClassNames.has(grade.className)}
+                />
               </button>
 
               {/* Accordion panel — T34 drilldown */}
