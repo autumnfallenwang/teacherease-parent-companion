@@ -991,6 +991,57 @@ The "This week vs older" split in the existing UI becomes "Within the window vs 
 
 ---
 
+### Q26 — Unified page-chrome pattern (supersedes Q18's claim that ChildTabs lives in the page body as a segmented control, and extends Q22's sidebar-shell architecture with a locked per-route header pattern)
+
+**Problem.** Q22 set up the five-route shell but left each route to invent its own chrome. The Dashboard has a bespoke `Header` (logo + refresh); Classes / History / Settings / About have plain `<h1>` tags with no affordances; Settings renders its sub-tab nav inline with body content; ChildTabs is a segmented pill rendered mid-page on Dashboard + Classes. When a page overflows, nothing pins — the user loses their anchor. Parents need consistent, always-visible controls: which page am I on, who am I looking at, what can I do here? The current mix answers that question differently on every route.
+
+**Decision.**
+
+1. **Every route uses a unified sticky page-header.** One React component (`PageHeader`) rendered by every top-level route. Stays `sticky top-0` within the right-hand scroll column. Contains:
+   - **Route title** on the left — "Today" / "Classes" / "History" / "Settings" / "About"
+   - **Page actions** slot on the right — route-specific (Refresh on Today; empty on others)
+   - **Sub-tab nav** row below the title — optional; only Settings uses it today
+   - The title row + optional sub-tab row form **one cohesive sticky block**. Scroll happens below this block, never underneath it.
+
+2. **ChildTabs leaves the page body.** It's a *context selector*, not navigation. Moves to the **sidebar middle**, styled as a radio-group list (not a segmented control). When exactly one child exists, the child selector (and its separator) renders nothing — no vestigial UI. Rationale: navigation (where in the app) and context (whose data) are orthogonal axes; sidebar owns both, content area shows the current route × current child intersection. Removes the "moving sub-tab inside page body" artifact.
+
+3. **Sidebar reorganization.** The nav list splits into two groups with the child selector sandwiched between them:
+   ```
+   T Companion           (top)
+   
+   · Today               ┐
+   · Classes             │  primary nav (per-child views)
+   · History             ┘
+   ───────────────
+   Viewing child:
+   ● Alex                   child radio-group (hidden if 1 child)
+   ○ Sam
+   ───────────────
+   · Settings            ┐  utility nav (app-level, child-independent)
+   · About               ┘
+   ```
+   Settings + About move to the bottom because they're app-level (not per-child); Today / Classes / History are per-child and sit above the context selector they depend on. The separators visually tie each group to its neighbor's relevance.
+
+4. **The right-hand content column is the only scroll container.** Sidebar + page header (incl. sub-tabs) stay pinned. Only content below the header scrolls. B-06 landed the shell wiring for this; Q26 locks it as the intended model.
+
+**What stays locked.**
+- **Q22's sidebar-shell architecture** — five route-backed sections. Unchanged.
+- **Q18's dashboard content priority** — Hero → Attention → Recent Activity → Homework → Classes link. Order and priority unchanged; everything lives below the unified sticky header.
+- **Q23 / Q16 typography + palette** — unchanged.
+
+**What this supersedes.**
+- **Q18's "ChildTabs as in-body segmented control" claim** — ChildTabs moves to the sidebar as a radio-group context selector.
+- **Implicit per-route freedom to invent chrome** — every route conforms to `PageHeader`.
+
+**Open sub-decisions (resolved during Phase 16).**
+- Sub-tab nav inline with the title row vs below — **below the title, inside the sticky block** (same sticky chunk; title + sub-tabs visually tied).
+- App branding location — **sidebar top only**; don't duplicate in the page header.
+- UpdateBanner — **above page header**, scrolls away when header pins (it's transient).
+
+**Promoted to:** Phase 16 in `docs/progress.md` (L1 – L4).
+
+---
+
 ## Tech Stack
 
 | Layer | Tech | Rationale link |

@@ -21,7 +21,7 @@ function formatTimeAgo(dateStr: string): string {
 
 export function Header({ lastRunAt, isRefreshing, onRefresh, onSettings }: HeaderProps) {
   return (
-    <header className="relative border-b bg-card/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 border-b bg-card/80 backdrop-blur-sm">
       <div className="flex items-center justify-between px-5 py-3.5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">

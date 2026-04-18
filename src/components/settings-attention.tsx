@@ -1,5 +1,7 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import { BookX, CheckCircle2, CircleDashed, TrendingDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   type AttentionConfig,
@@ -8,6 +10,52 @@ import {
   parseAttentionConfig,
 } from "@/lib/core/attention-engine";
 import { getSettingString, log, logErr, setSettingString } from "@/lib/ipc";
+
+// Read-only icon legend (D-04). Mirrors `resolveAssignmentIcon` in standards-
+// tree.tsx — if that resolver changes, update this array to keep them in sync.
+const ICON_REFERENCE: Array<{
+  icon: LucideIcon;
+  className: string;
+  label: string;
+  description: string;
+}> = [
+  {
+    icon: BookX,
+    className: "text-attention",
+    label: "Missing (recent)",
+    description: "Assignment flagged as not turned in, within the forgiveness window.",
+  },
+  {
+    icon: BookX,
+    className: "text-muted-foreground",
+    label: "Missing (older)",
+    description: "Missing item past the forgiveness window — no longer demanding action.",
+  },
+  {
+    icon: TrendingDown,
+    className: "text-attention/70",
+    label: "Low score (recent)",
+    description: "Graded below the low-score threshold, within the forgiveness window.",
+  },
+  {
+    icon: TrendingDown,
+    className: "text-muted-foreground",
+    label: "Low score (older)",
+    description: "Low-score item past the forgiveness window.",
+  },
+  {
+    icon: CheckCircle2,
+    className: "text-meeting",
+    label: "Meeting",
+    description: "Graded at or above the threshold — no attention needed.",
+  },
+  {
+    icon: CircleDashed,
+    className: "text-muted-foreground",
+    label: "Not graded",
+    description: "Posted to the gradebook but no score entered yet (upcoming or pending).",
+  },
+];
 
 const WEEKS_KEY = "attention.forgivenessWeeks";
 const THRESHOLD_KEY = "attention.lowScoreThreshold";
@@ -137,6 +185,27 @@ export function SettingsAttention() {
             className="h-8 w-20 rounded-md border border-input bg-card px-2 text-[13px] text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           />
           <span className="text-[12px] text-muted-foreground">(0.0–4.0, press Enter to apply)</span>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="text-[14px] font-medium">Icon reference</h2>
+        <p className="text-[12px] text-muted-foreground">
+          What the icons in the Classes drilldown mean.
+        </p>
+        <div className="space-y-2 rounded-lg border border-border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          {ICON_REFERENCE.map((row) => {
+            const Icon = row.icon;
+            return (
+              <div key={row.label} className="flex items-start gap-3">
+                <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${row.className}`} />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium">{row.label}</p>
+                  <p className="text-[12px] text-muted-foreground">{row.description}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

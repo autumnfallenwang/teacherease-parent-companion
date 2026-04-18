@@ -10,21 +10,29 @@ interface AttentionSectionProps {
 }
 
 function AttentionRow({ item }: { item: AttentionItem }) {
-  const { assignment, reason, className } = item;
+  const { assignment, reason, className, withinWindow } = item;
   const isMissing = reason === "missing";
 
+  // Aged-out rows drop the amber tint entirely and mute the icon — consistent
+  // with the standards-tree treatment for the same items.
+  let rowClass = "border-border";
+  let iconClass = "text-muted-foreground";
+  if (withinWindow) {
+    if (isMissing) {
+      rowClass = "border-attention/20 bg-attention/5";
+      iconClass = "text-attention";
+    } else {
+      rowClass = "border-border bg-amber-50/30 dark:bg-amber-950/10";
+      iconClass = "text-attention/60";
+    }
+  }
+
   return (
-    <div
-      className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 ${
-        isMissing
-          ? "border-attention/20 bg-attention/5"
-          : "border-border bg-amber-50/30 dark:bg-amber-950/10"
-      }`}
-    >
+    <div className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 ${rowClass}`}>
       {isMissing ? (
-        <BookX className="h-3.5 w-3.5 shrink-0 text-attention" />
+        <BookX className={`h-3.5 w-3.5 shrink-0 ${iconClass}`} />
       ) : (
-        <TrendingDown className="h-3.5 w-3.5 shrink-0 text-attention/60" />
+        <TrendingDown className={`h-3.5 w-3.5 shrink-0 ${iconClass}`} />
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium">{assignment.name}</p>
@@ -38,11 +46,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
           </span>
         )}
         {!isMissing && assignment.grade && (
-          <span
-            className={`text-[12px] font-semibold tabular-nums ${
-              assignment.gradeNumeric < 2.0 ? "text-attention" : "text-muted-foreground"
-            }`}
-          >
+          <span className="text-[12px] font-semibold tabular-nums text-muted-foreground">
             {assignment.grade}
           </span>
         )}

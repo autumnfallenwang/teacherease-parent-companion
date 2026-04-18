@@ -18,9 +18,9 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <ThemeProvider />
-      <div className="flex min-h-screen">
+      <div className="flex h-screen">
         <Sidebar />
-        <div className="flex flex-1 flex-col overflow-x-hidden">
+        <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
           <UpdateBanner />
           <main className="flex-1 overflow-x-hidden">{children}</main>
         </div>

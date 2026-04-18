@@ -1,4 +1,13 @@
-import { CheckCircle2, CircleAlert, Clock, Info, TrendingDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  BookX,
+  CheckCircle2,
+  CircleAlert,
+  CircleDashed,
+  Clock,
+  Info,
+  TrendingDown,
+} from "lucide-react";
 import { useMemo } from "react";
 import {
   type AssignmentAttention,
@@ -15,6 +24,32 @@ interface StandardsTreeProps {
   attentionCfg?: AttentionConfig;
 }
 
+// Resolve the leftmost row icon per D-04's uniform icon system. Every state
+// gets exactly one icon — parents can scan a column of rows instead of
+// decoding mixed visual treatments. Mirrors Settings → Attention's legend.
+function resolveAssignmentIcon(
+  assignment: Assignment,
+  attention: AssignmentAttention,
+): { icon: LucideIcon; className: string } {
+  if (assignment.isMissing) {
+    return {
+      icon: BookX,
+      className: attention.withinWindow ? "text-attention" : "text-muted-foreground",
+    };
+  }
+  if (attention.reason === "lowScore") {
+    return {
+      icon: TrendingDown,
+      className: attention.withinWindow ? "text-attention/70" : "text-muted-foreground",
+    };
+  }
+  const hasGrade = assignment.gradeLetter !== "" || assignment.grade !== "";
+  if (hasGrade) {
+    return { icon: CheckCircle2, className: "text-meeting" };
+  }
+  return { icon: CircleDashed, className: "text-muted-foreground" };
+}
+
 function AssignmentRow({
   assignment,
   attention,
@@ -22,23 +57,27 @@ function AssignmentRow({
   assignment: Assignment;
   attention: AssignmentAttention;
 }) {
-  const isLowScoreAttention = attention.reason === "lowScore" && attention.withinWindow;
+  const { icon: Icon, className: iconClass } = resolveAssignmentIcon(assignment, attention);
 
+  // One uniform row container for every state. The icon (resolved above) +
+  // right-cluster content carry all the semantic weight — no per-state
+  // border/background boxes. Missing rows put "Missing" in the right cluster;
+  // others put the grade / "Not graded" tag.
   if (assignment.isMissing) {
     const isAgedOut = !attention.withinWindow;
-    const rowClasses = isAgedOut
-      ? "rounded-md border border-border px-3 py-1.5"
-      : "rounded-md border border-attention/20 bg-attention/5 px-3 py-1.5";
     const nameClasses = `truncate text-[12px] font-medium ${
       isAgedOut ? "text-muted-foreground" : ""
     }`;
     const tagClasses = isAgedOut
       ? "text-[11px] font-medium text-muted-foreground"
-      : "text-[11px] font-medium text-attention-foreground";
+      : "text-[11px] font-medium text-attention";
 
     return (
-      <div className={`flex items-center justify-between ${rowClasses}`}>
-        <span className={nameClasses}>{assignment.name}</span>
+      <div className="flex items-center justify-between rounded-md px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Icon className={`h-3 w-3 shrink-0 ${iconClass}`} />
+          <span className={nameClasses}>{assignment.name}</span>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           {assignment.dueDate && (
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -57,7 +96,7 @@ function AssignmentRow({
   return (
     <div className="flex items-center justify-between rounded-md px-3 py-1.5">
       <div className="flex min-w-0 items-center gap-1.5">
-        {isLowScoreAttention && <TrendingDown className="h-3 w-3 shrink-0 text-attention/70" />}
+        <Icon className={`h-3 w-3 shrink-0 ${iconClass}`} />
         <span className="truncate text-[12px] text-foreground/80">{assignment.name}</span>
       </div>
       <div className="flex shrink-0 items-center gap-2">

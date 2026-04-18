@@ -11,9 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Appearance — theme picker (Light / Dark / System).** Settings → Appearance tab with a three-option toggle. System mode follows the OS's color-scheme preference live.
 - **Appearance — theme profile library.** Choose from 5 curated palettes (Default / Solarized / Nord / Dracula / High contrast), each with light + dark variants. Orthogonal to the mode toggle — pick a profile, then pick light/dark/system.
 - **Appearance — font size.** Small / Medium / Large presets (100% / 115% / 130%) plus a custom % input (50–200%) that scales the entire UI — text, icons, spacing, borders — proportionally. Small matches the existing baseline.
+- **Attention — unified engine.** A single app-owned attention layer (missing + low-score, with a 2-week forgiveness window and configurable threshold) replaces the portal's ad-hoc "Needs Attention" column across the dashboard hero, child tabs, Classes list, Today's Attention section, and the standards drilldown. TeacherEase's M / P / B / PS rollup still drives the "Meeting" display separately.
+- **Attention — Settings sub-tab.** New Settings → Attention panel with two Enter-or-blur numeric inputs: forgiveness window (weeks, 1–12, default 2) and low-score threshold (0.0–4.0, default 3.0). Includes a read-only icon reference legend.
+- **Classes drilldown — one icon per assignment state.** Every assignment row in the standards tree now shows a leftmost icon reflecting its state (missing / low-score / meeting / not-graded, each with within-window vs aged-out variants). Matches the Today tab's missing icon for visual consistency.
 
 ### Changed
 - **Softened default palette.** Light mode reads as warm off-white instead of pure white; dark mode reads as warm slate instead of pure black. Typography and layout unchanged.
+- **Sidebar stays visible when scrolling.** Navigating through long pages (Classes drilldown, Settings panels) no longer scrolls the sidebar off the top. The content column scrolls internally while the sidebar + dashboard header stay pinned.
+- **Uniform low-score styling.** The score badge in Today's Attention section no longer switches to amber for very-low scores — all below-threshold items now use the same muted color. The amber attention signal comes from the row styling + icon, not the badge color.
+- **Aged-out items visually quiet down.** Missing and low-score items past the forgiveness window render in muted colors across both Today's Attention section and the Classes drilldown — instead of screaming amber at work that's no longer actionable.
+- **Child tab indicator rebuilt.** The active child's tab now floats above a recessed container with a two-layer drop shadow; inactive child names fade to 60% opacity (including their attention dots). Clear at a glance in every theme and mode.
 
 ### Fixed
 - Dark-mode readability: the per-child "N classes need attention" banner now uses the regular foreground color over its translucent amber tint, instead of a hardcoded dark text color that disappeared in dark mode.
