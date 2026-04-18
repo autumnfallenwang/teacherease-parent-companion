@@ -30,8 +30,8 @@ export type FetchImpl = (url: string | URL, init?: RequestInit) => Promise<Respo
  * or an unexpected HTTP response shape. The message is user-presentable.
  */
 export class LoginError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "LoginError";
   }
 }

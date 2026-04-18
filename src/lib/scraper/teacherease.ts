@@ -30,13 +30,21 @@ export const USER_AGENT =
 const FIELD_EMAIL = "email";
 const FIELD_PASSWORD = "password";
 
-// Heuristic patterns for detecting a failed login response body.
-const BAD_CREDENTIAL_PATTERNS = [
-  /invalid\s+(email|password|login|credentials)/i,
-  /couldn'?t\s+log\s+in/i,
-  /incorrect\s+(email|password)/i,
-  /wrong\s+(email|password)/i,
-];
+/**
+ * Detects "the server bounced us back to the login page" — the signal for
+ * bad credentials when the HTTP layer auto-follows redirects (which Tauri's
+ * plugin-http / reqwest does regardless of `redirect: "manual"`). Matches
+ * both `/common/login.aspx` and `/app/Login/...` paths case-insensitively.
+ */
+function isLoginPageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const path = new URL(url).pathname.toLowerCase();
+    return path.endsWith("/login.aspx") || path.includes("/login/");
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Log in to TeacherEase and return an authenticated session. Throws
@@ -58,9 +66,16 @@ export async function login(
 
   // Step 1: GET the login page to pick up hidden fields and any initial
   // session cookies the server wants us to echo back.
-  const pageRes = await fetchImpl(pageUrl, {
-    headers: { "User-Agent": USER_AGENT },
-  });
+  let pageRes: Response;
+  try {
+    pageRes = await fetchImpl(pageUrl, {
+      headers: { "User-Agent": USER_AGENT },
+    });
+  } catch (err) {
+    throw new LoginError("Couldn't reach TeacherEase. Check your internet connection.", {
+      cause: err,
+    });
+  }
   if (!pageRes.ok) {
     throw new LoginError(`Couldn't load the login page (HTTP ${pageRes.status}).`);
   }
@@ -69,19 +84,26 @@ export async function login(
 
   // Step 2: POST credentials + hidden fields to the form's action URL.
   const body = buildLoginFormBody(hiddenFields, credentials);
-  const loginRes = await fetchImpl(postUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": USER_AGENT,
-      Cookie: jar.header(),
-    },
-    body,
-    // Don't follow the redirect automatically — the 302 IS the success
-    // signal, and following it would give us a 200 we'd then have to
-    // heuristically distinguish from a failed-login 200.
-    redirect: "manual",
-  });
+  let loginRes: Response;
+  try {
+    loginRes = await fetchImpl(postUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": USER_AGENT,
+        Cookie: jar.header(),
+      },
+      body,
+      // Don't follow the redirect automatically — the 302 IS the success
+      // signal, and following it would give us a 200 we'd then have to
+      // heuristically distinguish from a failed-login 200.
+      redirect: "manual",
+    });
+  } catch (err) {
+    throw new LoginError("Couldn't reach TeacherEase. Check your internet connection.", {
+      cause: err,
+    });
+  }
   jar.absorb(loginRes.headers.getSetCookie());
 
   // Success: 302 → /App/Parents/... or similar authenticated URL.
@@ -93,16 +115,18 @@ export async function login(
     return { baseUrl, cookieHeader: jar.header() };
   }
 
-  // 200 means the server re-rendered the login page with an error message.
+  // With plugin-http / reqwest the 302 is auto-followed, so the success
+  // signal we actually see here is a 200 response whose final URL is
+  // somewhere other than the login page. Bounce back to the login page =
+  // bad credentials.
   if (loginRes.status === 200) {
-    const errorText = await loginRes.text().catch(() => "");
-    if (BAD_CREDENTIAL_PATTERNS.some((p) => p.test(errorText))) {
-      throw new LoginError("Couldn't log in. Double-check your email and password.");
+    if (isLoginPageUrl(loginRes.url)) {
+      throw new LoginError("Couldn't log in to TeacherEase. Double-check your email and password.");
     }
-    throw new LoginError("Login failed. TeacherEase may be having trouble.");
+    return { baseUrl, cookieHeader: jar.header() };
   }
 
-  throw new LoginError(`Login failed (HTTP ${loginRes.status}).`);
+  throw new LoginError(`TeacherEase login failed (HTTP ${loginRes.status}).`);
 }
 
 /**

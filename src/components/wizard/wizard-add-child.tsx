@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addChild, log, logErr } from "@/lib/ipc";
+import { addChild, log, logErr, tauriFetch } from "@/lib/ipc";
 import { login } from "@/lib/scraper/teacherease";
 
 interface WizardAddChildProps {
@@ -29,7 +29,7 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
 
     try {
       await log("wizard: login validation started");
-      await login(baseUrl, { username, password });
+      await login(baseUrl, { username, password }, tauriFetch);
       await log("wizard: login validation succeeded");
       const childId = await addChild({
         displayName: displayName || "My Child",
@@ -45,7 +45,7 @@ export function WizardAddChild({ onNext, onSkip }: WizardAddChildProps) {
       );
       if (err instanceof Error) {
         if (/double-check|invalid|incorrect|wrong/i.test(err.message)) {
-          setError("Couldn't log in. Double-check your email and password.");
+          setError("Couldn't log in to TeacherEase. Double-check your email and password.");
         } else if (/responding|offline|network/i.test(err.message)) {
           setError("TeacherEase isn't responding. Try again in a moment.");
         } else {

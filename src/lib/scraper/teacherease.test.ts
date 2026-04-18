@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildLoginFormBody, extractLoginFormFields, login } from "./teacherease";
-import { LoginError } from "./types";
 
 const FIXTURE_PATH = join(__dirname, "../../../tests/fixtures/login-page.html");
 const LOGIN_PAGE_HTML = readFileSync(FIXTURE_PATH, "utf8");
@@ -12,13 +11,14 @@ const DUMMY_CREDS = { username: "test@example.com", password: "hunter2" } as con
 
 // Minimal Response stand-in: the real fetch Response has 30+ fields and
 // browsers/Node disagree on exact shape. Tests only touch what login() uses.
-type ResponseLike = Pick<Response, "ok" | "status" | "type" | "headers" | "text">;
+type ResponseLike = Pick<Response, "ok" | "status" | "type" | "headers" | "text" | "url">;
 
 function mockResponse(opts: {
   status: number;
   body?: string;
   setCookies?: readonly string[];
   type?: ResponseType;
+  url?: string;
 }): ResponseLike {
   const setCookies = opts.setCookies ?? [];
   const body = opts.body ?? "";
@@ -26,6 +26,7 @@ function mockResponse(opts: {
     ok: opts.status >= 200 && opts.status < 300,
     status: opts.status,
     type: opts.type ?? "basic",
+    url: opts.url ?? "",
     headers: {
       getSetCookie: () => [...setCookies],
     } as unknown as Headers,
@@ -175,14 +176,18 @@ describe("login", () => {
     expect(params.get("LoginRequestID")).toBeTruthy();
   });
 
-  it("throws LoginError with 'Couldn't log in' on a 200 with an invalid-credentials body", async () => {
+  it("throws LoginError with 'Couldn't log in' when the POST is auto-redirected back to the login page", async () => {
+    // With Tauri's plugin-http, reqwest auto-follows the 302 that TeacherEase
+    // returns on bad credentials — so we see a 200 response whose final URL
+    // is still the login page. That round-trip is how we detect bad creds
+    // instead of parsing the body for English error phrases.
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(mockResponse({ status: 200, body: LOGIN_PAGE_HTML }))
       .mockResolvedValueOnce(
         mockResponse({
           status: 200,
-          body: "<html><body>Invalid email or password</body></html>",
+          url: `${DUMMY_BASE}/common/Login.aspx?dontPromptAutoLogin=true&email=${DUMMY_CREDS.username}`,
         }),
       );
 
@@ -194,20 +199,23 @@ describe("login", () => {
     });
   });
 
-  it("throws LoginError with a generic message on an unexpected 200 response", async () => {
+  it("returns a Session when the POST is auto-redirected to an authenticated page", async () => {
+    // The success counterpart of the bad-creds test: plugin-http followed
+    // the 302 to an authenticated URL, which is the signal that login worked.
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(mockResponse({ status: 200, body: LOGIN_PAGE_HTML }))
       .mockResolvedValueOnce(
         mockResponse({
           status: 200,
-          body: "<html><body>Something went wrong</body></html>",
+          url: `${DUMMY_BASE}/App/Parents/StandardGrade/GradeViewAllWithProgress`,
+          setCookies: ["SessionID=abc; Path=/"],
         }),
       );
 
-    await expect(
-      login(DUMMY_BASE, DUMMY_CREDS, fetchImpl as unknown as typeof fetch),
-    ).rejects.toBeInstanceOf(LoginError);
+    const session = await login(DUMMY_BASE, DUMMY_CREDS, fetchImpl as unknown as typeof fetch);
+    expect(session.baseUrl).toBe(DUMMY_BASE);
+    expect(session.cookieHeader).toContain("SessionID=abc");
   });
 
   it("throws LoginError on non-2xx, non-redirect HTTP responses", async () => {

@@ -15,6 +15,13 @@
     "notification:allow-notify",
     "autostart:default",
     "updater:default",
-    "process:default"
+    "process:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://*.teacherease.com/*" },
+        { "url": "https://sites.google.com/*" }
+      ]
+    }
   ]
 }

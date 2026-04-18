@@ -7,6 +7,7 @@ import {
   getMissingAssignments,
   getNeedsAttentionGrades,
   persistTeacherEaseData,
+  tauriFetch,
 } from "@/lib/ipc";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login, USER_AGENT } from "@/lib/scraper/teacherease";
@@ -28,13 +29,17 @@ export class TeacherEaseSource implements FetchSource {
     const password = await getChildPassword(ctx.childId);
     if (!password) throw new Error("No stored password — re-add this child");
 
-    const session = await login(ctx.child.baseUrl, {
-      username: ctx.child.username,
-      password,
-    });
+    const session = await login(
+      ctx.child.baseUrl,
+      {
+        username: ctx.child.username,
+        password,
+      },
+      tauriFetch,
+    );
 
     const gradesUrl = new URL(GRADES_PATH, session.baseUrl).toString();
-    const gradesRes = await fetch(gradesUrl, {
+    const gradesRes = await tauriFetch(gradesUrl, {
       headers: { Cookie: session.cookieHeader, "User-Agent": USER_AGENT },
     });
     const overview = parseGradesOverview(await gradesRes.text());
@@ -45,7 +50,7 @@ export class TeacherEaseSource implements FetchSource {
         `/common/StudentProgressStandardsDetails.aspx?ClassID=${cls.classId}&CGPID=${cls.cgpId}`,
         session.baseUrl,
       ).toString();
-      const res = await fetch(url, {
+      const res = await tauriFetch(url, {
         headers: { Cookie: session.cookieHeader, "User-Agent": USER_AGENT },
       });
       classDetails.push(parseClassDetails(await res.text(), cls.name));

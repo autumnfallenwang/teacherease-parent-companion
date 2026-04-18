@@ -141,7 +141,8 @@
               "@tauri-apps/plugin-updater": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
               "@tauri-apps/plugin-process": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
               "@tauri-apps/plugin-store": "Import through src/lib/ipc.ts — keeps React free of platform imports so business logic is portable.",
-              "@tauri-apps/plugin-log": "Import through src/lib/ipc.ts — use log(), logWarning(), logErr() wrappers."
+              "@tauri-apps/plugin-log": "Import through src/lib/ipc.ts — use log(), logWarning(), logErr() wrappers.",
+              "@tauri-apps/plugin-http": "Import through src/lib/ipc.ts — use the tauriFetch wrapper. Scraper modules take FetchImpl as an injected parameter."
             }
           }
         },

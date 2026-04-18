@@ -10,6 +10,7 @@ import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
+import { fetch as pluginFetch } from "@tauri-apps/plugin-http";
 import Database from "@tauri-apps/plugin-sql";
 import { type AttentionConfig, parseAttentionConfig } from "./core/attention-engine";
 import { hwDateToIso, resolveDueDate } from "./core/homework-date";
@@ -17,10 +18,24 @@ import type {
   ChildRecord,
   ClassDetails,
   ClassOverview,
+  FetchImpl,
   GradesOverview,
   HomeworkEntry,
   Standard,
 } from "./scraper/types";
+
+// ---------------------------------------------------------------------------
+// Scraper-side HTTP
+// ---------------------------------------------------------------------------
+
+/**
+ * Routes through the `tauri-plugin-http` allowlist so WebKitGTK's CORS
+ * enforcement can't block cross-origin requests to TeacherEase / Google
+ * Sites. Signature matches the scraper's `FetchImpl` so existing injection
+ * sites (`login()`, `validateHomeworkUrl()`) swap in cleanly and tests
+ * stay isolated on Node's native fetch.
+ */
+export const tauriFetch: FetchImpl = (url, init) => pluginFetch(url, init);
 
 // ---------------------------------------------------------------------------
 // DB singleton
@@ -114,6 +129,21 @@ export async function removeChild(childId: number): Promise<void> {
 
 export async function updateChildPassword(childId: number, password: string): Promise<void> {
   await keychainSet(childKeychainKey(childId), password);
+}
+
+export async function updateChildIdentity(
+  childId: number,
+  params: { displayName: string; username: string },
+): Promise<void> {
+  const d = await getDb();
+  await d.execute("UPDATE children SET display_name = $1, username = $2 WHERE id = $3", [
+    params.displayName,
+    params.username,
+    childId,
+  ]);
+  await invoke("log_info", {
+    message: `updateChildIdentity: id=${childId} name=${params.displayName}`,
+  });
 }
 
 export async function setHomeworkUrl(childId: number, url: string | null): Promise<void> {
