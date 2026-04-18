@@ -22,7 +22,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
           <UpdateBanner />
-          <main className="flex-1 overflow-x-hidden">{children}</main>
+          <main className="flex flex-1 flex-col overflow-x-hidden">{children}</main>
         </div>
       </div>
     </>

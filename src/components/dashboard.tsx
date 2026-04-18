@@ -1,16 +1,18 @@
 "use client";
 
+import { RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttentionSection } from "@/components/attention-section";
-import { ChildTabs } from "@/components/child-tabs";
 import { EmptyState } from "@/components/empty-state";
-import { Header } from "@/components/header";
 import { HomeworkCard } from "@/components/homework-card";
 import { RecentActivity } from "@/components/recent-activity";
+import { PageHeader } from "@/components/shell/page-header";
+import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import type { ChildStatus } from "@/components/status-hero";
 import { StatusHero } from "@/components/status-hero";
+import { Button } from "@/components/ui/button";
+import { useSelectedChild } from "@/hooks/use-selected-child";
 import { computeRecentActivity } from "@/lib/core/activity";
 import {
   type AttentionConfig,
@@ -38,10 +40,20 @@ import {
 } from "@/lib/ipc";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
 
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function Dashboard() {
-  const router = useRouter();
+  const { selectedChildId: childId, setSelectedChildId } = useSelectedChild();
   const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
-  const [childId, setChildId] = useState<number | null>(null);
   const [lastFetchRun, setLastFetchRun] = useState<FetchRunRecord | null>(null);
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [allAssignments, setAllAssignments] = useState<AssignmentRecord[]>([]);
@@ -55,10 +67,6 @@ export function Dashboard() {
 
   // Family-wide status for the hero
   const [heroStatuses, setHeroStatuses] = useState<ChildStatus[]>([]);
-  const attentionChildIds = useMemo(
-    () => new Set(heroStatuses.filter((s) => s.attentionCount > 0).map((s) => s.childId)),
-    [heroStatuses],
-  );
 
   const activities = useMemo(
     () => computeRecentActivity(grades, allAssignments, prevGrades, prevAssignments),
@@ -101,6 +109,15 @@ export function Dashboard() {
         setPrevGrades([]);
         setPrevAssignments([]);
       }
+    } else {
+      // Freshly-added child has no scrape yet — clear any stale data
+      // carried over from the previously-selected child so Today renders
+      // the empty "click Refresh" state instead of someone else's grades.
+      setGrades([]);
+      setAllAssignments([]);
+      setClassDetails([]);
+      setPrevGrades([]);
+      setPrevAssignments([]);
     }
     setHomework(await getLatestHomework(cId));
   }, []);
@@ -154,18 +171,16 @@ export function Dashboard() {
         await log(`dashboard: found ${children.length} children`);
         setAllChildren(children);
         if (children.length === 0) return;
-
-        const statuses = await loadHeroStatuses(children);
-
-        const attnChild = statuses.find((s) => s.attentionCount > 0);
-        const selectedId = attnChild?.childId ?? children[0]?.id;
-        if (selectedId != null) {
-          setChildId(selectedId);
-          await loadData(selectedId);
-        }
+        await loadHeroStatuses(children);
       })
       .catch(() => undefined);
-  }, [loadData, loadHeroStatuses]);
+  }, [loadHeroStatuses]);
+
+  // Load per-child data whenever the sidebar-driven selection changes.
+  useEffect(() => {
+    if (childId == null) return;
+    void loadData(childId);
+  }, [childId, loadData]);
 
   const handleRefresh = useCallback(async () => {
     if (!childId) return;
@@ -188,6 +203,7 @@ export function Dashboard() {
 
       await loadData(childId);
       await loadHeroStatuses(children);
+      window.dispatchEvent(new CustomEvent(CHILD_DATA_REFRESHED_EVENT));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       await logErr(`refresh failed: ${msg}`);
@@ -198,54 +214,51 @@ export function Dashboard() {
   }, [childId, loadData, loadHeroStatuses]);
 
   const handleChildSelect = useCallback(
-    (newChildId: number) => {
+    async (newChildId: number) => {
       if (newChildId === childId) return;
-      void log(`dashboard: switched to childId=${newChildId}`);
-      setChildId(newChildId);
-      setGrades([]);
-      setAllAssignments([]);
-      setClassDetails([]);
-      setPrevGrades([]);
-      setPrevAssignments([]);
-      setHomework([]);
-      setLastFetchRun(null);
-      void loadData(newChildId);
+      await log(`dashboard: switched to childId=${newChildId}`);
+      await setSelectedChildId(newChildId);
     },
-    [childId, loadData],
+    [childId, setSelectedChildId],
   );
-
-  const goSettings = useCallback(() => router.push("/settings"), [router]);
 
   if (childId === null && allChildren.length === 0) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Header lastRunAt={null} onRefresh={() => undefined} onSettings={goSettings} />
-        <main className="flex flex-1 flex-col">
+      <>
+        <PageHeader title="Today" />
+        <div className="flex flex-1 flex-col">
           <EmptyState />
-        </main>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header
-        lastRunAt={lastFetchRun?.runAt ?? null}
-        isRefreshing={isRefreshing}
-        onRefresh={handleRefresh}
-        onSettings={goSettings}
+    <>
+      <PageHeader
+        title="Today"
+        actions={
+          <>
+            {lastFetchRun?.runAt ? (
+              <span className="text-[11px] text-muted-foreground">
+                Checked {formatTimeAgo(lastFetchRun.runAt)}
+              </span>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isRefreshing}
+              onClick={handleRefresh}
+              className="h-8 gap-1.5 px-2.5 text-xs"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Checking" : "Refresh"}
+            </Button>
+          </>
+        }
       />
-      <main className="mx-auto w-full max-w-2xl flex-1 space-y-5 px-5 py-5">
+      <div className="mx-auto w-full max-w-2xl space-y-5 px-5 py-5">
         <StatusHero statuses={heroStatuses} onChildSelect={handleChildSelect} />
-
-        {childId && (
-          <ChildTabs
-            items={allChildren}
-            selectedId={childId}
-            attentionChildIds={attentionChildIds}
-            onSelect={handleChildSelect}
-          />
-        )}
 
         {error && (
           <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-[13px] text-destructive">
@@ -264,13 +277,13 @@ export function Dashboard() {
 
         <div className="pt-2 text-center">
           <Link
-            href={childId ? `/classes?child=${childId}` : "/classes"}
+            href="/classes"
             className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             View all classes →
           </Link>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
