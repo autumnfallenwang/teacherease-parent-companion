@@ -111,3 +111,35 @@ Within-window uses the attention hue; aged-out mutes it. Missing always shows th
 **Observed:** Current light palette is too white (clinical), current dark palette is too black (harsh). User wants a library of pre-built profiles (VS Code-style: Default / Solarized / Nord / Dracula / High contrast) with a selector, instead of a single palette toggled between light and dark.
 **Proposed:** Supersede Q16's palette lock with a new Q23. Add profile picker above the existing mode toggle. Fonts stay locked to Newsreader + DM Sans (Q23 preserves Q16's typography + layout + semantic-color decisions). Generate palettes via the frontend-design skill.
 **Status:** done — Q23 committed, A4 shipped (5-profile library + softened default + Mode/Profile UI). Pending user confirmation during walkthrough review.
+
+---
+
+## B-07 — `Load failed` on Linux breaks TeacherEase login + homework URL validation
+**Where:** `src/lib/scraper/teacherease.ts` `login()` + `src/lib/scraper/homework-validator.ts` — the two scraper-level HTTP flows that the add-child form triggers synchronously. Log evidence: `[webview] settings: add child failed Load failed` (app.log, 2026-04-18).
+**Observed:** Every add-child attempt throws WebKit's generic `TypeError: Load failed` ~200ms into the first fetch. The error is a webview-level CORS block — TeacherEase (and Google Sites) don't send `Access-Control-Allow-Origin: tauri://localhost`, so WebKitGTK rejects the response before login() can classify it. Unit tests pass because Vitest runs in Node (no CORS); the live e2e test passes for the same reason. Q11 anticipated this exact failure: "Tauri's http plugin has a fetch allowlist that bypasses webview CORS for whitelisted hosts. This is the intended pattern." The plugin was never wired up.
+**Proposed:** (1) Add `tauri-plugin-http` (Rust) + `@tauri-apps/plugin-http` (TS) with a narrow scope — `https://*.teacherease.com/*` + `https://sites.google.com/*`. (2) Export `tauriFetch` from `src/lib/ipc.ts` matching the existing `FetchImpl` type; wire into 6 production call sites (login, grades, class detail, homework fetch, homework validation, wizard). (3) Swap login's 200-response body-regex detection for final-URL detection (reqwest auto-follows 302s, so "bounced back to login page" is the signal for bad creds). (4) Wrap login's fetch calls in try/catch so transport errors surface as parent-friendly text ("Couldn't reach TeacherEase. Check your internet connection.").
+**Status:** done — commit 4937a73
+
+---
+
+## D-07 — Settings → Children — inline delete confirmation + full-field edit
+**Where:** `src/components/settings-children.tsx` — the ChildRow + AddChildForm + a new EditChildForm.
+**Observed:** (a) Delete path used `window.confirm()`, a browser modal dialog that breaks the app's visual language and can't be styled. Trash icon also hidden until hover — discoverable by accident. (b) Edit path supported only the homework URL; the name, email, and password fields had no in-app edit surface. User wanted parity with the Add flow (same four fields + same validation).
+**Proposed:** (a) Trash icon always visible; click swaps the row into a destructive-tinted inline confirmation panel with explicit Remove + Cancel buttons. (b) Rebuild edit as a full form mirroring AddChildForm: name / email / password / homework URL. Password field blank by default — "Leave blank to keep current" placeholder; only writes keychain if user types a new one. Save validates login (if email or password changed) + Google Sites shape (if homework URL changed + non-empty) before persisting anything. Only changed fields are written. (c) Homework URL validator gets an upfront `https://sites.google.com/` host check so wrong-URL gets a specific error ("Homework URL must be a Google Sites page") instead of the generic "Couldn't reach that page."
+**Status:** done — commit aeaa51d
+
+---
+
+## D-08 — Sidebar child selector semantics + attention engine decoupling
+**Where:** `src/components/shell/sidebar-child-selector.tsx`.
+**Observed:** Initial L3 design treated the dot as an attention indicator (amber when any of the child's classes need attention). Two problems: (1) a freshly-added child has no fetch_run yet, so no attention data, so no dot — user read that as "the sidebar isn't working." (2) Attention was already surfaced on the Today hero + Classes tab, so the sidebar dot was a redundant third place. (3) The attention computation forced the sidebar to loop through every child, call `getLatestFetchRun` + `getAllClassDetails` + run the engine — a non-trivial cost on every mount and refresh.
+**Proposed:** Redefine the dot as the selection indicator: selected child gets a filled dot + bold foreground text; unselected children get no dot + 60% muted text. Drop all attention-engine plumbing from the sidebar (children list + settings reconcile only). Selector becomes both faster and more honest about what it's telling the user.
+**Status:** done — commit 6fc3b70
+
+---
+
+## D-09 — Newly-added child isn't auto-selected + Today tab leaks stale data
+**Where:** `src/components/settings-children.tsx` AddChildForm + `src/components/dashboard.tsx` loadData.
+**Observed:** After adding a new child via Settings, the sidebar still highlighted the previously-selected child — new child appeared in the list but was unhighlighted. Clicking the new child in the sidebar switched the selection, but Today's body still showed the old child's grades / assignments / attention rows because `loadData()`'s "no run yet" branch skipped clearing state.
+**Proposed:** (a) After `addChild` returns the new id, call `writeSelectedChildId(newId)` so the sidebar highlights the new child immediately. (b) In `loadData`, when `getLatestFetchRun` returns null, explicitly reset grades/assignments/classDetails/prev state so the tab renders a clean "click Refresh to populate" empty state instead of leaking the previous child's data.
+**Status:** done — commit 6fc3b70
