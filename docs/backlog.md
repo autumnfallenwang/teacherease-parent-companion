@@ -143,3 +143,35 @@ Within-window uses the attention hue; aged-out mutes it. Missing always shows th
 **Observed:** After adding a new child via Settings, the sidebar still highlighted the previously-selected child — new child appeared in the list but was unhighlighted. Clicking the new child in the sidebar switched the selection, but Today's body still showed the old child's grades / assignments / attention rows because `loadData()`'s "no run yet" branch skipped clearing state.
 **Proposed:** (a) After `addChild` returns the new id, call `writeSelectedChildId(newId)` so the sidebar highlights the new child immediately. (b) In `loadData`, when `getLatestFetchRun` returns null, explicitly reset grades/assignments/classDetails/prev state so the tab renders a clean "click Refresh to populate" empty state instead of leaking the previous child's data.
 **Status:** done — commit 6fc3b70
+
+---
+
+## B-08 — Keychain silently uses in-memory stub; every scrape fails with "No stored password"
+**Where:** `src-tauri/Cargo.toml` — the `keyring` crate dependency.
+**Observed:** Every add-child flow succeeded (login validated, DB row inserted, keychain_set log INFO'd), but every subsequent refresh failed with `"No stored password — re-add this child"`. Same session, seconds apart. Debug log revealed the keyring crate was creating `MockCredential { MockData { secret: None } }` instances — the in-memory no-op backend. Each `Entry::new()` made a fresh empty Mutex; writes went to that instance and were invisible to any subsequent read. Confirmed separately that ksecretd / kwalletd / gnome-keyring were irrelevant — the app wasn't actually talking to D-Bus at all.
+**Proposed:** The `keyring = "3"` spec defaults to zero backend features, which collapses all platforms to MockCredential. Switch to `keyring = { version = "3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }` so each OS gets its real backend. Linux now pulls in `dbus-secret-service`, which talks to whatever secret-service daemon is bound to `org.freedesktop.secrets` (gnome-keyring in our dev env, would be kwallet or ksecretd on other systems, KeyChain on macOS, Credential Manager on Windows).
+**Status:** done — commit 4211ccd
+
+---
+
+## D-10 — Refresh button only scrapes the currently-selected child
+**Where:** `src/components/dashboard.tsx` — `handleRefresh`.
+**Observed:** Parents with multiple children clicking Refresh only got data for the child whose row they most recently tapped in the sidebar. Easy to miss — the log showed `refresh: started childId=1` when the user thought they were refreshing child 3 (Ivy). Mental model is "I pressed Refresh to update the whole family," not "I pressed Refresh to update whoever is selected."
+**Proposed:** Rewrite `handleRefresh` to iterate `await getChildren()` and run the `FetchRunner` against each in sequence. Per-child failures are collected and summarized rather than halting the loop — one child with bad credentials shouldn't prevent a successful scrape of the other two. Error banner: `"Alex: No stored password"` for single failures, `"3 children failed. First: Alex — ..."` when multiple. After the loop, re-run `loadData(childId)` + `loadHeroStatuses` + dispatch `child-data-refreshed` so the sidebar + hero reflect fresh state.
+**Status:** done — commit e67ccce
+
+---
+
+## D-11 — Successful refresh of one child makes another child's data "disappear"
+**Where:** `src/components/dashboard.tsx` loadData + `src/components/classes-view.tsx` loadData.
+**Observed:** Post-refresh on a child with a working homework URL + bad TeacherEase credentials (e.g., seeded Alex), Today showed grades: empty, classes: empty, even though days of prior successful TeacherEase scrapes sat in the DB. The bug was in the lookup: `getLatestFetchRun(cId)` returned the most recent fetch_run row regardless of source or status — and a successful-but-data-empty homework run OR a failed TeacherEase run was newer than the last good grades scrape. Calling `getGradesForFetchRun(run.id)` on a homework run returns 0 rows by design.
+**Proposed:** Add `getLatestSuccessfulFetchRun(childId, source)` filtering by both source AND `status='success'`. Dashboard + Classes use it with `"teacherease"` for the grades/assignments/classDetails queries. Keep the unfiltered `getLatestFetchRun` for the "Checked Xm ago" timestamp display (that should reflect the last attempt of any kind, not the last success).
+**Status:** done — commit e67ccce
+
+---
+
+## D-12 — Attention list shows the same missing assignment two or three times
+**Where:** `src/lib/core/attention-engine.ts` `computeStandardAttention` + `attention-section.tsx` rendering.
+**Observed:** React console warning `Encountered two children with the same key, Social Studies 7-27004135-missing` after first real scrape of Ivy. Same assignment appeared multiple times in the Today attention list because TeacherEase allows a single assignment to hang under multiple standards ("Geography Quiz" might be linked to 3 different learning standards in Social Studies 7), and the recursive tree walk in `computeStandardAttention` pushed an `AttentionItem` each time. Identical items except for their path through the standards tree.
+**Proposed:** Dedup items by `(className, testNameId)` in `computeClassAttention` before returning — keep first occurrence. The attention state is identical across duplicates, so "first" is arbitrary-but-consistent. Test helper `asn()` updated to auto-increment `testNameId` so unrelated fixtures don't falsely collide with the dedup.
+**Status:** done — commit e67ccce
