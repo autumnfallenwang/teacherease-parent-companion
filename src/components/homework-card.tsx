@@ -1,11 +1,7 @@
 "use client";
 
-import { BookOpen, Clock } from "lucide-react";
+import { BookOpen, Clock, Target } from "lucide-react";
 import type { HomeworkRecord } from "@/lib/ipc";
-
-interface HomeworkCardProps {
-  entries: HomeworkRecord[];
-}
 
 function parseIsoDay(iso: string): Date | null {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -71,33 +67,79 @@ export function HomeworkRow({ entry }: { entry: HomeworkRecord }) {
   );
 }
 
-export function HomeworkCard({ entries }: HomeworkCardProps) {
-  if (entries.length === 0) return null;
-  const firstDate = entries[0]?.hwDate ?? "";
-
+function SectionEmpty({ text }: { text: string }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 px-1">
-        <BookOpen className="h-4 w-4 text-primary" />
-        <h2 className="text-lg font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-          Tonight&apos;s Homework
-        </h2>
+    <p className="rounded-lg border border-dashed border-border/80 bg-card/60 px-4 py-2.5 text-[12px] italic text-muted-foreground">
+      {text}
+    </p>
+  );
+}
+
+function SectionHeading({
+  icon,
+  title,
+  count,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-1">
+      {icon}
+      <h2 className="text-lg font-medium" style={{ fontFamily: "var(--font-heading)" }}>
+        {title}
+      </h2>
+      {count > 0 && (
         <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-          {entries.length}
+          {count}
         </span>
-      </div>
-
-      {firstDate && (
-        <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-          {formatHomeworkDate(firstDate)}
-        </p>
       )}
+    </div>
+  );
+}
 
-      <div className="space-y-1.5">
-        {entries.map((entry) => (
-          <HomeworkRow key={entry.id} entry={entry} />
-        ))}
-      </div>
+interface HomeworkTodaySectionsProps {
+  forToday: HomeworkRecord[];
+  dueToday: HomeworkRecord[];
+}
+
+export function HomeworkTodaySections({ forToday, dueToday }: HomeworkTodaySectionsProps) {
+  return (
+    <div className="space-y-5">
+      <section className="space-y-3">
+        <SectionHeading
+          icon={<BookOpen className="h-4 w-4 text-primary" />}
+          title="Homework for today"
+          count={forToday.length}
+        />
+        {forToday.length === 0 ? (
+          <SectionEmpty text="No homework for today." />
+        ) : (
+          <div className="space-y-1.5">
+            {forToday.map((entry) => (
+              <HomeworkRow key={`for-${entry.id}`} entry={entry} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <SectionHeading
+          icon={<Target className="h-4 w-4 text-primary" />}
+          title="Homework due today"
+          count={dueToday.length}
+        />
+        {dueToday.length === 0 ? (
+          <SectionEmpty text="Nothing due today." />
+        ) : (
+          <div className="space-y-1.5">
+            {dueToday.map((entry) => (
+              <HomeworkRow key={`due-${entry.id}`} entry={entry} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { FetchRunner } from "@/lib/fetch/runner";
 import type { FetchContext, FetchRunnerDeps, FetchSource } from "@/lib/fetch/types";
-import type { NotifyRouter } from "@/lib/notify/router";
 import type { ChildRecord } from "@/lib/scraper/types";
 
 function makeChild(overrides: Partial<ChildRecord> = {}): ChildRecord {
@@ -25,21 +24,16 @@ function makeDeps(): FetchRunnerDeps & {
   log: ReturnType<typeof vi.fn>;
   logErr: ReturnType<typeof vi.fn>;
   now: ReturnType<typeof vi.fn>;
-  notifyDispatch: ReturnType<typeof vi.fn>;
 } {
   let nextId = 100;
   const times = [1000, 1500, 2000, 2500, 3000, 3500];
   let timeIdx = 0;
-  const notifyDispatch = vi.fn().mockResolvedValue(undefined);
-  const notify = { dispatch: notifyDispatch } as unknown as NotifyRouter;
   return {
     startFetchRun: vi.fn().mockImplementation(async () => nextId++),
     completeFetchRun: vi.fn().mockResolvedValue(undefined),
     log: vi.fn().mockResolvedValue(undefined),
     logErr: vi.fn().mockResolvedValue(undefined),
     now: vi.fn().mockImplementation(() => times[timeIdx++ % times.length] ?? 0),
-    notify,
-    notifyDispatch,
   };
 }
 
@@ -221,23 +215,5 @@ describe("FetchRunner", () => {
       expect.any(Number),
       expect.objectContaining({ status: "failed", errorMessage: "Unknown error" }),
     );
-  });
-
-  it("emits fetchFailed notification when a source throws", async () => {
-    const deps = makeDeps();
-    const s = source({
-      name: "teacherease",
-      run: () => Promise.reject(new Error("network down")),
-    });
-    const runner = new FetchRunner([s], deps);
-
-    await runner.runAll(makeChild({ displayName: "Alex" }));
-
-    expect(deps.notifyDispatch).toHaveBeenCalledWith({
-      type: "fetchFailed",
-      childName: "Alex",
-      source: "teacherease",
-      error: "network down",
-    });
   });
 });

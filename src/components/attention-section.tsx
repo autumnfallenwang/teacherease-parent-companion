@@ -39,15 +39,15 @@ function AttentionRow({ item }: { item: AttentionItem }) {
         <p className="text-[11px] text-muted-foreground">{className}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {!isMissing && assignment.grade && (
+          <span className="text-[12px] font-semibold tabular-nums text-muted-foreground">
+            {assignment.grade}
+          </span>
+        )}
         {assignment.dueDate && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="h-3 w-3" />
             {assignment.dueDate}
-          </span>
-        )}
-        {!isMissing && assignment.grade && (
-          <span className="text-[12px] font-semibold tabular-nums text-muted-foreground">
-            {assignment.grade}
           </span>
         )}
       </div>

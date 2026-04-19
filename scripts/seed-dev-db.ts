@@ -21,7 +21,9 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { resolveDueDate } from "../src/lib/core/homework-date";
+
+// `resolveDueDate` is no longer used — seed builds dueDate ISO directly so
+// weekday labels line up with real calendar math.
 
 const APP_ID = "dev.autumnfallenwang.teacherease-parent-companion";
 const DB_PATH = process.env.XDG_CONFIG_HOME
@@ -134,66 +136,131 @@ interface ChildDef {
 interface HomeworkSubjectDef {
   name: string;
   content: string;
-  /** Raw page text (e.g. `"Friday 4/17"`), or null to exercise the inferred-date fallback. */
-  dueDate: string | null;
+  /** Days after hw_date that this assignment is due. Defaults to "next school
+   *  day". Use `"next-school-day"` to exercise the inferred-due-date path. */
+  dueIn?: number | "next-school-day";
+  /** When true, sets due_date_inferred=1 regardless of the computed ISO. */
+  inferred?: boolean;
 }
 
 interface HomeworkDayDef {
-  dateOffset: number; // 0 = today, -1 = yesterday, ...
+  /** Whole days back from today (0=today). */
+  offset: number;
   subjects: HomeworkSubjectDef[];
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Local-date ISO `YYYY-MM-DD` for `now + offsetDays`. */
+function isoFromOffset(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** Next school day after `iso` (snap Sat→Mon, Sun→Mon). Works in UTC so
+ *  the same input always produces the same output. */
+function nextSchoolDayIso(iso: string): string {
+  const [y, m, day] = iso.split("-").map((n) => Number.parseInt(n, 10));
+  const d = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, (day ?? 1) + 1));
+  const dow = d.getUTCDay();
+  if (dow === 6) d.setUTCDate(d.getUTCDate() + 2);
+  else if (dow === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+/** Add `days` calendar days to `iso`. No school-day snapping. */
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, day] = iso.split("-").map((n) => Number.parseInt(n, 10));
+  const d = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, (day ?? 1) + days));
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+/** Saturday (6) / Sunday (0) in local time. */
+function isWeekendOffset(offsetDays: number): boolean {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const dow = d.getDay();
+  return dow === 0 || dow === 6;
+}
+
+/**
+ * Alex's homework rotation. Designed to exercise every Today-tab + email
+ * branch with today's real calendar:
+ *   - Today's post: one subject due today (→ appears in BOTH "Homework for
+ *     today" and "Homework due today") + one due next school day.
+ *   - Yesterday's post: due today (→ appears only in "Homework due today").
+ *   - A few older weekday posts for History-tab browsing.
+ * Weekend offsets are skipped automatically at insert time.
+ */
 const ALEX_HOMEWORK: HomeworkDayDef[] = [
   {
-    dateOffset: 0,
+    offset: 0,
     subjects: [
       {
-        name: "Science",
-        content: "Unnatural selection video and worksheet due Friday. Video on Google classroom",
-        dueDate: "Friday 4/17",
+        name: "Math",
+        content: "Review Ch. 4 problem set; bring graph paper tomorrow.",
+        dueIn: 0,
       },
-      { name: "World Geography", content: "None", dueDate: "Friday 4/17" },
+      {
+        name: "Science",
+        content: "Watch Unnatural Selection (Google Classroom) + worksheet.",
+        dueIn: 1,
+      },
       {
         name: "English",
-        content: "Read Chapter 3 of The Giver and answer the questions in the packet for Chapter 3",
-        dueDate: "Friday 4/17",
+        content: "Read Chapter 3 of The Giver and answer the packet questions.",
+        dueIn: 1,
       },
-      { name: "Math", content: "MCAS Packet #3 (due Fri)", dueDate: "Friday 4/17" },
     ],
   },
   {
-    dateOffset: -1,
+    offset: -1,
     subjects: [
-      {
-        name: "Science",
-        content: "Unnatural selection video and worksheet due Friday. Video on Google classroom",
-        dueDate: "Thursday 4/16",
-      },
-      { name: "World Geography", content: "None", dueDate: "Thursday 4/16" },
-      {
-        name: "English",
-        content: "Read Chapter 2 of The Giver and answer the questions in the packet for Chapter 2",
-        dueDate: "Thursday 4/16",
-      },
-      { name: "Math", content: "MCAS Packet #3 (due Fri)", dueDate: "Friday 4/17" },
-    ],
-  },
-  {
-    dateOffset: -2,
-    subjects: [
-      { name: "Science", content: "None", dueDate: "Wednesday 4/15" },
       {
         name: "World Geography",
-        content: "Complete the Political Map of Southwest Asia & Northern Africa",
-        // Exercise the inferred-due-date path: raw missing → inferred to next school day
-        dueDate: null,
+        content: "Political map of Southwest Asia & Northern Africa (map packet pg. 12).",
+        dueIn: 1, // = today
       },
       {
-        name: "English",
-        content: "Finish reading Ch.1 of The Giver and finish up to pg. 3 of the packet",
-        dueDate: "Wednesday 4/15",
+        name: "Math",
+        content: "Packet #3 — MCAS review, problems 1–10.",
+        dueIn: 1,
       },
-      { name: "Math", content: "Packet #2 (due Wed)", dueDate: "Wednesday 4/15" },
+    ],
+  },
+  {
+    offset: -2,
+    subjects: [
+      {
+        name: "English",
+        content: "Finish reading Ch. 2 of The Giver; packet pages 4–5.",
+        dueIn: 1,
+      },
+      {
+        name: "Science",
+        content: "Notes on natural vs. artificial selection; no worksheet tonight.",
+        // Exercise the inferred-date fallback path.
+        dueIn: "next-school-day",
+        inferred: true,
+      },
+    ],
+  },
+  {
+    offset: -3,
+    subjects: [
+      {
+        name: "Math",
+        content: "Packet #2 (due Thu).",
+        dueIn: 1,
+      },
+      {
+        name: "World Geography",
+        content: "Finish the Africa labeling worksheet.",
+        dueIn: 1,
+      },
     ],
   },
 ];
@@ -1093,31 +1160,41 @@ function main() {
       console.info(`    ${scrapeCount} scrapes, ${classIdMap.size} classes`);
 
       // Homework seed (only for children with a homework_url configured).
+      // Historical weekend offsets are skipped — teachers don't post on
+      // Sat/Sun. Today (offset=0) is always included so the Today tab has
+      // something to show even on a weekend.
       if (childDef.homeworkUrl) {
         let hwCount = 0;
         let hwInferred = 0;
+        let daysInserted = 0;
         for (const day of ALEX_HOMEWORK) {
-          const d = new Date();
-          d.setDate(d.getDate() + day.dateOffset);
-          const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          const scrapedAt = formatRunAt(day.dateOffset, 18);
+          if (day.offset !== 0 && isWeekendOffset(day.offset)) continue;
+          daysInserted++;
+          const hwIso = isoFromOffset(day.offset);
+          const scrapedAt = formatRunAt(day.offset, 18);
           for (const subj of day.subjects) {
-            const resolved = resolveDueDate(subj.dueDate, iso);
-            if (resolved.inferred) hwInferred++;
+            let dueIso: string | null;
+            if (subj.dueIn === "next-school-day" || subj.dueIn === undefined) {
+              dueIso = nextSchoolDayIso(hwIso);
+            } else {
+              dueIso = addDaysIso(hwIso, subj.dueIn);
+            }
+            const inferred = subj.inferred ?? false;
+            if (inferred) hwInferred++;
             insertHomework.run(
               childId,
-              iso,
+              hwIso,
               subj.name,
               subj.content,
-              resolved.iso,
-              resolved.inferred ? 1 : 0,
+              dueIso,
+              inferred ? 1 : 0,
               scrapedAt,
             );
             hwCount++;
           }
         }
         console.info(
-          `    ${hwCount} homework rows across ${ALEX_HOMEWORK.length} days (${hwInferred} inferred due dates)`,
+          `    ${hwCount} homework rows across ${daysInserted} school days (${hwInferred} inferred due dates)`,
         );
       }
     }

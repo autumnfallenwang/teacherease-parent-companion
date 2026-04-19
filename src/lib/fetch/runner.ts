@@ -35,7 +35,7 @@ export class FetchRunner {
       );
 
       try {
-        await source.run({ child, childId: child.id, fetchRunId, notify: this.deps.notify });
+        await source.run({ child, childId: child.id, fetchRunId });
         const durationMs = now() - start;
         await this.deps.completeFetchRun(fetchRunId, {
           status: "success",
@@ -62,12 +62,6 @@ export class FetchRunner {
         await this.deps.logErr(
           `fetch: failed source=${source.name} childId=${child.id} id=${fetchRunId} — ${errorMessage}`,
         );
-        await this.deps.notify.dispatch({
-          type: "fetchFailed",
-          childName: child.displayName,
-          source: source.name,
-          error: errorMessage,
-        });
         failures += 1;
         runs.push({
           source: source.name,
@@ -76,7 +70,8 @@ export class FetchRunner {
           durationMs,
           errorMessage,
         });
-        // Intentionally swallow — next source runs.
+        // Intentionally swallow — next source runs. Dashboard builds the
+        // post-loop digest from summary.runs[].status === "failed".
       }
     }
 

@@ -630,15 +630,6 @@ export async function getAssignmentsForFetchRun(fetchRunId: number): Promise<Ass
   return rows.map(mapAssignmentRow);
 }
 
-export async function getNeedsAttentionGrades(fetchRunId: number): Promise<GradeRecord[]> {
-  const d = await getDb();
-  const rows = await d.select<RawGradeRow[]>(
-    "SELECT * FROM grades WHERE fetch_run_id = $1 AND needs_attention = 1",
-    [fetchRunId],
-  );
-  return rows.map(mapGradeRow);
-}
-
 // ---------------------------------------------------------------------------
 // Classes metadata (Q17 v2)
 // ---------------------------------------------------------------------------
@@ -784,16 +775,6 @@ export async function getAllClassDetails(fetchRunId: number): Promise<ClassDetai
   return payload.classDetails ?? [];
 }
 
-export async function getMissingAssignments(fetchRunId: number): Promise<AssignmentRecord[]> {
-  const d = await getDb();
-  // Query both old (status='missing') and new (is_missing=1) columns for compat
-  const rows = await d.select<RawAssignmentRow[]>(
-    "SELECT * FROM assignments WHERE fetch_run_id = $1 AND (is_missing = 1 OR status = 'missing')",
-    [fetchRunId],
-  );
-  return rows.map(mapAssignmentRow);
-}
-
 // ---------------------------------------------------------------------------
 // Homework (Q19 / H3) — persisted as ISO dates (YYYY-MM-DD) so the
 // idx_homework_child_date index sorts correctly across month/year boundaries.
@@ -881,39 +862,16 @@ export async function persistHomework(
   return persisted;
 }
 
-export async function getHomeworkForDate(
-  childId: number,
-  hwDateIso: string,
-): Promise<HomeworkRecord[]> {
-  const d = await getDb();
-  const rows = await d.select<RawHomeworkRow[]>(
-    "SELECT * FROM homework WHERE child_id = $1 AND hw_date = $2 ORDER BY id",
-    [childId, hwDateIso],
-  );
-  return rows.map(mapHomeworkRow);
-}
-
 /**
- * Returns the newest `hw_date` (ISO `YYYY-MM-DD`) stored for this child, or null.
- * Used to detect whether a scrape introduced a new homework day (H6).
+ * Returns homework rows where either `hw_date` OR `due_date` equals `iso`.
+ * Caller splits client-side into "homework for today" (hw_date matches) and
+ * "homework due today" (due_date matches) — same row can be in both.
  */
-export async function getMaxHomeworkDate(childId: number): Promise<string | null> {
-  const d = await getDb();
-  const rows = await d.select<Array<{ m: string | null }>>(
-    "SELECT MAX(hw_date) AS m FROM homework WHERE child_id = $1",
-    [childId],
-  );
-  return rows[0]?.m ?? null;
-}
-
-export async function getLatestHomework(childId: number): Promise<HomeworkRecord[]> {
+export async function getHomeworkForDay(childId: number, iso: string): Promise<HomeworkRecord[]> {
   const d = await getDb();
   const rows = await d.select<RawHomeworkRow[]>(
-    `SELECT * FROM homework
-     WHERE child_id = $1
-       AND hw_date = (SELECT MAX(hw_date) FROM homework WHERE child_id = $1)
-     ORDER BY id`,
-    [childId],
+    "SELECT * FROM homework WHERE child_id = $1 AND (hw_date = $2 OR due_date = $2) ORDER BY hw_date, id",
+    [childId, iso],
   );
   return rows.map(mapHomeworkRow);
 }
@@ -1066,67 +1024,6 @@ export async function getLastUpdateCheckMs(): Promise<number> {
 
 export async function setLastUpdateCheckMs(ms: number): Promise<void> {
   await setSettingString(LAST_CHECKED_KEY, String(ms));
-}
-
-/**
- * Send a canned test email using the currently-saved SMTP config + keychain.
- * Throws "SMTP not configured" if any required field is missing — matches the
- * behavior of `EmailChannel.send` for consistency.
- */
-export async function sendTestOSNotification(): Promise<void> {
-  const { isPermissionGranted, requestPermission, sendNotification } = await import(
-    "@tauri-apps/plugin-notification"
-  );
-  let granted = await isPermissionGranted();
-  if (!granted) {
-    const result = await requestPermission();
-    granted = result === "granted";
-  }
-  if (!granted) {
-    throw new Error("OS notification permission was not granted.");
-  }
-  sendNotification({
-    title: "TeacherEase Parent Companion",
-    body: "Test notification — if you see this, desktop notifications are working.",
-  });
-  await log("notification: test delivered");
-}
-
-export async function sendTestEmail(): Promise<void> {
-  const host = await getSettingString("smtp.host", "");
-  const portStr = await getSettingString("smtp.port", "");
-  const port = Number.parseInt(portStr, 10);
-  const username = await getSettingString("smtp.username", "");
-  const from = await getSettingString("smtp.from", "");
-  const to = await getSettingString("smtp.to", "");
-  const password = await getSmtpPassword();
-
-  if (!host || !Number.isFinite(port) || port <= 0 || !username || !from || !to || !password) {
-    throw new Error("SMTP not configured");
-  }
-
-  const textBody =
-    "This is a test email from TeacherEase Parent Companion.\n\nIf you see this, your SMTP configuration is working.";
-  const htmlBody = `<!doctype html>
-<html><body style="font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif; padding: 24px; background: #f3f4f6; color: #111827;">
-  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; padding: 24px;">
-    <h1 style="margin: 0 0 12px; font-size: 18px;">Test email</h1>
-    <p style="margin: 0 0 8px; font-size: 14px;">This is a test email from TeacherEase Parent Companion.</p>
-    <p style="margin: 0; font-size: 14px; color: #374151;">If you see this, your SMTP configuration is working.</p>
-  </div>
-</body></html>`;
-
-  await sendEmail({
-    host,
-    port,
-    username,
-    password,
-    from,
-    to,
-    subject: "TeacherEase Parent Companion: Test email",
-    body: textBody,
-    htmlBody,
-  });
 }
 
 export async function clearHistory(): Promise<void> {

@@ -14,39 +14,15 @@ import {
   getSmtpPassword,
   log,
   logErr,
-  sendTestEmail,
   setSettingBool,
   setSettingString,
   setSmtpPassword,
 } from "@/lib/ipc";
+import { EmailChannel } from "@/lib/notify/email-channel";
+import { buildSyntheticDigest } from "@/lib/notify/synthetic";
 
-type EventKey = "gradesAttention" | "newHomework" | "fetchFailed";
-
-// Keep in sync with EmailChannel.defaultEnabledFor (email-channel.ts) — all
-// three events default to off; email is opt-in once SMTP is configured.
-const EMAIL_DEFAULTS: Record<EventKey, boolean> = {
-  gradesAttention: false,
-  newHomework: false,
-  fetchFailed: false,
-};
-
-const TOGGLE_ROWS: Array<{ key: EventKey; label: string; help: string }> = [
-  {
-    key: "gradesAttention",
-    label: "Grade changes",
-    help: "Email when classes need attention or missing assignments appear.",
-  },
-  {
-    key: "newHomework",
-    label: "New homework",
-    help: "Email when homework is posted for a new day.",
-  },
-  {
-    key: "fetchFailed",
-    label: "Fetch failures",
-    help: "Email when a scrape fails. Useful for debugging; noisier than the other two.",
-  },
-];
+const EMAIL_KEY = "notify.refreshDigest.email";
+const EMAIL_DEFAULT_ENABLED = false;
 
 type TestStatus =
   | { kind: "idle" }
@@ -86,7 +62,7 @@ export function SettingsEmail() {
   const [saving, setSaving] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
 
-  const [toggles, setToggles] = useState<Partial<Record<EventKey, boolean>>>({});
+  const [emailEnabled, setEmailEnabled] = useState<boolean>(EMAIL_DEFAULT_ENABLED);
   const [testStatus, setTestStatus] = useState<TestStatus>({ kind: "idle" });
 
   useEffect(() => {
@@ -97,19 +73,15 @@ export function SettingsEmail() {
       getSettingString("smtp.from", ""),
       getSettingString("smtp.to", ""),
       getSmtpPassword(),
-      ...TOGGLE_ROWS.map((r) => getSettingBool(`notify.${r.key}.email`, EMAIL_DEFAULTS[r.key])),
-    ]).then(([h, p, u, f, t, pw, ...toggleValues]) => {
+      getSettingBool(EMAIL_KEY, EMAIL_DEFAULT_ENABLED),
+    ]).then(([h, p, u, f, t, pw, emailOn]) => {
       setHost(h);
       setPort(p);
       setUsername(u);
       setFrom(f);
       setTo(t);
       setHasSavedPassword(pw !== null);
-      const next: Partial<Record<EventKey, boolean>> = {};
-      TOGGLE_ROWS.forEach((r, i) => {
-        next[r.key] = toggleValues[i] as boolean;
-      });
-      setToggles(next);
+      setEmailEnabled(emailOn);
     });
   }, []);
 
@@ -156,16 +128,16 @@ export function SettingsEmail() {
     await log("settings: smtp password removed");
   };
 
-  const toggleEmail = async (key: EventKey, next: boolean) => {
-    await setSettingBool(`notify.${key}.email`, next);
-    await log(`settings: notify.${key}.email=${next ? 1 : 0}`);
-    setToggles((v) => ({ ...v, [key]: next }));
+  const toggleEmail = async (next: boolean) => {
+    await setSettingBool(EMAIL_KEY, next);
+    await log(`settings: ${EMAIL_KEY}=${next ? 1 : 0}`);
+    setEmailEnabled(next);
   };
 
   const handleSendTest = async () => {
     setTestStatus({ kind: "sending" });
     try {
-      await sendTestEmail();
+      await new EmailChannel().send(buildSyntheticDigest());
       setTestStatus({ kind: "ok" });
       await log("settings: smtp test email sent");
     } catch (e) {
@@ -330,22 +302,23 @@ export function SettingsEmail() {
             configComplete ? "" : "opacity-60"
           }`}
         >
-          {TOGGLE_ROWS.map((r) => (
-            <div key={r.key} className="flex items-center gap-4 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium">{r.label}</p>
-                <p className="text-[12px] text-muted-foreground">{r.help}</p>
-              </div>
-              <Switch
-                checked={toggles[r.key] ?? EMAIL_DEFAULTS[r.key]}
-                disabled={!configComplete}
-                onChange={(next) => {
-                  void toggleEmail(r.key, next);
-                }}
-                aria-label={`${r.label} email notifications`}
-              />
+          <div className="flex items-center gap-4 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium">Refresh digest</p>
+              <p className="text-[12px] text-muted-foreground">
+                Detailed per-child email after every refresh — attention list, tonight's homework,
+                and any failures.
+              </p>
             </div>
-          ))}
+            <Switch
+              checked={emailEnabled}
+              disabled={!configComplete}
+              onChange={(next) => {
+                void toggleEmail(next);
+              }}
+              aria-label="Refresh digest email notifications"
+            />
+          </div>
         </div>
         {!configComplete && (
           <p className="px-1 text-[12px] text-muted-foreground">

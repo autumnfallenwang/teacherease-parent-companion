@@ -7,6 +7,11 @@ export interface ChildStatus {
   attentionCount: number;
   notAssessedCount: number;
   attentionClassNames: string[];
+  /** True when the child has a `homeworkUrl` saved. Hero row skips the
+   *  homework count lines entirely when false — absent ≠ empty (Q28). */
+  homeworkConfigured: boolean;
+  homeworkForTodayCount: number;
+  homeworkDueTodayCount: number;
 }
 
 interface StatusHeroProps {
@@ -24,7 +29,11 @@ function ChildRow({
   onSelect?: () => void;
 }) {
   const isOk = status.attentionCount === 0;
-  const missingTotal = status.attentionClassNames.length;
+  const attentionBody = isOk
+    ? "All caught up"
+    : `${status.attentionCount} class${status.attentionCount > 1 ? "es" : ""} need${
+        status.attentionCount === 1 ? "s" : ""
+      } attention`;
 
   return (
     <div className={`rounded-lg px-4 py-3 ${isOk ? "bg-meeting/6" : "bg-attention/6"}`}>
@@ -39,20 +48,20 @@ function ChildRow({
             className={`text-[18px] font-medium leading-tight ${isOk ? "text-meeting" : "text-foreground"}`}
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            {showName ? `${status.name} — ` : ""}
-            {isOk
-              ? "All good"
-              : `${status.attentionCount} class${status.attentionCount > 1 ? "es" : ""} need${status.attentionCount === 1 ? "s" : ""} attention`}
+            {showName ? `${status.name}: ` : ""}
+            {attentionBody}
           </p>
-          {!isOk && missingTotal > 0 && (
-            <p className="mt-0.5 text-[12px] text-muted-foreground">
-              {status.attentionClassNames.join(", ")}
-            </p>
+          <p className="mt-1 text-[12px] text-muted-foreground">{status.meetingCount} meeting</p>
+          {status.homeworkConfigured && (
+            <>
+              <p className="text-[12px] text-muted-foreground">
+                {status.homeworkForTodayCount} homework for today
+              </p>
+              <p className="text-[12px] text-muted-foreground">
+                {status.homeworkDueTodayCount} homework due today
+              </p>
+            </>
           )}
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
-            {status.meetingCount} meeting
-            {status.notAssessedCount > 0 && ` · ${status.notAssessedCount} not assessed`}
-          </p>
         </div>
       </button>
     </div>

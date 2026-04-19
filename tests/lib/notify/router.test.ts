@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { buildRefreshDigest } from "@/lib/notify/digest";
 import { NotifyRouter } from "@/lib/notify/router";
-import type { NotifyChannel, NotifyEvent, NotifyRouterDeps } from "@/lib/notify/types";
+import type { NotifyChannel, NotifyRouterDeps, RefreshDigest } from "@/lib/notify/types";
 
 function makeDeps(): NotifyRouterDeps & {
   log: ReturnType<typeof vi.fn>;
@@ -15,7 +16,7 @@ function makeDeps(): NotifyRouterDeps & {
 function channel(opts: {
   name: string;
   enabled?: boolean;
-  send?: (event: NotifyEvent) => Promise<void>;
+  send?: (d: RefreshDigest) => Promise<void>;
 }): NotifyChannel {
   return {
     name: opts.name,
@@ -24,24 +25,28 @@ function channel(opts: {
   };
 }
 
-const gradesEvent: NotifyEvent = {
-  type: "gradesAttention",
-  childName: "Alex",
-  attentionCount: 2,
-  missingCount: 1,
-};
+const emptyDigest: RefreshDigest = buildRefreshDigest({
+  children: [],
+  perChildDetails: new Map(),
+  perChildHomeworkForToday: new Map(),
+  perChildHomeworkDueToday: new Map(),
+  perChildHeroCounts: new Map(),
+  failures: [],
+  cfg: { forgivenessWeeks: 2, lowScoreThreshold: 3 },
+  now: new Date("2026-04-19T12:00:00Z"),
+});
 
 describe("NotifyRouter", () => {
-  it("dispatches the event to a single enabled channel", async () => {
+  it("dispatches the digest to a single enabled channel", async () => {
     const deps = makeDeps();
     const send = vi.fn().mockResolvedValue(undefined);
     const ch = channel({ name: "os", send });
     const router = new NotifyRouter([ch], deps);
 
-    await router.dispatch(gradesEvent);
+    await router.dispatch(emptyDigest);
 
-    expect(send).toHaveBeenCalledWith(gradesEvent);
-    expect(deps.log).toHaveBeenCalledWith("notify: os gradesAttention sent");
+    expect(send).toHaveBeenCalledWith(emptyDigest);
+    expect(deps.log).toHaveBeenCalledWith("notify: os refreshDigest sent");
     expect(deps.logWarning).not.toHaveBeenCalled();
   });
 
@@ -51,7 +56,7 @@ describe("NotifyRouter", () => {
     const ch = channel({ name: "os", enabled: false, send });
     const router = new NotifyRouter([ch], deps);
 
-    await router.dispatch(gradesEvent);
+    await router.dispatch(emptyDigest);
 
     expect(send).not.toHaveBeenCalled();
     expect(deps.log).not.toHaveBeenCalled();
@@ -77,11 +82,11 @@ describe("NotifyRouter", () => {
     });
     const router = new NotifyRouter([a, b], deps);
 
-    await router.dispatch(gradesEvent);
+    await router.dispatch(emptyDigest);
 
     expect(order).toEqual(["os", "email"]);
-    expect(deps.log).toHaveBeenNthCalledWith(1, "notify: os gradesAttention sent");
-    expect(deps.log).toHaveBeenNthCalledWith(2, "notify: email gradesAttention sent");
+    expect(deps.log).toHaveBeenNthCalledWith(1, "notify: os refreshDigest sent");
+    expect(deps.log).toHaveBeenNthCalledWith(2, "notify: email refreshDigest sent");
   });
 
   it("catches a channel error, logs warning, and continues to the next channel", async () => {
@@ -94,43 +99,32 @@ describe("NotifyRouter", () => {
     const ok = channel({ name: "email", send: working });
     const router = new NotifyRouter([failing, ok], deps);
 
-    await router.dispatch(gradesEvent);
+    await router.dispatch(emptyDigest);
 
-    expect(working).toHaveBeenCalledWith(gradesEvent);
+    expect(working).toHaveBeenCalledWith(emptyDigest);
     expect(deps.logWarning).toHaveBeenCalledWith(
-      "notify: os gradesAttention failed — permission revoked",
+      "notify: os refreshDigest failed — permission revoked",
     );
-    expect(deps.log).toHaveBeenCalledWith("notify: email gradesAttention sent");
+    expect(deps.log).toHaveBeenCalledWith("notify: email refreshDigest sent");
   });
 
-  it("passes the exact event object through to send", async () => {
+  it("passes the exact digest object through to send", async () => {
     const deps = makeDeps();
     const send = vi.fn().mockResolvedValue(undefined);
     const router = new NotifyRouter([channel({ name: "os", send })], deps);
 
-    const homeworkEvent: NotifyEvent = {
-      type: "newHomework",
-      childName: "Alex",
-      isoDate: "2026-04-17",
-      subjectCount: 3,
-    };
-    await router.dispatch(homeworkEvent);
+    await router.dispatch(emptyDigest);
 
-    expect(send).toHaveBeenCalledWith(homeworkEvent);
+    expect(send).toHaveBeenCalledWith(emptyDigest);
   });
 
   it("logs the success line with channel name and event type", async () => {
     const deps = makeDeps();
     const router = new NotifyRouter([channel({ name: "email" })], deps);
 
-    await router.dispatch({
-      type: "newHomework",
-      childName: "Alex",
-      isoDate: "2026-04-17",
-      subjectCount: 2,
-    });
+    await router.dispatch(emptyDigest);
 
-    expect(deps.log).toHaveBeenCalledWith("notify: email newHomework sent");
+    expect(deps.log).toHaveBeenCalledWith("notify: email refreshDigest sent");
   });
 
   it("logs the failure line with channel name, event type, and error message", async () => {
@@ -140,9 +134,9 @@ describe("NotifyRouter", () => {
       deps,
     );
 
-    await router.dispatch(gradesEvent);
+    await router.dispatch(emptyDigest);
 
-    expect(deps.logWarning).toHaveBeenCalledWith("notify: os gradesAttention failed — boom");
+    expect(deps.logWarning).toHaveBeenCalledWith("notify: os refreshDigest failed — boom");
   });
 
   it('translates non-Error throws to "unknown"', async () => {
@@ -152,8 +146,8 @@ describe("NotifyRouter", () => {
       deps,
     );
 
-    await router.dispatch(gradesEvent);
+    await router.dispatch(emptyDigest);
 
-    expect(deps.logWarning).toHaveBeenCalledWith("notify: os gradesAttention failed — unknown");
+    expect(deps.logWarning).toHaveBeenCalledWith("notify: os refreshDigest failed — unknown");
   });
 });

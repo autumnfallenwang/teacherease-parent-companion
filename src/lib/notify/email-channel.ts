@@ -1,14 +1,13 @@
-// Email notification channel (Q4 / E1 + E2). SMTP via the Rust `send_email`
-// Tauri command — webviews can't speak raw TCP. Only imports from `@/lib/ipc`,
-// keeping the biome noRestrictedImports rule happy without a new override.
+// Email notification channel (Q4 / E1 + E2 / Q27). SMTP via the Rust
+// `send_email` Tauri command — webviews can't speak raw TCP. Only imports
+// from `@/lib/ipc`, keeping the biome noRestrictedImports rule happy.
 //
-// E1 shipped plaintext-only bodies; E2 added per-event HTML + plaintext
-// multipart templates via `./email-templates`. This module is now purely the
-// transport glue: load SMTP config → render via templates → invoke sendEmail.
+// Post-Q27: one RefreshDigest in, one multipart email out. Template lives
+// in `./email-templates`; this module is transport glue.
 
 import { getSettingBool, getSettingString, getSmtpPassword, sendEmail } from "@/lib/ipc";
-import { renderEmail } from "./email-templates";
-import type { NotifyChannel, NotifyEvent } from "./types";
+import { renderDigestEmail } from "./email-templates";
+import type { NotifyChannel, RefreshDigest } from "./types";
 
 interface SmtpConfig {
   host: string;
@@ -19,10 +18,7 @@ interface SmtpConfig {
   password: string;
 }
 
-// Email defaults to off for every event — user opts in after configuring SMTP.
-function defaultEnabledFor(_eventType: NotifyEvent["type"]): boolean {
-  return false;
-}
+const DEFAULT_ENABLED = false;
 
 async function loadSmtpConfig(): Promise<SmtpConfig | null> {
   const host = await getSettingString("smtp.host", "");
@@ -42,17 +38,16 @@ async function loadSmtpConfig(): Promise<SmtpConfig | null> {
 export class EmailChannel implements NotifyChannel {
   readonly name = "email";
 
-  async isEnabled(event: NotifyEvent): Promise<boolean> {
+  async isEnabled(_digest: RefreshDigest): Promise<boolean> {
     const cfg = await loadSmtpConfig();
     if (!cfg) return false;
-    return await getSettingBool(`notify.${event.type}.${this.name}`, defaultEnabledFor(event.type));
+    return await getSettingBool(`notify.refreshDigest.${this.name}`, DEFAULT_ENABLED);
   }
 
-  async send(event: NotifyEvent): Promise<void> {
+  async send(digest: RefreshDigest): Promise<void> {
     const cfg = await loadSmtpConfig();
     if (!cfg) throw new Error("SMTP not configured");
-    const rendered = renderEmail(event);
-    if (!rendered) return;
+    const rendered = renderDigestEmail(digest);
     await sendEmail({
       host: cfg.host,
       port: cfg.port,

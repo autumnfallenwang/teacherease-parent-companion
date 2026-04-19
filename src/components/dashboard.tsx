@@ -5,15 +5,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttentionSection } from "@/components/attention-section";
 import { EmptyState } from "@/components/empty-state";
-import { HomeworkCard } from "@/components/homework-card";
-import { RecentActivity } from "@/components/recent-activity";
+import { HomeworkTodaySections } from "@/components/homework-card";
 import { PageHeader } from "@/components/shell/page-header";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import type { ChildStatus } from "@/components/status-hero";
 import { StatusHero } from "@/components/status-hero";
 import { Button } from "@/components/ui/button";
 import { useSelectedChild } from "@/hooks/use-selected-child";
-import { computeRecentActivity } from "@/lib/core/activity";
 import {
   type AttentionConfig,
   computeChildAttention,
@@ -22,16 +20,15 @@ import {
 import { buildFetchRunner } from "@/lib/fetch/default";
 import { HomeworkSource } from "@/lib/fetch/homework-source";
 import { TeacherEaseSource } from "@/lib/fetch/teacherease-source";
-import type { AssignmentRecord, FetchRunRecord, GradeRecord, HomeworkRecord } from "@/lib/ipc";
+import type { FetchRunnerSummary } from "@/lib/fetch/types";
+import type { FetchRunRecord, HomeworkRecord } from "@/lib/ipc";
 import {
   getAllClassDetails,
-  getAssignmentsForFetchRun,
   getAttentionConfig,
   getChildren,
-  getFetchRunBefore,
   getGradesForFetchRun,
+  getHomeworkForDay,
   getLatestFetchRun,
-  getLatestHomework,
   getLatestSuccessfulFetchRun,
   getSettingBool,
   initLogging,
@@ -39,6 +36,9 @@ import {
   logErr,
   setupAutostart,
 } from "@/lib/ipc";
+import { buildNotifyRouter } from "@/lib/notify/default";
+import { buildRefreshDigest, type ChildHeroCounts, toLocalIso } from "@/lib/notify/digest";
+import type { DigestFailure } from "@/lib/notify/types";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
 
 function formatTimeAgo(dateStr: string): string {
@@ -52,56 +52,79 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-interface ScrapeFailure {
-  readonly name: string;
-  readonly message: string;
+interface ScrapeOutcome {
+  readonly child: ChildRecord;
+  readonly summary: FetchRunnerSummary | null;
+  readonly hardError: string | null;
 }
 
-async function scrapeOneChild(child: ChildRecord): Promise<ScrapeFailure | null> {
+async function scrapeOneChild(child: ChildRecord): Promise<ScrapeOutcome> {
   try {
     const runner = buildFetchRunner([new TeacherEaseSource(), new HomeworkSource()]);
     const summary = await runner.runAll(child);
-    const teRun = summary.runs.find((r) => r.source === "teacherease");
-    if (teRun?.status === "failed") {
-      return { name: child.displayName, message: teRun.errorMessage ?? "Scrape failed" };
-    }
-    return null;
+    return { child, summary, hardError: null };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     await logErr(`refresh: child ${child.id} failed ${msg}`);
-    return { name: child.displayName, message: msg };
+    return { child, summary: null, hardError: msg };
   }
 }
 
-function summarizeFailures(failures: readonly ScrapeFailure[]): string | null {
-  if (failures.length === 0) return null;
-  const first = failures[0];
+/** Collect every failure across the cycle, per (child, source).
+ *  A `hardError` (thrown outside the runner) is attributed to the TE source so
+ *  it still counts as a grade-data failure. */
+function collectFailures(outcomes: readonly ScrapeOutcome[]): DigestFailure[] {
+  const out: DigestFailure[] = [];
+  for (const o of outcomes) {
+    if (o.hardError) {
+      out.push({
+        childId: o.child.id,
+        childName: o.child.displayName,
+        source: "teacherease",
+        error: o.hardError,
+      });
+      continue;
+    }
+    if (!o.summary) continue;
+    for (const run of o.summary.runs) {
+      if (run.status === "failed") {
+        out.push({
+          childId: o.child.id,
+          childName: o.child.displayName,
+          source: run.source,
+          error: run.errorMessage ?? "Scrape failed",
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** User-visible banner — only surfaces TE failures ("your grade data is
+ *  stale"). The digest carries every source's failures; homework-only
+ *  failures are quieter by design. */
+function summarizeFailures(failures: readonly DigestFailure[]): string | null {
+  const teFailures = failures.filter((f) => f.source === "teacherease");
+  if (teFailures.length === 0) return null;
+  const first = teFailures[0];
   if (!first) return null;
-  if (failures.length === 1) return `${first.name}: ${first.message}`;
-  return `${failures.length} children failed. First: ${first.name} — ${first.message}`;
+  if (teFailures.length === 1) return `${first.childName}: ${first.error}`;
+  return `${teFailures.length} children failed. First: ${first.childName} — ${first.error}`;
 }
 
 export function Dashboard() {
   const { selectedChildId: childId, setSelectedChildId } = useSelectedChild();
   const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
   const [lastFetchRun, setLastFetchRun] = useState<FetchRunRecord | null>(null);
-  const [grades, setGrades] = useState<GradeRecord[]>([]);
-  const [allAssignments, setAllAssignments] = useState<AssignmentRecord[]>([]);
   const [classDetails, setClassDetails] = useState<ClassDetails[]>([]);
   const [attentionCfg, setAttentionCfg] = useState<AttentionConfig>(DEFAULT_ATTENTION_CONFIG);
-  const [prevGrades, setPrevGrades] = useState<GradeRecord[]>([]);
-  const [prevAssignments, setPrevAssignments] = useState<AssignmentRecord[]>([]);
-  const [homework, setHomework] = useState<HomeworkRecord[]>([]);
+  const [homeworkForToday, setHomeworkForToday] = useState<HomeworkRecord[]>([]);
+  const [homeworkDueToday, setHomeworkDueToday] = useState<HomeworkRecord[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Family-wide status for the hero
   const [heroStatuses, setHeroStatuses] = useState<ChildStatus[]>([]);
-
-  const activities = useMemo(
-    () => computeRecentActivity(grades, allAssignments, prevGrades, prevAssignments),
-    [grades, allAssignments, prevGrades, prevAssignments],
-  );
 
   // Attention engine (Phase 15 AT2) — computed from the full ClassDetails tree
   // and the per-user forgiveness + low-score config. `new Date()` re-evaluates
@@ -124,50 +147,45 @@ export function Dashboard() {
     ]);
     setLastFetchRun(latestRun);
     if (teRun) {
-      const [g, a, cd, cfg] = await Promise.all([
-        getGradesForFetchRun(teRun.id),
-        getAssignmentsForFetchRun(teRun.id),
-        getAllClassDetails(teRun.id),
-        getAttentionConfig(),
-      ]);
-      setGrades(g);
-      setAllAssignments(a);
+      const [cd, cfg] = await Promise.all([getAllClassDetails(teRun.id), getAttentionConfig()]);
       setClassDetails(cd);
       setAttentionCfg(cfg);
-
-      const prevRun = await getFetchRunBefore(cId, teRun.runAt);
-      if (prevRun) {
-        const [pg, pa] = await Promise.all([
-          getGradesForFetchRun(prevRun.id),
-          getAssignmentsForFetchRun(prevRun.id),
-        ]);
-        setPrevGrades(pg);
-        setPrevAssignments(pa);
-      } else {
-        setPrevGrades([]);
-        setPrevAssignments([]);
-      }
     } else {
       // Freshly-added child has no successful teacherease scrape yet —
       // clear any stale data carried over from the previously-selected
       // child so Today renders the empty "click Refresh" state.
-      setGrades([]);
-      setAllAssignments([]);
       setClassDetails([]);
-      setPrevGrades([]);
-      setPrevAssignments([]);
     }
-    setHomework(await getLatestHomework(cId));
+    // Homework: strict today-match (Q28). Split one query into the two
+    // Today-tab sections client-side. Entries can appear in both (posted
+    // today AND due today — two angles on the same row).
+    const today = toLocalIso(new Date());
+    const rows = await getHomeworkForDay(cId, today);
+    setHomeworkForToday(rows.filter((r) => r.hwDate === today));
+    setHomeworkDueToday(rows.filter((r) => r.dueDate === today));
   }, []);
 
-  // Load hero statuses for ALL children.  Per Q25 (AT4) the hero's
-  // attention count + class-name list come from our engine, not TeacherEase's
-  // `needsAttention` column.  `meetingCount` / `notAssessedCount` stay on the
-  // portal's `status` field — they're the orthogonal "meeting" dimension.
+  // Load hero statuses for ALL children and, as a byproduct, the per-child
+  // class-details + hero-counts maps used by the refresh-digest builder.
+  // Per Q25 (AT4) the hero's attention count + class-name list come from
+  // our engine, not TeacherEase's `needsAttention` column. `meetingCount` /
+  // `notAssessedCount` stay on the portal's `status` field — they're the
+  // orthogonal "meeting" dimension.
   const loadHeroStatuses = useCallback(async (children: ChildRecord[]) => {
     const cfg = await getAttentionConfig();
+    const todayIso = toLocalIso(new Date());
     const statuses: ChildStatus[] = [];
+    const perChildDetails = new Map<number, ClassDetails[]>();
+    const perChildHeroCounts = new Map<number, ChildHeroCounts>();
     for (const child of children) {
+      // Homework counts come from the child's DB rows regardless of TE status
+      // — they're a separate source. Used by both the StatusHero block and
+      // the refresh-digest family hero.
+      const homeworkConfigured = Boolean(child.homeworkUrl);
+      const hwRows = homeworkConfigured ? await getHomeworkForDay(child.id, todayIso) : [];
+      const homeworkForTodayCount = hwRows.filter((r) => r.hwDate === todayIso).length;
+      const homeworkDueTodayCount = hwRows.filter((r) => r.dueDate === todayIso).length;
+
       const run = await getLatestSuccessfulFetchRun(child.id, "teacherease");
       if (!run) {
         statuses.push({
@@ -177,7 +195,12 @@ export function Dashboard() {
           attentionCount: 0,
           notAssessedCount: 0,
           attentionClassNames: [],
+          homeworkConfigured,
+          homeworkForTodayCount,
+          homeworkDueTodayCount,
         });
+        perChildDetails.set(child.id, []);
+        perChildHeroCounts.set(child.id, { meetingCount: 0, notAssessedCount: 0 });
         continue;
       }
       const [g, cd] = await Promise.all([getGradesForFetchRun(run.id), getAllClassDetails(run.id)]);
@@ -185,17 +208,32 @@ export function Dashboard() {
       const attnClasses = engine.perClass
         .filter((c) => c.classFlag.status === "attention")
         .map((c) => c.className);
+      // Partition per Classes tab — attention preempts meeting/not_assessed so
+      // each class lands in exactly one hero bucket (matches the tab's
+      // StatusIndicator rule where the "Needs Attention" badge wins).
+      const attnSet = new Set(attnClasses);
+      const meetingCount = g.filter(
+        (gr) => gr.status === "meeting" && !attnSet.has(gr.className),
+      ).length;
+      const notAssessedCount = g.filter(
+        (gr) => gr.status === "not_assessed" && !attnSet.has(gr.className),
+      ).length;
       statuses.push({
         childId: child.id,
         name: child.displayName,
-        meetingCount: g.filter((gr) => gr.status === "meeting").length,
+        meetingCount,
         attentionCount: attnClasses.length,
-        notAssessedCount: g.filter((gr) => gr.status === "not_assessed").length,
+        notAssessedCount,
         attentionClassNames: attnClasses,
+        homeworkConfigured,
+        homeworkForTodayCount,
+        homeworkDueTodayCount,
       });
+      perChildDetails.set(child.id, cd);
+      perChildHeroCounts.set(child.id, { meetingCount, notAssessedCount });
     }
     setHeroStatuses(statuses);
-    return statuses;
+    return { statuses, perChildDetails, perChildHeroCounts };
   }, []);
 
   useEffect(() => {
@@ -229,17 +267,48 @@ export function Dashboard() {
       await log(`refresh: started children=${children.length}`);
 
       // Scrape every child sequentially. Per-child failures don't block
-      // the others — each child's fetch_run row captures its own status;
-      // we surface a compact summary banner when any fail.
-      const failures: ScrapeFailure[] = [];
-      for (const child of children) {
-        const failure = await scrapeOneChild(child);
-        if (failure) failures.push(failure);
-      }
+      // the others — each child's fetch_run row captures its own status.
+      const outcomes: ScrapeOutcome[] = [];
+      for (const child of children) outcomes.push(await scrapeOneChild(child));
+
+      const failures = collectFailures(outcomes);
       setError(summarizeFailures(failures));
 
       if (childId != null) await loadData(childId);
-      await loadHeroStatuses(children);
+      const hero = await loadHeroStatuses(children);
+
+      // Build + dispatch the post-loop refresh digest (Q27 / Q28). Homework
+      // is strict today-match with two lists per child — "for today"
+      // (hwDate === today) and "due today" (dueDate === today). Router
+      // fanout respects per-channel toggles (notify.refreshDigest.os / .email).
+      const now = new Date();
+      const todayIso = toLocalIso(now);
+      const perChildHomeworkForToday = new Map<number, HomeworkRecord[]>();
+      const perChildHomeworkDueToday = new Map<number, HomeworkRecord[]>();
+      for (const c of children) {
+        const rows = await getHomeworkForDay(c.id, todayIso);
+        perChildHomeworkForToday.set(
+          c.id,
+          rows.filter((r) => r.hwDate === todayIso),
+        );
+        perChildHomeworkDueToday.set(
+          c.id,
+          rows.filter((r) => r.dueDate === todayIso),
+        );
+      }
+      const cfg = await getAttentionConfig();
+      const digest = buildRefreshDigest({
+        children,
+        perChildDetails: hero.perChildDetails,
+        perChildHomeworkForToday,
+        perChildHomeworkDueToday,
+        perChildHeroCounts: hero.perChildHeroCounts,
+        failures,
+        cfg,
+        now,
+      });
+      await buildNotifyRouter().dispatch(digest);
+
       window.dispatchEvent(new CustomEvent(CHILD_DATA_REFRESHED_EVENT));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
@@ -308,9 +377,9 @@ export function Dashboard() {
           agedOut={attentionResult.agedOut}
         />
 
-        <RecentActivity activities={activities} />
-
-        <HomeworkCard entries={homework} />
+        {allChildren.find((c) => c.id === childId)?.homeworkUrl && (
+          <HomeworkTodaySections forToday={homeworkForToday} dueToday={homeworkDueToday} />
+        )}
 
         <div className="pt-2 text-center">
           <Link

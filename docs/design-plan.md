@@ -529,6 +529,107 @@ The "This week vs older" split in the existing UI becomes "Within the window vs 
 
 **Promoted to:** Phase 16 in `docs/progress.md` (L1 – L4).
 
+### Q27 — Unified refresh-digest notification (supersedes Q21's per-event-per-child fanout)
+
+**Problem.** Q21 set up `NotifyRouter` + closed `NotifyEvent` union (`gradesAttention`, `newHomework`, `fetchFailed`) with each source emitting events *per child per source* during the fetch loop. A family of three children with attention + new homework + a failed scrape produces up to nine notifications per refresh cycle — both as OS toasts and emails. In practice a parent gets spammed, can't tell the cycle is finished, and each notification carries only a sliver of context (one child, one event type). The Q21 router mechanic is sound; the *event model* is wrong — it's per-signal, not per-cycle.
+
+**Decision.**
+
+1. **One event per refresh cycle.** Collapse the three-event union into a single `refreshDigest` event aggregated *after* `FetchRunner` has run all children. Event payload:
+   ```ts
+   {
+     type: "refreshDigest";
+     hero: { attentionTotal, meetingTotal, notAssessedTotal, attentionChildren: string[] };
+     children: {
+       name;
+       hero: ChildStatus;              // same shape StatusHero consumes
+       attention: AttentionItem[];     // withinWindow only, from computeChildAttention
+       tonightHomework: HomeworkRecord[]; // hw_date in [today, tomorrow]
+     }[];
+     failures: { name, source, error }[];  // empty when all succeed
+   }
+   ```
+   One `router.dispatch(digest)` call per cycle. No per-source emissions mid-loop.
+
+2. **Two fidelities from the same event.** Channels render the digest at different fidelities — the *event* is universal, the *presentation* is channel-local:
+   - **`OSChannel`** renders the **summary** fidelity: title `TeacherEase Parent Companion: <hero line>` + 1–3 line body derived from the top-level hero only. No per-child detail.
+   - **`EmailChannel`** renders the **detailed** fidelity: subject line matches OS title; HTML body mirrors Today's tab layout — hero header → per-child section (attention list filtered by within-window + tonight's homework).
+   - Parent-child of the `NotifyChannel` interface is unchanged; channels just pick their own template.
+
+3. **Aggregation lives in a pure function.** `src/lib/notify/digest.ts` exports `buildRefreshDigest(children, perChildClassDetails, perChildHomework, attentionCfg, now) → RefreshDigest`. Zero Tauri, zero IPC, fully unit-testable. Orchestration (dashboard's `handleRefresh`, future scheduler) collects inputs and passes them in.
+
+4. **"Tonight" = `today` + `tomorrow`.** Parents check in the evening for tomorrow morning; including today covers the morning-check case. Filter drops entries past tomorrow so email doesn't balloon when a teacher posts a week ahead.
+
+5. **Always fire.** Every refresh cycle dispatches the digest — manual Refresh and 6h auto-refresh alike. No content-based silence rule; if a user doesn't want notifications, they disable the channel. Rationale: a silent digest at 2am still confirms "the app is checking," and conditional silence adds surprising behavior to explain.
+
+6. **Per-channel toggle only.** Drop the three per-event toggles (`notify.gradesAttention.*`, `notify.newHomework.*`, `notify.fetchFailed.*`). Replace with one boolean per channel: `notify.refreshDigest.os` and `notify.refreshDigest.email`. Simpler mental model; if finer filtering is needed later (e.g. "email me attention only, skip the homework section"), it lands as section filters inside the email template, not as new event types.
+
+7. **Failures fold into the digest.** When one or more children's scrape fails:
+   - Add a `failures[]` block to the digest payload.
+   - OS title leads with the failure: `TeacherEase Parent Companion: ⚠ 1 child's scrape failed` before any attention summary.
+   - Email top strip: `⚠ Couldn't check Alex (login failed)`.
+   - Failed children are excluded from hero counts (`attentionTotal` etc. sum only successful children) so "0 need attention" can't be confused with "we don't know."
+   - No separate failure event — one event, one dispatch, one parent-facing summary.
+
+**What stays locked (Q21 still holds).**
+- `NotifyRouter` fanout mechanic — sequential iteration, per-channel `isEnabled` gate, error isolation, structured logging.
+- `NotifyChannel` interface (`name`, `isEnabled`, `send`).
+- Channel list at `buildFetchRunner` — OS + Email.
+
+**What this supersedes.**
+- Q21's `NotifyEvent` union of three event types — collapsed to a single `refreshDigest` type. Existing `gradesAttention`/`newHomework`/`fetchFailed` cases deleted.
+- Q21's "sources dispatch events during `run()`" integration — sources no longer dispatch notifications. Aggregation moves to the orchestrator after `runner.runAll` completes for every child.
+- Q21's per-event-per-channel settings keys (`notify.{event}.{channel}`) — replaced by `notify.refreshDigest.{channel}`.
+
+**Non-goals (for this supersede).**
+- No live attention-count updates during the refresh cycle — digest fires once, at the end.
+- No section-level email filters in v1 — all-on or channel-off.
+- No threading / notification grouping on the OS side.
+- No digest history stored in DB — it's an ephemeral summary of current state.
+
+**Promoted to:** Phase 17 in `docs/progress.md`.
+
+### Q28 — Today-only homework windowing + dual hw/due sections (supersedes Q27's claim that "tonight" = today + tomorrow)
+
+**Problem.** Q27 locked "tonight = today + tomorrow" for the refresh digest — and the Today tab's "Tonight's Homework" card was shipped earlier against `MAX(hw_date)` with neither rule matching a strict today check. In practice parents found both confusing: the card showed whatever newest `hw_date` was stored (could be days old, could be several days ahead), and the digest window lumped Friday's homework into Thursday's notification. Parents want a single crisp rule: **homework the teacher assigned for today appears today, and nothing else** — history belongs on the History tab. Separately, `dueDate` (already parsed and stored) was never surfaced even though "what's due today?" is the more actionable question on many days.
+
+**Decision.**
+
+1. **Two separate sections on the Today tab, both strictly today-matched (local ISO date):**
+   - **"Homework for today"** — entries where `hwDate === todayLocal`. What the teacher assigned today for tonight / by next class. Same data the Homework scraper already persists.
+   - **"Homework due today"** — entries where `dueDate === todayLocal`. What's actually coming due now, regardless of when it was posted. Uses the normalized `due_date` column (Phase 9 / P1). Inferred-due-date entries (`due_date_inferred = 1`) render with the italic tilde prefix (existing convention); they are still included in the section when their inferred date matches today.
+   - Both sections render independently. An entry with `hwDate === today` AND `dueDate === today` appears in both — they're two angles on the same question, not a partition.
+
+2. **Strict match, no weekend special-case.** Saturday / Sunday just naturally show empty if nothing matches. Parents who want to glance ahead use the History tab (or a future "this week" view if a user actually asks for one).
+
+3. **Empty vs. not-configured distinction.** Treat "the parent hasn't set up homework" as structurally different from "configured but nothing for today":
+   - Child has no `homeworkUrl` saved → **neither section renders**. The whole Homework area is absent from the Today tab. The parent already knows they haven't configured it; reminders belong in Settings → Children, not the Today tab.
+   - Child has `homeworkUrl` → both sections always render. No-match case shows a soft line: "No homework for today." / "Nothing due today." This is the right place for that message because the parent *did* configure it and *is* expecting an answer.
+
+4. **Email digest mirrors the Today tab exactly.** The detailed email renders two subsections per child — "Homework for today" and "Homework due today" — with the same empty-state rule (soft line when configured + no match; section omitted when `homeworkUrl` is null). `buildRefreshDigest` changes shape:
+   - Replace `perChildHomework: Map<number, HomeworkRecord[]>` with two maps: `perChildHomeworkForToday` + `perChildHomeworkDueToday`.
+   - Each `ChildDigest` gains `homeworkForToday` and `homeworkDueToday` fields. `homework` as a single field is removed.
+   - `FamilyHero.homeworkCount` becomes the count of *distinct* rows across both lists (dedup by `HomeworkRecord.id`) so the OS summary doesn't inflate.
+
+5. **Query layer.** New IPC helper `getHomeworkForDay(childId: number, isoDate: string)` used by both the Today tab's `loadData` and the digest build. Replaces `getLatestHomework` (dead after this change) and `getHomeworkBetween` (introduced in Phase 17 N6 — also removed, never used outside the digest). `getRecentHomework` stays; it drives History.
+
+**What stays locked (Q27 still holds).**
+- The *unified* refresh-digest model — one event per cycle, dispatched once post-loop. Q27's collapse of per-event fanout is unchanged.
+- One toggle per channel (`notify.refreshDigest.os` / `.email`). Unchanged.
+- OS summary fidelity vs. email detailed fidelity. Unchanged.
+- Failure-strip behavior and TE-failed children excluded from hero totals. Unchanged.
+
+**What this supersedes.**
+- **Q27's "tonight = today + tomorrow"** rule for homework windowing — strict today only.
+- **The Today tab's existing `MAX(hw_date)` card behavior** — replaced by today-strict + a parallel due-today section. Label "Tonight's Homework" replaced with two section headings.
+
+**Non-goals.**
+- No "this week" ahead-view on the Today tab. Parents can use History for that.
+- No "due tomorrow" / "due this week" aggregations — too much surface for v1; History browses by date if needed.
+- No treatment of `dueDate` in the OS summary body (body still mentions just homework-for-today count — details live in the email / Today tab).
+
+**Promoted to:** Phase 18 in `docs/progress.md`.
+
 ---
 
 ## Tech Stack

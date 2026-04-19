@@ -99,6 +99,9 @@ desktop.ini
 .classpath
 .settings/
 
+# ---------- Claude Code runtime state ----------
+.claude/scheduled_tasks.lock
+
 # ---------- Misc ----------
 coverage/
 .nyc_output/

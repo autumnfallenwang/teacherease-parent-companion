@@ -209,6 +209,9 @@
         "rules": {
           "security": {
             "noSecrets": "off"
+          },
+          "style": {
+            "noRestrictedImports": "off"
           }
         }
       }

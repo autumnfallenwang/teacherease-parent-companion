@@ -170,6 +170,112 @@ Within-window uses the attention hue; aged-out mutes it. Missing always shows th
 
 ---
 
+## D-13 — Unified refresh-digest notification (per Q27)
+**Where:** `src/lib/notify/` — event types, router, channels; `src/components/dashboard.tsx` — post-refresh dispatch; `src/components/settings-notifications.tsx` + Email settings — per-channel toggles.
+**Observed:** Current model fans `gradesAttention` / `newHomework` / `fetchFailed` out per child per source during the fetch loop. A family with 3 children can get up to 9 notifications per refresh cycle on each channel. After Phase 11 email shipped, a test cycle produced three emails (two for test children, one for Ivy) — confirming the unified engine works but also that the event granularity is wrong. Parents want "here's the state of the family after this check," not "one-at-a-time per-signal pings."
+**Proposed:** Per Q27 — collapse to a single `refreshDigest` event dispatched once per cycle. Same engine, two fidelities: `OSChannel` renders hero-summary title+body, `EmailChannel` renders a detailed HTML body (hero header + per-child attention + tonight's homework = today+tomorrow). Failures fold into the same digest (top strip + excluded from hero counts + title leads with failure). Always fire (manual or auto). One toggle per channel (drop per-event toggles). Aggregation lives in a pure `buildRefreshDigest` function; orchestrator (dashboard post-loop) dispatches.
+**Status:** done — Phase 17 (N1-N6) landed; see `docs/progress.md`.
+
+---
+
+## B-09 — Hero's "meeting" count double-counts engine-flagged attention classes
+**Where:** `src/components/dashboard.tsx` `loadHeroStatuses` (feeds StatusHero + the refresh-digest hero counts).
+**Observed:** For Ivy, hero shows "3 classes need attention + 7 meeting" (= 10), but Classes tab shows 3 attention + 5 meeting (= 8 classes total). The mismatch is because `meetingCount` counts every `GradeRecord.status === "meeting"`, including classes that the engine ALSO flags for attention (e.g., a TE-"meeting" class that has a missing assignment). Classes tab's `StatusIndicator` correctly preempts "Meeting" with "Needs Attention" — but the hero never applied that same preemption. Same bug surfaces in the email digest's family hero block + per-child hero, since they share `perChildHeroCounts`.
+**Proposed:** In `loadHeroStatuses`, after computing `attnClasses`, exclude classes in that set from both `meetingCount` and `notAssessedCount` tallies: `g.filter(gr => gr.status === "meeting" && !attnSet.has(gr.className)).length`. Preserves the Classes-tab partitioning rule (each class belongs to exactly one hero bucket; attention wins). Fix is a 3-line change in one function.
+**Status:** done
+
+---
+
+## D-14 — Today-only homework windowing + dual hw/due sections (per Q28)
+**Where:** `src/components/homework-card.tsx`, `src/components/dashboard.tsx` (loadData), `src/lib/ipc.ts` (query), `src/lib/notify/digest.ts` (digest shape), `src/lib/notify/email-templates.ts` (render).
+**Observed:** Today tab's "Tonight's Homework" card currently shows whatever `MAX(hw_date)` is stored — could be days old or several days in the future. Parents wanted a strict today-match with zero carry-over; history browsing belongs on the History tab. Also, we never surface `dueDate` as a separate view even though the scraper already parses it. After the Q27 digest ship, "today+tomorrow" inherited the same mismatch in both the Today tab and the detailed email.
+**Proposed:** Replace "tonight" windowing with strict `hwDate === todayLocal` AND add a parallel "due today" section keyed by `dueDate === todayLocal`. Both on the Today tab and mirrored in the detailed email. Weekend = naturally empty. Hide entire section when `child.homeworkUrl == null` (absent ≠ empty). Show "No homework for today" / "Nothing due today" when configured but no match. New IPC helper `getHomeworkForDay(childId, iso)` to replace `getLatestHomework`/`getHomeworkBetween`. Supersedes Q27's today+tomorrow rule; Q28 drafted in `design-plan.md`.
+**Status:** done — Phase 18 (H1-H8) landed.
+
+---
+
+---
+
+## D-15 — Hero block is a fixed 4-line numeric summary (Today tab + email + OS)
+**Where:** `src/components/status-hero.tsx`, `src/lib/notify/email-templates.ts` (`renderFamilyHeroHtml` / `renderFamilyText`), `src/lib/notify/os-channel.ts` (`buildBody`), `src/components/dashboard.tsx` (`loadHeroStatuses`), `src/lib/notify/types.ts` (`FamilyHero` + `ChildStatus`).
+**Observed:** Hero block previously mixed attention class-name lists, "not assessed" counts, and a single aggregated "N homework items today" line — inconsistent across surfaces and easy to misread. User wants the hero to be four fixed lines: `{name}: N classes need attention`, `N meeting`, `X homework for today`, `Y homework due today`. Nothing else.
+**Proposed:** Split `FamilyHero.homeworkCount` into `homeworkForTodayCount` + `homeworkDueTodayCount` (per-section, no cross-section dedup). Add same two fields to `ChildStatus` for the Today tab. Rewrite `StatusHero`, `renderFamilyHeroHtml`/`renderFamilyText`, and `buildBody` to emit the exact 4-line (attention + meeting + hw-for-today + hw-due-today) structure — drop attention class-names display and "not assessed" from the hero specifically (still live in per-child email sections + Classes tab). Bump OS `MAX_BODY_LINES` to 4 so failures still fit too.
+**Status:** done
+
+---
+
+## D-16 — Email per-child section polish: skip empties, drop hero repeats, match Today-tab attention layout
+**Where:** `src/lib/notify/types.ts` + `digest.ts` + `email-templates.ts`, consumed by `synthetic.ts` + tests.
+**Observed:** 1) Sam has no homework URL configured but the email still renders "No homework for today." / "Nothing due today." subsections under his name — absent ≠ empty (Q28), so those subsections shouldn't appear at all. 2) Sam has a TE failure too — the digest renders a per-child block that says "Couldn't refresh — see top of email." + the empty homework subsections. The failure is already in the top strip; the per-child block adds nothing. 3) For Ivy (the succeeded child), her per-child section repeats the hero-level "3 classes need attention: ..." + "5 meeting" lines that are already in the family hero above. 4) Attention rows render as single lines with inline separators (`name · class [badge] · 4d ago`), not matching the Today-tab's multi-line format (icon + name, class name below, due/grade badge on the right).
+**Proposed:** (a) When `hero === null` → skip the entire per-child section (the top strip already named the failing child/source). (b) When `homeworkUrl` is not configured → skip both homework subsections (consistent with Q28's Today-tab rule). (c) Drop the "3 classes need attention: ..." / "N meeting" repeat from per-child sections — family hero owns those counts now that D-15 made it the single numeric summary. (d) Rewrite attention-row HTML to a 3-line stack matching the Today-tab layout: `📕 name` / `class name` / `🕐 due-date` (or grade for low-score). Use Unicode/emoji icons since email strips CSS backgrounds/masks — Gmail mobile renders them fine. Requires adding `homeworkConfigured: boolean` to `ChildDigest` so the renderer can gate the subsections.
+**Status:** done
+
+---
+
+## D-17 — Email body should mimic the Today tab exactly — per-child hero rows + always include every child
+**Where:** `src/lib/notify/email-templates.ts` (per-child section layout + family hero), backed by `ChildDigest` (already has the data).
+**Observed:** After D-15/D-16, the email still diverges from the Today tab in two ways: (1) the top "family hero" block is a single aggregated summary (prefixed with the single child's name when `childCount === 1`), but the Today tab has per-child hero rows even when one child is shown. (2) D-16 skipped per-child sections entirely when `hero === null`, but Alex and Sam should still appear — same as the Today tab shows a row for every child. Sam's row just shouldn't render homework subsections (no URL configured), and TE-failed children shouldn't render the attention list (no fresh data), but they should still have a hero row so the parent sees them in the email.
+**Proposed:** Replace the aggregated `renderFamilyHeroHtml` + `renderFamilyText` blocks with per-child hero rows, one per child in `d.children`, mirroring `StatusHero`'s look: rounded container, ✓ (meeting) or ⚠ (attention / couldn't refresh) icon, `{name}: <summary>` title line, then stacked count lines (meeting · hw for today · hw due today). For TE-failed children the title becomes `{name}: couldn't refresh` and the meeting line is dropped (stale data is not shown), but homework counts still render if `homeworkConfigured`. Render per-child attention list under the hero row only when `hero !== null` AND `attention.length > 0` (or keep the soft "Nothing needs attention for X" line; decide during implementation). Render homework subsections only when `homeworkConfigured`. Keep the failure top strip unchanged. Text body mirrors the same structure.
+**Status:** done
+
+---
+
+## D-18 — Email + OS should mirror Today tab literally: no failure output, stale data surfaces, all heroes first then detail
+**Where:** `src/lib/notify/digest.ts`, `types.ts`, `email-templates.ts`, `os-channel.ts`.
+**Observed:** D-17 kept a failure top strip + "couldn't refresh" language on per-child hero rows. User wants the digest to behave identically to the Today tab: the tab NEVER shows failure info in its hero block — it just shows whatever `getLatestSuccessfulFetchRun` data exists (zeros when none), and homework is whatever's in DB today. The email digest should do the same. Failure-hunting belongs in the error banner on the Today tab, not in the email body. Also, layout should match: all children's hero rows stacked at the top (mirroring `StatusHero`), then per-child detail sections (attention + homework) below — not hero+detail interleaved per child.
+**Proposed:** (a) Drop the `| null` from `ChildDigest.hero` — always populate from `perChildHeroCounts` (zeros when never scraped). Digest builder stops special-casing TE-failed children. (b) Delete `renderFailureStripHtml` and `renderFailuresText` from the email. (c) Rewrite the HTML layout to two stacked blocks: top = all child hero rows (green/amber, no red/failure variant), bottom = per-child detail sections (attention list + homework). Text body mirrors. (d) Simplify OS `buildHeroLine` + `buildBody`: drop the failure branches entirely; always render the data-driven hero. `digest.failures` stays on the type (still populated by the dashboard for logging / future use) but is rendered nowhere.
+**Status:** done
+
+---
+
+## B-12 — Digest display polish: hero title wording + one-line attention rows + missing due dates
+**Where:** `src/lib/notify/os-channel.ts` (`buildHeroLine`), `src/lib/notify/email-templates.ts` (`renderAttentionRowHtml`, `renderHomeworkItemsHtml`, text equivalents).
+**Observed:** (1) OS title "12 classes across 3 children" is ambiguous — reads like "12 classes exist" not "12 classes need attention". (2) Attention rows render as a 3-line stack (name / class / due) — user wants a single line per item. (3) Low-score attention items show only the grade, not the due date — both are useful. (4) Homework items show `📖 Math` + content, no due date visible.
+**Proposed:** (1) Insert "need attention" into the multi-child title: "12 classes need attention across 3 children". (2) Rewrite attention row HTML + text as one line: `{icon} {name} · {class} · {trail}` with trail = due-date (when present) + grade (when present for low-score). (3) For low-score items, include both grade and due date in the trail. (4) Homework items: add a due-date chip on the first line: `{icon} {subject} · 🕐 {dueDate}`. Content stays on the following line when present.
+**Status:** done
+
+---
+
+## B-13 — Digest icon mapping: align every emoji with its Today-tab Lucide counterpart
+**Where:** `src/lib/notify/email-templates.ts`.
+**Observed:** Several email icons don't match their Today-tab equivalents: "Attention" heading has no icon (Today tab uses `AlertTriangle`); "Homework for today" / "Homework due today" items carry individual book / clock emojis that belong on the section heading (Today tab puts `BookOpen` / `Target` on the heading and nothing on each row). User also asked for a systematic review of the mapping.
+**Proposed:** Apply a 1:1 icon audit — `AlertTriangle` → ⚠ on attention heading; `BookOpen` → 📖 on "Homework for today" heading; `Target` → 🎯 on "Homework due today" heading; drop per-item 📖 / ⏰ from homework rows (Today tab doesn't have per-row icons there); keep per-item 📕 / 📉 on attention rows (Today tab does have per-row icons there for missing / low-score). Due-date chip stays 🕐 on both surfaces. Hero icons (✓ / ⚠) unchanged.
+**Status:** done
+
+---
+
+## B-14 — Email homework items should render on one line (match attention rows)
+**Where:** `src/lib/notify/email-templates.ts` `renderHomeworkItemsHtml` + plaintext equivalent.
+**Observed:** After B-13, homework items render as `subject · due` on line 1 and content on line 2. Attention items are one line per item after B-12 — homework should match for visual consistency.
+**Proposed:** Inline content with ` · ` separator: `<strong>{subject}</strong> · 🕐 {dueDate} · {content}` — gmail wraps naturally at column width. Plaintext mirrors.
+**Status:** done
+
+---
+
+## B-15 — Date chips always at the end (email + Today tab)
+**Where:** `src/lib/notify/email-templates.ts` (attention row + homework row), `src/components/attention-section.tsx` (Today tab AttentionRow).
+**Observed:** Due-date appears in the middle of rows on several surfaces. Email attention rows put the date before the grade (`🕐 4/16 · 2.5=P`); email homework rows put the date before the content (`Math · 🕐 4/19 · Review...`); Today tab AttentionRow renders the Clock chip before the grade. User wants the date info consistently at the *end* of the row on both surfaces.
+**Proposed:** Flip the order — attention rows: `{icon} {name} · {class} · {grade} · 🕐 {due}` (grade first, due last); homework rows: `{subject} · {content} · 🕐 {due}` (content first, due last). Today tab AttentionRow: swap the order of the two right-side chips so grade comes before the Clock chip.
+**Status:** done
+
+---
+
+## B-11 — SEED: Alex's homework data had nonsensical weekday/date combos
+**Where:** `scripts/seed-dev-db.ts` — the `ALEX_HOMEWORK` fixtures.
+**Observed:** Seeded homework used hardcoded raw strings like `"Friday 4/17"` regardless of the current date, so after today drifted to Sun 4/19 the UI showed combinations like "posted Sat 4/18, due Fri 4/17" (impossible). Also pre-dated the Phase 18 `hw_date === today` rule, so on a weekend the Today tab had no data to test against.
+**Proposed:** Rewrite the seed fixtures to generate ISO dates dynamically from today's local date, compute `due_date` via a school-day-aware helper (`nextSchoolDayIso` + optional `dueIn` offsets), skip weekend offsets for historical entries, but always include `offset=0` so the Today tab has fresh data even on weekends. Bypass `resolveDueDate` in the seed — we already have both ISOs, no need to round-trip through the parser.
+**Status:** done
+
+---
+
+## B-10 — Digest family hero is ambiguous + double-counts TE-failed children's homework
+**Where:** `src/lib/notify/digest.ts` (`rollUpFamily`) + `src/lib/notify/email-templates.ts` (`renderFamilyHeroHtml`) + `src/lib/notify/os-channel.ts` (`buildHeroLine`).
+**Observed:** With Alex + Sam TE-failing and Ivy succeeding, the email's family hero reads "3 classes need attention · 5 meeting · 3 homework items today" — attribution missing (user can't tell these are Ivy's), and the "3 homework items today" come from Alex's seeded homework rows even though Alex's own section says "Couldn't refresh." Two problems in one block: (1) single-child hero doesn't name the child, (2) `family.homeworkCount` includes children whose `hero` is null, violating Q27's "TE-failed children excluded from hero counts" rule (which was about attention/meeting but should extend to homework for coherence).
+**Proposed:** (a) In `rollUpFamily`, only add a child's homework to `family.homeworkCount` when `c.hero !== null` — same gate attention/meeting already use. (b) In both renderers, when `family.childCount === 1`, prefix the hero line with the child's name ("Ivy: 3 classes need attention · 5 meeting · 2 homework items today") so single-child cycles self-identify. For the OS title prefix stays within reasonable length. Per-child homework sections are unchanged — Alex still sees his own homework in his section; only the family aggregation tightens.
+**Status:** done
+
+---
+
 ## D-12 — Attention list shows the same missing assignment two or three times
 **Where:** `src/lib/core/attention-engine.ts` `computeStandardAttention` + `attention-section.tsx` rendering.
 **Observed:** React console warning `Encountered two children with the same key, Social Studies 7-27004135-missing` after first real scrape of Ivy. Same assignment appeared multiple times in the Today attention list because TeacherEase allows a single assignment to hang under multiple standards ("Geography Quiz" might be linked to 3 different learning standards in Social Studies 7), and the recursive tree walk in `computeStandardAttention` pushed an `AttentionItem` each time. Identical items except for their path through the standards tree.

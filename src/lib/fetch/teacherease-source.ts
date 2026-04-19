@@ -1,14 +1,9 @@
-// TeacherEase FetchSource (P4 / Q20). Wraps the login + grades-overview +
-// class-detail HTTP flow and hands the parsed domain data to
+// TeacherEase FetchSource (P4 / Q20 / Q27). Wraps the login + grades-overview
+// + class-detail HTTP flow and hands the parsed domain data to
 // `persistTeacherEaseData`. The runner owns the `fetch_runs` row lifecycle.
+// Notifications are built post-loop in the dashboard, not here.
 
-import {
-  getChildPassword,
-  getMissingAssignments,
-  getNeedsAttentionGrades,
-  persistTeacherEaseData,
-  tauriFetch,
-} from "@/lib/ipc";
+import { getChildPassword, persistTeacherEaseData, tauriFetch } from "@/lib/ipc";
 import { parseClassDetails, parseGradesOverview } from "@/lib/scraper/parser";
 import { login, USER_AGENT } from "@/lib/scraper/teacherease";
 import type { ChildRecord, ClassDetails } from "@/lib/scraper/types";
@@ -57,16 +52,5 @@ export class TeacherEaseSource implements FetchSource {
     }
 
     await persistTeacherEaseData(ctx.fetchRunId, overview, classDetails);
-
-    const attention = await getNeedsAttentionGrades(ctx.fetchRunId);
-    const missing = await getMissingAssignments(ctx.fetchRunId);
-    if (attention.length > 0 || missing.length > 0) {
-      await ctx.notify.dispatch({
-        type: "gradesAttention",
-        childName: ctx.child.displayName,
-        attentionCount: attention.length,
-        missingCount: missing.length,
-      });
-    }
   }
 }

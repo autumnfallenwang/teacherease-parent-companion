@@ -98,10 +98,7 @@ export function GradesTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-baseline justify-between px-1">
-        <h2 className="text-lg font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-          Classes
-        </h2>
+      <div className="flex justify-end px-1">
         <p className="text-xs text-muted-foreground">{grades.length} total</p>
       </div>
 

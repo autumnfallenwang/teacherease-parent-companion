@@ -1,12 +1,15 @@
-// Fetch pipeline contract (Q20). Pure types module — no Tauri, no IPC.
+// Fetch pipeline contract (Q20 / Q27). Pure types module — no Tauri, no IPC.
 //
 // Each data source (TeacherEase scrape, homework page, future portals)
 // implements `FetchSource` and gets invoked by `FetchRunner`. The runner
 // manages the fetch_runs row lifecycle; sources fetch/parse/persist
 // their own domain data, FK-ing to the runner-provided `fetchRunId`.
+//
+// Notifications no longer flow from sources: post-Q27 the dashboard
+// builds a single RefreshDigest after runAll() completes and dispatches
+// it via NotifyRouter. Sources stay single-purpose (fetch + persist).
 
 import type { FetchRunStatus } from "@/lib/ipc";
-import type { NotifyRouter } from "@/lib/notify/router";
 import type { ChildRecord } from "@/lib/scraper/types";
 
 /** Passed to each source when the runner invokes it. */
@@ -15,8 +18,6 @@ export interface FetchContext {
   readonly childId: number;
   /** Pre-inserted fetch_runs row id. Sources FK child rows (grades, homework, etc.) to this. */
   readonly fetchRunId: number;
-  /** Event dispatcher. Sources call `ctx.notify.dispatch(...)` to surface user-visible updates. */
-  readonly notify: NotifyRouter;
 }
 
 /** One data source = one `fetch_runs` row per applicable run. */
@@ -41,7 +42,6 @@ export interface FetchRunnerDeps {
   completeFetchRun: (id: number, result: FetchRunCompletion) => Promise<void>;
   log: (message: string) => Promise<void>;
   logErr: (message: string) => Promise<void>;
-  notify: NotifyRouter;
   /** Override for tests; defaults to `Date.now`. */
   now?: () => number;
 }
