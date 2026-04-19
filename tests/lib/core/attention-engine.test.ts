@@ -15,9 +15,13 @@ import type { Assignment, ClassDetails, Standard } from "@/lib/scraper/types";
 // All tests pin `now` to a fixed date so age-math is deterministic.
 const NOW = new Date(2026, 3, 16); // April 16, 2026
 
+let asnIdCounter = 1;
 function asn(name: string, opts: Partial<Assignment> = {}): Assignment {
   return {
-    testNameId: 0,
+    // Real TeacherEase data never reuses a TestNameID within a class.
+    // Auto-increment here so the engine's dedup-by-(class, testNameId)
+    // doesn't collapse unrelated test fixtures together.
+    testNameId: asnIdCounter++,
     dueDate: "",
     name,
     weight: "",

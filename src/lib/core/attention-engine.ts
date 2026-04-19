@@ -189,6 +189,24 @@ function computeStandardAttention(
   };
 }
 
+function dedupItemsByAssignment(items: readonly AttentionItem[]): AttentionItem[] {
+  // TeacherEase data model lets a single assignment appear under multiple
+  // standards in the same class, so the tree walk in computeStandardAttention
+  // can push the same (className, testNameId) pair multiple times. Parents
+  // should see one row per assignment, not N (also gives the UI stable
+  // React keys). We keep the first occurrence — the item's attention state
+  // is identical across duplicates, so "first" is arbitrary-but-consistent.
+  const seen = new Set<string>();
+  const out: AttentionItem[] = [];
+  for (const item of items) {
+    const key = `${item.className}::${item.assignment.testNameId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 export function computeClassAttention(
   detail: ClassDetails,
   now: Date,
@@ -204,7 +222,7 @@ export function computeClassAttention(
     className: detail.className,
     classFlag,
     standards,
-    items,
+    items: dedupItemsByAssignment(items),
   };
 }
 

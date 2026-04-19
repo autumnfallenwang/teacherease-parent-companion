@@ -32,6 +32,7 @@ import {
   getGradesForFetchRun,
   getLatestFetchRun,
   getLatestHomework,
+  getLatestSuccessfulFetchRun,
   getSettingBool,
   initLogging,
   log,
@@ -49,6 +50,35 @@ function formatTimeAgo(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+interface ScrapeFailure {
+  readonly name: string;
+  readonly message: string;
+}
+
+async function scrapeOneChild(child: ChildRecord): Promise<ScrapeFailure | null> {
+  try {
+    const runner = buildFetchRunner([new TeacherEaseSource(), new HomeworkSource()]);
+    const summary = await runner.runAll(child);
+    const teRun = summary.runs.find((r) => r.source === "teacherease");
+    if (teRun?.status === "failed") {
+      return { name: child.displayName, message: teRun.errorMessage ?? "Scrape failed" };
+    }
+    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    await logErr(`refresh: child ${child.id} failed ${msg}`);
+    return { name: child.displayName, message: msg };
+  }
+}
+
+function summarizeFailures(failures: readonly ScrapeFailure[]): string | null {
+  if (failures.length === 0) return null;
+  const first = failures[0];
+  if (!first) return null;
+  if (failures.length === 1) return `${first.name}: ${first.message}`;
+  return `${failures.length} children failed. First: ${first.name} — ${first.message}`;
 }
 
 export function Dashboard() {
@@ -83,13 +113,21 @@ export function Dashboard() {
   );
 
   const loadData = useCallback(async (cId: number) => {
-    const run = await getLatestFetchRun(cId);
-    setLastFetchRun(run);
-    if (run) {
+    // "Checked Xm ago" timestamp uses the most recent attempt regardless of
+    // source/status (it represents "when did we last try?"), but the actual
+    // grade/assignment reads come from the latest SUCCESSFUL teacherease
+    // run — otherwise a failed TE scrape or a success-only homework scrape
+    // would make prior good data look like it disappeared.
+    const [latestRun, teRun] = await Promise.all([
+      getLatestFetchRun(cId),
+      getLatestSuccessfulFetchRun(cId, "teacherease"),
+    ]);
+    setLastFetchRun(latestRun);
+    if (teRun) {
       const [g, a, cd, cfg] = await Promise.all([
-        getGradesForFetchRun(run.id),
-        getAssignmentsForFetchRun(run.id),
-        getAllClassDetails(run.id),
+        getGradesForFetchRun(teRun.id),
+        getAssignmentsForFetchRun(teRun.id),
+        getAllClassDetails(teRun.id),
         getAttentionConfig(),
       ]);
       setGrades(g);
@@ -97,7 +135,7 @@ export function Dashboard() {
       setClassDetails(cd);
       setAttentionCfg(cfg);
 
-      const prevRun = await getFetchRunBefore(cId, run.runAt);
+      const prevRun = await getFetchRunBefore(cId, teRun.runAt);
       if (prevRun) {
         const [pg, pa] = await Promise.all([
           getGradesForFetchRun(prevRun.id),
@@ -110,9 +148,9 @@ export function Dashboard() {
         setPrevAssignments([]);
       }
     } else {
-      // Freshly-added child has no scrape yet — clear any stale data
-      // carried over from the previously-selected child so Today renders
-      // the empty "click Refresh" state instead of someone else's grades.
+      // Freshly-added child has no successful teacherease scrape yet —
+      // clear any stale data carried over from the previously-selected
+      // child so Today renders the empty "click Refresh" state.
       setGrades([]);
       setAllAssignments([]);
       setClassDetails([]);
@@ -130,7 +168,7 @@ export function Dashboard() {
     const cfg = await getAttentionConfig();
     const statuses: ChildStatus[] = [];
     for (const child of children) {
-      const run = await getLatestFetchRun(child.id);
+      const run = await getLatestSuccessfulFetchRun(child.id, "teacherease");
       if (!run) {
         statuses.push({
           childId: child.id,
@@ -183,25 +221,24 @@ export function Dashboard() {
   }, [childId, loadData]);
 
   const handleRefresh = useCallback(async () => {
-    if (!childId) return;
-    await log(`refresh: started childId=${childId}`);
     setIsRefreshing(true);
     setError(null);
-
     try {
       const children = await getChildren();
-      const child = children.find((c) => c.id === childId);
-      if (!child) throw new Error("Child not found");
+      if (children.length === 0) return;
+      await log(`refresh: started children=${children.length}`);
 
-      const runner = buildFetchRunner([new TeacherEaseSource(), new HomeworkSource()]);
-      const summary = await runner.runAll(child);
-      const teRun = summary.runs.find((r) => r.source === "teacherease");
-
-      if (teRun?.status === "failed") {
-        setError(teRun.errorMessage ?? "Scrape failed");
+      // Scrape every child sequentially. Per-child failures don't block
+      // the others — each child's fetch_run row captures its own status;
+      // we surface a compact summary banner when any fail.
+      const failures: ScrapeFailure[] = [];
+      for (const child of children) {
+        const failure = await scrapeOneChild(child);
+        if (failure) failures.push(failure);
       }
+      setError(summarizeFailures(failures));
 
-      await loadData(childId);
+      if (childId != null) await loadData(childId);
       await loadHeroStatuses(children);
       window.dispatchEvent(new CustomEvent(CHILD_DATA_REFRESHED_EVENT));
     } catch (e) {

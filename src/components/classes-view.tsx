@@ -18,7 +18,7 @@ import {
   getClassDetail,
   getClasses,
   getGradesForFetchRun,
-  getLatestFetchRun,
+  getLatestSuccessfulFetchRun,
 } from "@/lib/ipc";
 import type { ClassDetails } from "@/lib/scraper/types";
 
@@ -44,7 +44,10 @@ export function ClassesView() {
   const [attentionClassNames, setAttentionClassNames] = useState<ReadonlySet<string>>(new Set());
 
   const loadData = useCallback(async (cId: number) => {
-    const run = await getLatestFetchRun(cId);
+    // Reads tied to fetch_run_id (grades, class details) need the latest
+    // SUCCESSFUL teacherease run — otherwise a failed scrape or a
+    // homework-only success hides the prior good data.
+    const run = await getLatestSuccessfulFetchRun(cId, "teacherease");
     setLastFetchRun(run);
     if (run) {
       const [g, h, cfg, cd] = await Promise.all([

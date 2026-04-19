@@ -532,6 +532,26 @@ export async function getLatestFetchRun(childId: number): Promise<FetchRunRecord
 }
 
 /**
+ * Returns the most recent `fetch_runs` row for the child that is both from
+ * the given source AND marked successful. Used by views that need to read
+ * persisted scrape data (grades, assignments, class details) — those rows
+ * are keyed by `fetch_run_id`, so consulting a failed or wrong-source run
+ * would incorrectly surface "empty" even when prior good data exists.
+ */
+export async function getLatestSuccessfulFetchRun(
+  childId: number,
+  source: string,
+): Promise<FetchRunRecord | null> {
+  const d = await getDb();
+  const rows = await d.select<RawFetchRunRow[]>(
+    "SELECT * FROM fetch_runs WHERE child_id = $1 AND source = $2 AND status = 'success' ORDER BY run_at DESC LIMIT 1",
+    [childId, source],
+  );
+  const row = rows[0];
+  return row ? mapFetchRunRow(row) : null;
+}
+
+/**
  * Nearest successful fetch run strictly before `isoDate`.
  * Used for 24h-ago comparisons in the Recent Activity section.
  */
@@ -1053,6 +1073,25 @@ export async function setLastUpdateCheckMs(ms: number): Promise<void> {
  * Throws "SMTP not configured" if any required field is missing — matches the
  * behavior of `EmailChannel.send` for consistency.
  */
+export async function sendTestOSNotification(): Promise<void> {
+  const { isPermissionGranted, requestPermission, sendNotification } = await import(
+    "@tauri-apps/plugin-notification"
+  );
+  let granted = await isPermissionGranted();
+  if (!granted) {
+    const result = await requestPermission();
+    granted = result === "granted";
+  }
+  if (!granted) {
+    throw new Error("OS notification permission was not granted.");
+  }
+  sendNotification({
+    title: "TeacherEase Parent Companion",
+    body: "Test notification — if you see this, desktop notifications are working.",
+  });
+  await log("notification: test delivered");
+}
+
 export async function sendTestEmail(): Promise<void> {
   const host = await getSettingString("smtp.host", "");
   const portStr = await getSettingString("smtp.port", "");
