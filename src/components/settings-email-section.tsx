@@ -1,5 +1,11 @@
 "use client";
 
+// SMTP form + saved-password flow + Send-test-email + email toggle + Gmail
+// tutorial link. Extracted from the deleted settings-email.tsx so the
+// Notifications sub-tab can absorb email cleanly (Phase 19 CF5). The toggle
+// and test-email button live here because they're meaningless without a
+// configured SMTP server.
+
 import { Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -50,7 +56,7 @@ function hasCompleteConfig(form: {
   );
 }
 
-export function SettingsEmail() {
+export function SettingsEmailSection() {
   const [host, setHost] = useState("");
   const [port, setPort] = useState("");
   const [username, setUsername] = useState("");
@@ -296,7 +302,6 @@ export function SettingsEmail() {
       </section>
 
       <section className="space-y-2">
-        <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Email</p>
         <div
           className={`divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
             configComplete ? "" : "opacity-60"
@@ -304,10 +309,10 @@ export function SettingsEmail() {
         >
           <div className="flex items-center gap-4 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Refresh digest</p>
+              <p className="text-[13px] font-medium">Email digest</p>
               <p className="text-[12px] text-muted-foreground">
-                Detailed per-child email after every refresh — attention list, tonight's homework,
-                and any failures.
+                Detailed per-child email from the notification schedule — attention list, today's
+                homework, and what's due.
               </p>
             </div>
             <Switch
@@ -333,7 +338,8 @@ export function SettingsEmail() {
           <h2 className="text-[14px] font-medium">Send a test email</h2>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Uses your saved SMTP config and sends a simple test message to the configured recipient.
+          Sends a synthetic sample digest (Sample Student A/B) through the email channel, bypassing
+          the toggle above. Confirms your SMTP config works end-to-end.
         </p>
         <div className="flex items-center gap-3 pt-1">
           <Button

@@ -1,18 +1,7 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
+import type { ChildStatus } from "@/lib/hero-statuses";
 
-export interface ChildStatus {
-  childId: number;
-  name: string;
-  meetingCount: number;
-  attentionCount: number;
-  notAssessedCount: number;
-  attentionClassNames: string[];
-  /** True when the child has a `homeworkUrl` saved. Hero row skips the
-   *  homework count lines entirely when false — absent ≠ empty (Q28). */
-  homeworkConfigured: boolean;
-  homeworkForTodayCount: number;
-  homeworkDueTodayCount: number;
-}
+export type { ChildStatus };
 
 interface StatusHeroProps {
   statuses: ChildStatus[];

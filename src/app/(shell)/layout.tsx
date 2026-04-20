@@ -14,10 +14,16 @@ const ThemeProvider = dynamic(
   { ssr: false },
 );
 
+const Schedulers = dynamic(
+  () => import("@/components/shell/schedulers").then((m) => m.Schedulers),
+  { ssr: false },
+);
+
 export default function ShellLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <ThemeProvider />
+      <Schedulers />
       <div className="flex h-screen">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">

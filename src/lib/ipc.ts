@@ -6,6 +6,7 @@
 // and every React component keeps working.
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   enable as enableAutostart,
   isEnabled as isAutostartEnabled,
@@ -64,6 +65,16 @@ async function keychainGet(key: string): Promise<string | null> {
 
 async function keychainDelete(key: string): Promise<void> {
   await invoke("keychain_delete", { key });
+}
+
+// ---------------------------------------------------------------------------
+// Tauri event bus (tray → webview). Wraps @tauri-apps/api/event.listen so
+// component files don't have to import it directly (biome noRestrictedImports).
+// Returns the unlisten function; call it in React cleanup.
+// ---------------------------------------------------------------------------
+
+export async function listenTauriEvent(event: string, handler: () => void): Promise<UnlistenFn> {
+  return await listen(event, handler);
 }
 
 function childKeychainKey(childId: number): string {
@@ -509,12 +520,23 @@ interface RawAssignmentRow {
   feedback: string | null;
 }
 
+/** SQLite's `datetime('now')` returns `"YYYY-MM-DD HH:MM:SS"` in UTC without
+ *  a timezone suffix — WebKit / V8 parse that as LOCAL time, showing the
+ *  clock 4-8h off in the UI. Normalize to proper ISO with `Z` so every
+ *  `new Date()` consumer reads it correctly. */
+function sqliteUtcToIso(raw: string): string {
+  if (/\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(raw)) {
+    return `${raw.replace(" ", "T")}Z`;
+  }
+  return raw;
+}
+
 function mapFetchRunRow(row: RawFetchRunRow): FetchRunRecord {
   return {
     id: row.id,
     childId: row.child_id,
     source: row.source,
-    runAt: row.run_at,
+    runAt: sqliteUtcToIso(row.run_at),
     status: row.status,
     durationMs: row.duration_ms,
     errorMessage: row.error_message,

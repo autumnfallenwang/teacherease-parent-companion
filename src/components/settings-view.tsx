@@ -5,18 +5,18 @@ import { SettingsAdvanced } from "@/components/settings-advanced";
 import { SettingsAppearance } from "@/components/settings-appearance";
 import { SettingsAttention } from "@/components/settings-attention";
 import { SettingsChildren } from "@/components/settings-children";
-import { SettingsEmail } from "@/components/settings-email";
+import { SettingsFetch } from "@/components/settings-fetch";
 import { SettingsNotifications } from "@/components/settings-notifications";
 import { PageHeader } from "@/components/shell/page-header";
 
-type SettingsTab = "children" | "appearance" | "attention" | "notifications" | "email" | "advanced";
+type SettingsTab = "children" | "appearance" | "attention" | "fetch" | "notifications" | "advanced";
 
 const TABS: Array<{ key: SettingsTab; label: string }> = [
   { key: "children", label: "Children" },
   { key: "appearance", label: "Appearance" },
   { key: "attention", label: "Attention" },
+  { key: "fetch", label: "Fetch" },
   { key: "notifications", label: "Notifications" },
-  { key: "email", label: "Email" },
   { key: "advanced", label: "Advanced" },
 ];
 
@@ -50,8 +50,8 @@ export function SettingsView() {
         {activeTab === "children" && <SettingsChildren />}
         {activeTab === "appearance" && <SettingsAppearance />}
         {activeTab === "attention" && <SettingsAttention />}
+        {activeTab === "fetch" && <SettingsFetch />}
         {activeTab === "notifications" && <SettingsNotifications />}
-        {activeTab === "email" && <SettingsEmail />}
         {activeTab === "advanced" && <SettingsAdvanced />}
       </div>
     </>

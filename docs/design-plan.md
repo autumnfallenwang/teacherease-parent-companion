@@ -630,6 +630,90 @@ The "This week vs older" split in the existing UI becomes "Within the window vs 
 
 **Promoted to:** Phase 18 in `docs/progress.md`.
 
+### Q29 — Decoupled fetch + notify schedules with input/output Settings split (supersedes Q27's "dispatched once per refresh cycle" coupling and Q2's single 6h timer model)
+
+**Problem.** Since Phase 5 (T26) the internal 6-hour timer coupled fetch and notify: every auto-refresh pulled data AND dispatched a digest. Q27 made that coupling explicit ("dispatched once per refresh cycle"). In practice parents want different cadences for the two halves — fetch should run often enough that "today" is always fresh (several times a day, doesn't matter exactly when), but a notification is an interruption and they want exactly one at a predictable time (e.g. morning coffee before the school run). The two-jobs-in-one design also forces the manual Refresh button to do both; a parent who just wants to trigger a pull without re-sending the same digest they already got has no way to. The Today header is additionally cluttered with a button parents rarely reach for on that page — the tray menu and auto-refresh already cover the 95% case.
+
+**Decision.**
+
+1. **Two independent schedulers, one scheduler abstraction.** New `src/lib/schedule/` module with a generic `ScheduleLoop` that takes a pure `nextRunAt(now, config) → Date` function + a `tick()` side-effect callback. Two configurations:
+   - **Fetch schedule** — N runs per day at evenly-spaced local-time slots. Default 4 (00:00 / 06:00 / 12:00 / 18:00). User-tunable to 1–8 per day in Settings → Fetch.
+   - **Notify schedule** — exactly 1 run per day at a user-picked local HH:MM. Default 07:00.
+   Next-run timestamp persisted across app restarts (new `settings` keys `fetch.nextRunAt` / `notify.nextRunAt`) so reopening the app doesn't re-fire anything that was supposed to have already happened while it was closed (other than the cold-start staleness check in step 4).
+
+2. **Manual buttons live in Settings, not the Today header.** Today's `PageHeader` action slot loses the Refresh button entirely (last-checked timestamp stays — parents still want to see it). Two new buttons appear co-located with each schedule:
+   - Settings → Fetch → **"Fetch now"** — runs `runner.runAll()` across all children, no notification fires.
+   - Settings → Notifications → **"Send digest now"** — builds digest from current DB state + dispatches via router. Distinct from the existing "Send test" button, which uses synthetic sample data.
+
+3. **Settings reorganization: input vs. output.** Current sub-tabs Children / Appearance / Attention / Notifications / Email / Advanced become Children / Appearance / Attention / **Fetch** / **Notifications** / Advanced. Email merges fully into Notifications (SMTP config + email toggle + Gmail tutorial link + email "Send test" all under one sub-tab). Mental model parents can hold: "Fetch = what the app pulls in from school. Notifications = what the app pushes out to me."
+
+4. **Cold-start auto-fetch (silent).** On shell layout mount, if the latest successful TE fetch for ANY child is older than 6 hours (or missing entirely), fire one `runner.runAll()` in the background with no notification dispatch. This covers the "I just opened the app after lunch, give me something current" case without adding a manual button to Today. Threshold fixed at 6h in v1 (matches the Phase 5 staleness semantic it replaces), not user-tunable.
+
+5. **Notify cron reads DB, not fetch.** The scheduled notification builds its digest from whatever is in SQLite at notify-time — no implicit fetch is triggered by a notify tick. If the parent sets notify at 07:00 and fetch runs at 06:00, they get fresh-data notifications. If the 06:00 fetch failed for any reason, they get 07:00 notifications against yesterday's data — silently stale, no failure badge (per D-18 / Q27: failure info already removed from the digest). This is intentional: parents opted out of failure noise explicitly, and the stale state they see on the Today tab will tell them something's wrong if they check.
+
+**What stays locked.**
+- **Q27's unified `RefreshDigest`** — same event shape, same OS-summary / email-detailed fidelities, same `notify.refreshDigest.{os,email}` toggles.
+- **"Always fire"** on notify tick — no content-based silencing. User disables via channel toggle only.
+- **Tray icon's "Refresh" menu item** — stays; it means "fetch now" (no notification), matching Settings → Fetch's button semantics.
+
+**What this supersedes.**
+- **Q27's "dispatched once per refresh cycle"** coupling. Fetch and notify now have fully independent triggers. The unified digest model is unchanged — what changes is who dispatches and when.
+- **Q2's "single in-process `setTimeout` timer every 6h"** — replaced by two independent scheduler loops (still `setTimeout`-based; one abstraction, two configs).
+- **Today tab's manual Refresh button** — moved into Settings → Fetch.
+
+**Non-goals.**
+- No per-slot fetch-time picker in v1 — "N per day" derives evenly-spaced slots, not individually configurable. A parent with specific timing needs can set N=1 and the hourly offset is ignored — we just run once per day at midnight local. (If that's too coarse, we bump to multi-slot in a future phase.)
+- No per-child schedules — family-wide only.
+- No "pause notifications for X days" mode — user toggles the channel off.
+- No background-daemon / native cron integration. The app still needs to be running (autostart + tray keep this working for most users). Missed ticks during app-closed time are NOT replayed on reopen, except via the cold-start staleness check.
+
+**Promoted to:** Phase 19 in `docs/progress.md`.
+
+### Q30 — Fetch schedule: count + first-slot anchor + visible slot list (supersedes Q29's "evenly spaced starting at 00:00" slot rule)
+
+**Problem.** Q29's fetch schedule math fixes the first slot at local midnight — slots are `[0, 6, 12, 18]` for 4/day, `[0, 8, 16]` for 3/day, etc. In practice parents want to match the app's rhythm to their household rhythm: "fetch before I check in with the kids in the morning, at lunch, after school, at bedtime." Midnight-anchored slots make that impossible without bumping the count to 24. Full cron syntax (`0 7,12,16,22 * * *`) would enable it but nobody reads cron. We need something between bare count and cron that gives time-of-day control without demanding tuple syntax or comma-separated lists.
+
+We also have an implicit convention now that should be written down: **every timestamp stored to the DB or settings is UTC; every timestamp shown in the UI is the user's local tz.** SQLite's `datetime('now')` returns UTC without a `Z` suffix, and WebKit / V8 silently parse that as LOCAL — so UI rows were showing the UTC clock 4–8h off until we normalized in `mapFetchRunRow` (Phase 19 post-ship fix). Codifying this convention prevents the same class of bug from recurring.
+
+**Decision.**
+
+1. **Two knobs for the fetch schedule, not one.**
+   - **Fetches per day** — integer 1–8 (unchanged from Q29). Default 4.
+   - **First slot at** — local "HH:MM" time picker. Default `"00:00"`. Anchors the first slot of the day; subsequent slots are spaced evenly from there.
+
+   Slot list: `(firstSlotHour + i * 24/n) mod 24` for i in 0..n-1. With n=4, start=06:00 → `06 / 12 / 18 / 00`. With n=3, start=07:00 → `07 / 15 / 23`. Slots always loop within a 24h cycle; "first slot at 06:00 + 4 per day" never drifts.
+
+2. **Show every trigger time on the page.** Settings → Fetch renders all N slots for the current day as chips under the two inputs: `Today's slots: 06:00 · 12:00 · 18:00 · 00:00 (tomorrow)`. "Next run" highlights the next slot with a relative offset (`06:00 (in 2h 14m)`). Parents don't have to run the math in their heads.
+
+3. **Notify schedule stays unchanged.** Already "1×/day at a user-picked HH:MM" — no count/anchor split needed; the single knob IS the only knob. Same local-in-UI / UTC-in-storage convention applies to `notify.nextRunAt`.
+
+4. **Storage convention (locked).**
+   - **Instants** (`fetch.nextRunAt`, `notify.nextRunAt`, `fetch_runs.run_at`, `homework.scraped_at`, any "when did X happen/will happen" field): stored as UTC ISO 8601 with explicit `Z` suffix. Written via `Date#toISOString()` or SQLite `strftime('%Y-%m-%dT%H:%M:%SZ','now')`.
+   - **Wall-clock preferences** (`notify.time`, `fetch.firstSlotAt`, any "user wants this at HH:MM" field): stored as local "HH:MM" strings. No timezone component — it's a recurring time-of-day, not an instant. Next-run math uses the parent's current local tz at compute-time.
+   - **UI display**: every instant goes through a formatter that parses the UTC string and formats via `toLocaleString()` / `toLocaleTimeString()` for the user's current tz.
+   - **Raw DB rows from SQLite `datetime('now')`**: shelter consumers from the no-`Z` bug at the mapper boundary (existing `sqliteUtcToIso` helper in `ipc.ts`). New mappers follow suit. Don't trust any bare `row.some_at` string to parse correctly.
+
+5. **DST handling.** `Date#setHours(h)` / `new Date(y, m, d, h, min)` honor the local tz's DST rules. On a spring-forward day with slots `[02:00]`, the 02:00 slot effectively skips to 03:00 that day — acceptable; one slot per year at most. The fallback (no slot firing at all on that day) is worse than the jump, so we keep it simple and don't special-case DST.
+
+**What this supersedes.**
+- **Q29 (1)'s "evenly-spaced local slots starting at 00:00"** — slots now start at a user-picked `fetch.firstSlotAt`.
+- **The Phase 19 Settings → Fetch UI** — add "First slot at" time picker + "Today's slots" chip list. Existing "Fetches per day" input stays.
+
+**What stays locked (Q29 still holds).**
+- Two independent schedulers, one abstraction. Unchanged.
+- Notify is still 1×/day at HH:MM. Unchanged.
+- Manual "Fetch now" / "Send digest now" / "Send test" button placement. Unchanged.
+- Cold-start 6h staleness check. Unchanged.
+- Settings reorganization (Fetch + Notifications). Unchanged.
+
+**Non-goals.**
+- No individual-slot override ("actually skip the 12:00 one"). Parents can drop to n-1 if they don't want a slot; no UI for disabling just one.
+- No per-weekday schedules. Same N slots every day.
+- No "don't fetch while I'm asleep" quiet-hours knob. Parents pick slots they're OK with; if 00:00 is too noisy, they shift `firstSlotAt` to 06:00 for n=4 → slots land at 06/12/18/00. The last one is still at midnight — if they care, they pick n=3 start=07:00 → 07/15/23.
+- No second tz picker. Slots follow the OS local tz; travelers see their schedule re-anchor to local on boot. Acceptable.
+
+**Promoted to:** Phase 20 in `docs/progress.md`.
+
 ---
 
 ## Tech Stack

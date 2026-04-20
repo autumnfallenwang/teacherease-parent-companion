@@ -135,17 +135,51 @@ Today tab's Homework area splits into two strictly today-matched sections — "H
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| H1 | `getHomeworkForDay` IPC helper | Not started | `src/lib/ipc.ts` — new `getHomeworkForDay(childId, iso): Promise<HomeworkRecord[]>`. Delete `getLatestHomework` + `getHomeworkBetween` (orphaned after this change). |
-| H2 | Split HomeworkCard into two sections | Not started | `src/components/homework-card.tsx` — two sections rendered together: "Homework for today" (soft empty "No homework for today") + "Homework due today" (soft empty "Nothing due today"). Shared `HomeworkRow` stays. |
-| H3 | Dashboard loadData rewires | Not started | `dashboard.tsx` — drop single `homework` state, add `homeworkForToday` + `homeworkDueToday`. One `getHomeworkForDay` call per child, client-side split by `hwDate===today` / `dueDate===today`. If `child.homeworkUrl` is null → skip entire Homework block on Today tab. |
-| H4 | Digest shape update | Not started | `notify/types.ts` + `digest.ts` — `ChildDigest.homework` → `homeworkForToday` + `homeworkDueToday`. `BuildRefreshDigestInput` gets two maps. `FamilyHero.homeworkCount` = distinct count across both (dedup by id). Drop `tomorrowLocal`. |
-| H5 | Email template rewrite | Not started | `email-templates.ts` — two subsections per child matching Today tab. Rename "Tonight's homework" → "Homework for today". Plaintext mirrors. |
-| H6 | OS body tweak | Not started | `os-channel.ts` — `N homework items tonight` → `N homework items today`; count stays `family.homeworkCount` (deduped). |
-| H7 | handleRefresh wiring | Not started | `dashboard.tsx` `handleRefresh` — swap `perChildHomework` for two maps. |
-| H8 | Tests | Not started | `digest.test.ts` — drop tomorrow case, add due-today case; update shape. `email-channel.test.ts` — two subsection assertions. |
-| H9 | Backlog + CHANGELOG close-out | Not started | Flip D-14 to done with SHA. CHANGELOG entry. |
+| H1 | `getHomeworkForDay` IPC helper | ✅ Done | `src/lib/ipc.ts` — `getHomeworkForDay(childId, iso)` with `WHERE hw_date = $2 OR due_date = $2`. `getLatestHomework` + `getHomeworkBetween` deleted (orphaned). |
+| H2 | Split HomeworkCard into two sections | ✅ Done | `src/components/homework-card.tsx` now exports `HomeworkTodaySections({forToday, dueToday})` — two sections with shared `HomeworkRow`. Soft empty lines: "No homework for today" / "Nothing due today". |
+| H3 | Dashboard loadData rewires | ✅ Done | `dashboard.tsx` splits by `hwDate===today` / `dueDate===today` client-side. Homework area gated on `child.homeworkUrl` — absent entirely when null. |
+| H4 | Digest shape update | ✅ Done | `notify/types.ts` + `digest.ts` — `ChildDigest.homework` replaced by `homeworkForToday` + `homeworkDueToday` + `homeworkConfigured`. `FamilyHero` splits into `homeworkForTodayCount` + `homeworkDueTodayCount`. `tomorrowLocal` dropped. |
+| H5 | Email template rewrite | ✅ Done | `email-templates.ts` — two subsections per child matching Today tab with Lucide-icon-parity emoji (📖 / 🎯 / 🕐). One-line row format: `{subject} · {content} · 🕐 {date}`. |
+| H6 | OS body tweak | ✅ Done | `os-channel.ts` body now emits three separate lines (meeting count / homework for today / homework due today). |
+| H7 | handleRefresh wiring | ✅ Done | `dashboard.tsx` `handleRefresh` queries `getHomeworkForDay` per child, splits into two maps, passes into `buildRefreshDigest`. |
+| H8 | Tests | ✅ Done | `digest.test.ts` 8 cases updated for today-only + dual sections. `email-channel.test.ts` rewritten for the new shape. 262 passing / 10 skipped. |
+| H9 | Backlog + CHANGELOG close-out | ✅ Done | D-14 + D-15 + D-16 + D-17 + D-18 + B-09 through B-15 all closed in `backlog.md`. CHANGELOG Unreleased section comprehensive. Shipped in `21311bc`. |
 
 **End state:** Today tab shows "Homework for today" and "Homework due today" as two sibling sections, both strictly today-matched. Weekend = empty. Not-configured child = no Homework area at all. Email digest mirrors. "Tonight" terminology retired.
+
+## Phase 19: Decoupled fetch + notify schedules + Settings input/output reorg (per Q29)
+
+Split Phase 5's single 6h timer into two independent schedulers. Fetch has its own cadence (N×/day, default 4) and drives data freshness; notify has its own time (1×/day at a user-picked HH:MM, default 07:00) and drives the digest. Manual Refresh leaves the Today header; Settings gains a new "Fetch" sub-tab and absorbs the old "Email" sub-tab into "Notifications" (input vs. output split). Cold-start auto-fetch fires silently when the newest successful TE fetch is >6h old. Promoted from walkthrough dialog; Q29 locked in `design-plan.md`.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| CF1 | `ScheduleLoop` + pure next-run helpers | ✅ Done | `src/lib/schedule/loop.ts` — generic `setTimeout`-based loop taking `nextRunAt(now, cfg) → Date` + `tick()` callback. `src/lib/schedule/fetch-schedule.ts` — `computeFetchNextRun(now, runsPerDay)` returns next evenly-spaced slot (local tz, DST-aware). `src/lib/schedule/notify-schedule.ts` — `computeNotifyNextRun(now, hhmm)` returns today's HH:MM if still future, else tomorrow's. Pure modules, zero Tauri imports. Unit tests for DST boundary, past-time rollover, runs-per-day slot math. |
+| CF2 | Settings keys + IPC hooks | ✅ Done | New `settings` keys: `fetch.runsPerDay` (default `"4"`), `fetch.nextRunAt` (ISO), `notify.time` (`"07:00"`), `notify.nextRunAt` (ISO). `src/lib/ipc.ts` gains typed helpers — `getFetchSchedule()` / `setFetchSchedule(n)` / `getNotifySchedule()` / `setNotifySchedule(hhmm)`. Retire any leftover 6h-timer ad-hoc state. |
+| CF3 | Shell-level scheduler mount | ✅ Done | New `src/components/shell/schedulers.tsx` — side-effect-only client component mounted by `(shell)/layout.tsx` after ThemeProvider. Two `ScheduleLoop` instances started on mount, cleared on unmount. Fetch tick: `runner.runAll(child)` per child + `window.dispatchEvent(CHILD_DATA_REFRESHED_EVENT)`; no notify dispatch. Notify tick: build digest from current DB snapshot + `buildNotifyRouter().dispatch(digest)`. Dashboard's dashboard-mount 6h timer deleted. |
+| CF4 | Cold-start staleness check | ✅ Done | In `schedulers.tsx` mount effect, before starting the loops: query `getLatestSuccessfulFetchRun(childId, "teacherease")` per child; if any is null or >6h old, fire one silent `runner.runAll()` via the same fetch-tick path. One-shot, does not affect next scheduled tick. |
+| CF5 | Settings → Fetch sub-tab | ✅ Done | New `src/components/settings-fetch.tsx` — Q24 Enter-or-blur numeric input for `fetch.runsPerDay` (1–8, default 4), readback of `fetch.nextRunAt` in local time, "Fetch now" button running `runner.runAll()` across all children (silent — no digest). Per-child last-success timestamp line via `getLatestSuccessfulFetchRun`. |
+| CF6 | Merge Email into Notifications | ✅ Done | `src/components/settings-notifications.tsx` absorbs SMTP config fields + email toggle + Gmail tutorial link from old `settings-email.tsx`. Adds HH:MM time picker bound to `notify.time`. Three buttons: "Send test OS" (synthetic), "Send test email" (synthetic, gated on SMTP config), "Send digest now" (real-data, dispatches via router through both channels per their toggles). |
+| CF7 | Remove Refresh from Today header | ✅ Done | Dashboard's `PageHeader` action slot loses the Refresh button. Last-checked timestamp stays. `handleRefresh` function itself deleted — its two callers (manual button, 6h timer) are gone; new fetch-tick path lives in `schedulers.tsx`. Scroll-to-refresh not introduced. |
+| CF8 | Delete settings-email.tsx + SettingsView wiring | ✅ Done | `src/components/settings-email.tsx` deleted. `SettingsView` sub-tabs array: current order `["children", "appearance", "attention", "notifications", "email", "advanced"]` → new `["children", "appearance", "attention", "fetch", "notifications", "advanced"]`. |
+| CF9 | Tests + CHANGELOG + backlog close | ✅ Done | Unit tests for `computeFetchNextRun` / `computeNotifyNextRun` (DST + timezone-boundary + roll-over cases). `ScheduleLoop` tested under `vi.useFakeTimers()`. Smoke plan in CHANGELOG entry. Phase 19 entry in `What's Working` / `What's Next`. |
+
+**End state:** Fetch pulls silently on its own cadence whenever the app is open; notify fires once a day at the parent's chosen time from whatever's in DB; manual buttons live next to the schedule they trigger. Today view is cleaner. The unified-digest pipeline is unchanged — Q27 / Q28's event shape, toggles, and rendering all survive intact; what moves is the trigger edge.
+
+## Phase 20: Fetch schedule UX — first-slot anchor + visible slot list (per Q30)
+
+Q29 locked fetch as "N evenly-spaced slots starting at 00:00." Q30 adds a second knob — **First slot at (HH:MM)** — so parents can phase-align the day's slots to their household (`6am / noon / after-school / bedtime` vs. `midnight-anchored`). Settings → Fetch gains a visible "Today's slots" chip list so the parent doesn't have to reconstruct the times mentally. Also codifies the **local-in-UI / UTC-in-storage** convention that Phase 19 post-ship fixes already established. Q30 locked in `design-plan.md`.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| FS1 | Extend `computeFetchSlots` + `computeFetchNextRun` to accept a `firstSlotHour` | Not started | `src/lib/schedule/fetch-schedule.ts` — rename internal helpers if needed, add `firstSlotMinutes` param. Slot math becomes `((firstSlotMinutes + i * 1440 / n) mod 1440) → {h, m}`. Update `computeFetchNextRun(now, n, firstSlotAt)` to take the same anchor. Pure — no Tauri. |
+| FS2 | New setting key + parse helper | Not started | `fetch.firstSlotAt` stored as `"HH:MM"` local. Default `"00:00"`. Add `FETCH_FIRST_SLOT_DEFAULT` + `parseFetchFirstSlot(raw) → "HH:MM"` with the same `parseNotifyTime`-style fallback. |
+| FS3 | Settings → Fetch UI update | Not started | `src/components/settings-fetch.tsx` — add a second Q24 time input ("First slot at") beside the existing "Fetches per day" input. Below: a chip list "Today's slots" showing the computed local times. Highlight the next slot; append `(tomorrow)` to any slot that rolls over past midnight. Dispatch `SCHEDULES_CHANGED_EVENT` on commit. |
+| FS4 | Scheduler wiring | Not started | `src/components/shell/schedulers.tsx` — read `fetch.firstSlotAt` in `bootstrap()` + pass into `computeFetchNextRun`. No structural change. |
+| FS5 | Storage-convention audit | Not started | Apply `sqliteUtcToIso` (already in `ipc.ts`) to `mapHomeworkRow` (`scraped_at`) + `mapChildRow` (`created_at`) so no DB consumer has the late-evening / 4-8h-off bug. Grep `src/` for any remaining `new Date(row.*_at)` that bypasses a mapper. |
+| FS6 | Tests | Not started | Unit tests in `tests/lib/schedule/fetch-schedule.test.ts` — slot list with various (n, firstSlot) combos; strict-`>` rollover when `now` exactly matches an anchored slot; DST-spring-forward test case with a non-midnight anchor. Update existing tests to pass `firstSlotHour` arg. |
+| FS7 | Docs + CHANGELOG | Not started | Flip Phase 20 rows to Done. CHANGELOG Unreleased entry under Changed. Link Q30 from progress summary. |
+
+**End state:** Fetch tab shows two inputs (count + first-slot time) and lists every trigger time for the day. Defaults preserve Phase 19 behavior (00:00 anchor = midnight-starting slots). Parents who want school-day-anchored fetches set `firstSlotAt` once. Local-in-UI / UTC-in-storage convention is codified across every `*_at` field.
 
 ---
 
