@@ -1,7 +1,8 @@
 "use client";
 
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SettingsSection } from "@/components/settings/section";
 import { FETCH_NOW_EVENT, SCHEDULES_CHANGED_EVENT } from "@/components/shell/schedulers";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { Button } from "@/components/ui/button";
@@ -215,15 +216,12 @@ export function SettingsFetch() {
 
   return (
     <div className="space-y-5">
-      <section className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div>
-          <h2 className="text-[14px] font-medium">Schedule</h2>
-          <p className="text-[12px] text-muted-foreground">
-            How often — and anchored where — the app pulls fresh data from the portal. Slots are
-            evenly spaced from "First slot at" around the 24h cycle. Only fires while the app is
-            open; autostart keeps it ticking.
-          </p>
-        </div>
+      <SettingsSection
+        title="Schedule"
+        help={
+          "How often — and anchored where — the app pulls fresh data from the portal. Slots are evenly spaced from “First slot at” around the 24h cycle. Only fires while the app is open; autostart keeps it ticking."
+        }
+      >
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="fetch-runs-per-day" className="text-[13px]">
@@ -306,38 +304,31 @@ export function SettingsFetch() {
             <span className="ml-1.5">({formatRelative(nextRunAt)})</span>
           )}
         </p>
-      </section>
+      </SettingsSection>
 
-      <section className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-[14px] font-medium">Fetch now</h2>
-        </div>
-        <p className="text-[12px] text-muted-foreground">
-          Pulls the latest data for every child immediately. No notification fires — only the DB
-          updates. Use this when you want to see current data without waiting for the next scheduled
-          run.
-        </p>
-        <div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={fetching}
-            onClick={handleFetchNow}
-            className="gap-1.5"
-          >
-            {fetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {fetching ? "Fetching…" : "Fetch now"}
-          </Button>
-        </div>
-      </section>
+      <SettingsSection
+        title="Fetch now"
+        help="Pulls the latest data for every child immediately. No notification fires — only the database updates. Use this when you want to see current data without waiting for the next scheduled run."
+      >
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={fetching}
+          onClick={handleFetchNow}
+          className="gap-1.5"
+        >
+          {fetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {fetching ? "Fetching…" : "Fetch now"}
+        </Button>
+      </SettingsSection>
 
       {childLastRuns.length > 0 && (
-        <section className="space-y-2">
-          <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            Last successful fetch
-          </p>
+        <SettingsSection
+          title="Last successful fetch"
+          help="When each child was last pulled via the TeacherEase source. Empty when a child has never successfully scraped."
+          card={false}
+        >
           <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             {childLastRuns.map(({ child, latest }) => (
               <div key={child.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -350,7 +341,7 @@ export function SettingsFetch() {
               </div>
             ))}
           </div>
-        </section>
+        </SettingsSection>
       )}
     </div>
   );

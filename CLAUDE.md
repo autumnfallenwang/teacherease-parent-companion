@@ -26,7 +26,16 @@ Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + 
 - `pnpm typecheck` — `tsc --noEmit`
 - `pnpm test` — Vitest full suite
 - `pnpm test:fast` — Vitest unit tests only
+- `pnpm bump <semver>` — edit the three version files in sync (`package.json` / `Cargo.toml` / `tauri.conf.json`). See [docs/releasing.md](docs/releasing.md).
 - `cd src-tauri && cargo fmt` / `cargo clippy` / `cargo test` — Rust side
+
+## CI + release (one-line summary)
+
+- `.github/workflows/ci.yml` — runs on every push to `main` and every PR: `pnpm lint` + `pnpm typecheck` + `pnpm test` + Rust `fmt`/`clippy`/`test`. No bundler. Feature-branch pushes (no PR) skip CI entirely.
+- `.github/workflows/auto-release.yml` — runs on every push to `main`: detects whether the version was bumped in that push; if not, auto-bumps patch + commits the bump back; then tags `v<version>` and invokes `release.yml`.
+- `.github/workflows/release.yml` — reusable build workflow called by auto-release (or triggered directly by a `v*` tag push). Builds + minisign-signs all 4 platforms, creates a **draft** GitHub Release.
+
+Full runbook: [docs/releasing.md](docs/releasing.md).
 
 ## Key constraints
 
@@ -47,6 +56,9 @@ All detailed rules live in `.claude/rules/` (auto-loaded each session):
 - [docs/design-plan.md](docs/design-plan.md) — design plan, locked decisions, data model, build phases
 - [docs/progress.md](docs/progress.md) — current task tracker
 - [docs/lessons.md](docs/lessons.md) — corrections and patterns to avoid repeating
+- [docs/releasing.md](docs/releasing.md) — release runbook (auto-release workflow, Path A auto patch bump / Path B explicit bump, signing, smoke-test checklist)
+- [docs/updater-signing.md](docs/updater-signing.md) — minisign keypair + GH secret setup for the updater
+- [docs/first-launch-windows.md](docs/first-launch-windows.md) + [docs/first-launch-macos.md](docs/first-launch-macos.md) — user-facing install walkthroughs (SmartScreen / Gatekeeper)
 - [.claude/rules/conventions.md](.claude/rules/conventions.md) — coding conventions (logging levels, import rules, error handling, naming). Auto-loaded by Claude Code.
 
 ## Predecessor

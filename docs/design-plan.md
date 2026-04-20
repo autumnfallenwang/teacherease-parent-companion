@@ -750,6 +750,42 @@ We also have an implicit convention now that should be written down: **every tim
 
 **Promoted to:** Phase 21 in `docs/progress.md`.
 
+### Q32 — Homework: keep everything, browse by month (supersedes Q19's "Only the current month's entries persisted")
+
+**Problem.** Q19 capped homework persistence to the current calendar month because the scraper's source page is a static Google Site — the whole month is re-parsable on every fetch, so there was no downside to dropping older rows on ingestion. In practice parents want to look back across a semester ("what did the teacher assign in February?"), and the 50-row History cap was already a makeshift browse — but ingestion throws away anything older than the current month, so 50 rows was an illusion. The right thing is: persist everything the scraper returns, and handle volume on the display side.
+
+**Decision.**
+
+1. **Ingestion: persist every row the scraper returns.** Drop the current-month filter in `persistHomework` (`ipc.ts:841–861`). No other changes to the write path — `UNIQUE(child_id, hw_date, subject)` still provides idempotent upsert. Schema unchanged.
+
+2. **Display: History tab gets a month dropdown.** Single `<select>` at the top populated from distinct `YYYY-MM` values in the DB for the selected child, sorted descending (most recent first), labeled with per-month count: `April 2026 (23)`. Default selection on mount: current month if present, else the most recent month with data. When the user picks a month, the view renders **every** row for that month — no inner pagination, no search (months cap at ~25 entries in practice; no pressure for more UX).
+
+3. **New IPC helpers.**
+   - `getHomeworkMonths(childId: number): Promise<Array<{ yearMonth: string; count: number }>>` — distinct months with counts, sorted desc.
+   - `getHomeworkByMonth(childId: number, yearMonth: string): Promise<HomeworkRecord[]>` — all rows where `substr(hw_date, 1, 7) = $yearMonth`, sorted `hw_date ASC, id`.
+   - `getRecentHomework` stays (internal callers from earlier phases); history-view switches to the two new helpers.
+
+4. **Retention still indefinite.** No time-based auto-purge. Parents clear via Settings → Advanced → Clear history (unchanged).
+
+**What stays locked (Q19 still holds).**
+- Schema shape + `UNIQUE(child_id, hw_date, subject)` idempotent upsert.
+- Plain `fetch` + cheerio source-page parse.
+- `HomeworkSource` runs via `FetchRunner` alongside TeacherEase.
+- `due_date_inferred` italic/tilde render convention.
+- Optional per-child via `children.homework_url`.
+- Today tab's strict today-match (`hwDate === today` / `dueDate === today`) from Q28 — unchanged.
+
+**What this supersedes.**
+- **Q19's "Only the current month's entries persisted" clause** — now persist everything. The "keeps the table bounded" rationale is obsolete; ~25 rows/month is a trivial storage footprint even over multi-year runs.
+
+**Non-goals (for this supersede).**
+- No subject filter, no free-text search. Parents pick a month; if a specific subject matters, they scan the ~25 rows. Adding search is cheap later if a parent asks.
+- No retention knob in Settings (e.g. "auto-delete older than X"). Clear history is a nuclear option; that's enough.
+- No paginated browsing inside a month — ~25 rows fits comfortably in one scroll. A multi-year browse crosses the dropdown, not pages.
+- No multi-select or range (e.g. "Feb + Mar"). One month at a time.
+
+**Promoted to:** Phase 24 in `docs/progress.md`.
+
 ---
 
 ## Tech Stack

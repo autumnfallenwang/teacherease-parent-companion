@@ -1,7 +1,7 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { SettingsSection } from "@/components/settings/section";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -70,68 +70,73 @@ export function SettingsAdvanced() {
 
   return (
     <div className="space-y-5">
-      <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-4 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium">Start on login</p>
-            <p className="text-[12px] text-muted-foreground">
-              Launch the app automatically when you sign in to your computer.
-            </p>
-          </div>
-          <Switch
-            checked={autostartOn ?? true}
-            onChange={(next) => {
-              void toggleAutostart(next);
-            }}
-            aria-label="Start on login"
-          />
-        </div>
-
-        <div className="flex items-center gap-4 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium">Check for updates</p>
-            <p className="text-[12px] text-muted-foreground">
-              Automatic update checks. (Updater ships in a future release.)
-            </p>
-          </div>
-          <Switch
-            checked={updaterOn ?? true}
-            onChange={(next) => {
-              void toggleUpdater(next);
-            }}
-            aria-label="Check for updates"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className="flex items-center gap-1.5 px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-          <AlertTriangle className="h-3 w-3" /> Danger zone
-        </p>
-        <div className="rounded-lg border border-destructive/20 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-start gap-4">
+      <SettingsSection
+        title="General"
+        help="Background behavior. Autostart keeps the scheduler ticking; the updater toggle gates future in-app updates."
+        card={false}
+      >
+        <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center gap-4 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Clear history</p>
+              <p className="text-[13px] font-medium">Start on login</p>
               <p className="text-[12px] text-muted-foreground">
-                Wipes fetch runs, homework entries, and class data for every child. Credentials,
-                children, and settings stay intact.
+                Launch the app automatically when you sign in.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={clearing}
-              onClick={() => {
-                void handleClear();
+            <Switch
+              checked={autostartOn ?? true}
+              onChange={(next) => {
+                void toggleAutostart(next);
               }}
-              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-            >
-              {clearing ? "Clearing…" : "Clear history"}
-            </Button>
+              aria-label="Start on login"
+            />
           </div>
-          {clearedToast && <p className="mt-2 text-[12px] text-meeting">History cleared.</p>}
+
+          <div className="flex items-center gap-4 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium">Check for updates</p>
+              <p className="text-[12px] text-muted-foreground">
+                Automatic update checks (updater ships in a future release).
+              </p>
+            </div>
+            <Switch
+              checked={updaterOn ?? true}
+              onChange={(next) => {
+                void toggleUpdater(next);
+              }}
+              aria-label="Check for updates"
+            />
+          </div>
         </div>
-      </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Danger zone"
+        help="One-way deletions. Back up your data if in doubt."
+        danger
+      >
+        <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium">Clear history</p>
+            <p className="text-[12px] text-muted-foreground">
+              Wipes fetch runs, homework entries, and class data for every child. Credentials,
+              children, and settings stay intact.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={clearing}
+            onClick={() => {
+              void handleClear();
+            }}
+            className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+          >
+            {clearing ? "Clearing…" : "Clear history"}
+          </Button>
+        </div>
+        {clearedToast && <p className="mt-2 text-[12px] text-meeting">History cleared.</p>}
+      </SettingsSection>
     </div>
   );
 }

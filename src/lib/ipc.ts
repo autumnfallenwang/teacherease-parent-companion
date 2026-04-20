@@ -838,27 +838,22 @@ function mapHomeworkRow(r: RawHomeworkRow): HomeworkRecord {
 }
 
 /**
- * Upsert homework entries for a child. Filters to the current month+year
- * per Q19 ("Only current month's entries persisted"). Idempotent via
+ * Upsert homework entries for a child. Every valid entry is persisted
+ * (no month filter — per Q32 supersede of Q19). Idempotent via
  * `UNIQUE(child_id, hw_date, subject)`.
  */
 export async function persistHomework(
   childId: number,
   entries: readonly HomeworkEntry[],
-  now: Date = new Date(),
+  _now: Date = new Date(),
 ): Promise<number> {
   const d = await getDb();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
 
   let persisted = 0;
   let inferredCount = 0;
   for (const entry of entries) {
     const iso = hwDateToIso(entry.date);
     if (!iso) continue;
-    const [yearStr, monthStr] = iso.split("-");
-    if (Number.parseInt(yearStr ?? "", 10) !== currentYear) continue;
-    if (Number.parseInt(monthStr ?? "", 10) !== currentMonth) continue;
     if (entry.subjects.length === 0) continue;
 
     for (const subj of entry.subjects) {
@@ -898,11 +893,31 @@ export async function getHomeworkForDay(childId: number, iso: string): Promise<H
   return rows.map(mapHomeworkRow);
 }
 
-export async function getRecentHomework(childId: number, limit = 7): Promise<HomeworkRecord[]> {
+/** Distinct year-months with homework for this child, descending + counts.
+ *  Used by History tab's month dropdown (Q32). */
+export async function getHomeworkMonths(
+  childId: number,
+): Promise<Array<{ yearMonth: string; count: number }>> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ year_month: string; n: number }>>(
+    `SELECT substr(hw_date, 1, 7) AS year_month, COUNT(*) AS n
+     FROM homework WHERE child_id = $1
+     GROUP BY year_month
+     ORDER BY year_month DESC`,
+    [childId],
+  );
+  return rows.map((r) => ({ yearMonth: r.year_month, count: r.n }));
+}
+
+/** All homework rows for the given "YYYY-MM" (local), sorted chronologically. */
+export async function getHomeworkByMonth(
+  childId: number,
+  yearMonth: string,
+): Promise<HomeworkRecord[]> {
   const d = await getDb();
   const rows = await d.select<RawHomeworkRow[]>(
-    "SELECT * FROM homework WHERE child_id = $1 ORDER BY hw_date DESC, id LIMIT $2",
-    [childId, limit],
+    "SELECT * FROM homework WHERE child_id = $1 AND substr(hw_date, 1, 7) = $2 ORDER BY hw_date, id",
+    [childId, yearMonth],
   );
   return rows.map(mapHomeworkRow);
 }

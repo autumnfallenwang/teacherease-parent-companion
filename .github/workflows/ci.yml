@@ -46,38 +46,7 @@ jobs:
       - run: cargo test
         working-directory: src-tauri
 
-  build:
-    name: Build (${{ matrix.os }})
-    needs: [ts, rust]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.29.3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      - name: Install Linux Tauri deps
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm tauri build --ci
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bundle-${{ matrix.os }}
-          path: |
-            src-tauri/target/release/bundle/**/*
-          if-no-files-found: ignore
-          retention-days: 7
+# Cross-platform bundle builds run only on `v*` tag pushes via
+# release.yml. Daily CI here sticks to lint/typecheck/test — fast feedback,
+# no ~15-min-per-OS bundler run on every push. If a platform-specific
+# build bug slips through, the tag workflow catches it before publish.

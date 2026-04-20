@@ -204,16 +204,62 @@ User-driven UX polish on Settings → Notifications. Walkthrough scope too wide 
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| EM1 | Remove "Send test OS notification" button + helper text | Not started | `src/components/settings-notifications.tsx` — drop `osTesting` + `osTestResult` state, `handleOsTest`, the entire button + surrounding help line. OSChannel + `buildSyntheticDigest` imports stay for potential future tests but remove unused. |
-| EM2 | Email section: collapsed-by-default card pattern | Not started | `src/components/settings-email-section.tsx` rewrite. Mirror `settings-children.tsx` edit-in-place pattern: collapsed row shows either `No email configured` + `[Set up email]` or `smtp.gmail.com · you@gmail.com → a@x, b@y` + `[Update]`. Clicking Update/Set up reveals the full form inline; Cancel collapses without saving. |
-| EM3 | Field reorder + badge removal | Not started | Inside the expanded form: order Host/Port → Username → **Password (moved up, under Username)** → From → To (multi). Delete the "Remove saved password" button + "Saved password present in keychain." badge. Password input behavior unchanged (blank = keep existing, type = overwrite on save). |
-| EM4 | Multi-recipient To input | Not started | Replace single `to` input with a list. Each row: `Input` + `[x]` remove. `[+] Add recipient` button below. Store UI state as `to: string[]`. On commit, join non-empty entries with `, ` into the existing `smtp.to` string setting. On load, split by `,` + trim. At least 1 row always rendered. Save disables when any row is empty/invalid-email. |
-| EM5 | Rust SMTP multi-recipient | Not started | `src-tauri/src/smtp.rs` — split `args.to` on `,`, trim whitespace, parse each as `Mailbox`. Add each via `Message::builder().to(mbox)` in a loop. Error early on first parse failure with "invalid recipient '…': {reason}". Log line: `to_domains=foo.com,bar.com` joining the right-hand sides. `cargo test` passes. |
-| EM6 | Save-as-whole + auto-send test email | Not started | Remove per-field instant saves (keychain + settings still written at save time, but not on every keystroke). Single `[Save]` button at bottom commits host/port/user/password/from/to + writes `notify.refreshDigest.email` (the toggle is now inside the form). On successful save, immediately fire one synthetic `EmailChannel().send()` so the user sees the confirmation arrive in their inbox. If send fails, surface error inline; keep form expanded until dismissed. |
-| EM7 | Remove standalone "Send test email" section | Not started | `settings-email-section.tsx` — delete the dedicated test-email card. The save-fires-test flow from EM6 replaces it. Any remaining references clean up. |
-| EM8 | Tests + CHANGELOG + progress close | Not started | Add one `smtp.rs` unit test for comma-split recipient parsing (trim + empty-entry handling + bad-address error). TS unit test on the multi-recipient join/split round-trip if worth it. `pnpm check` + `cargo test` green. CHANGELOG Unreleased entry under Changed. Flip EM rows. |
+| EM1 | Remove "Send test OS notification" button + helper text | ✅ Done | `src/components/settings-notifications.tsx` — drop `osTesting` + `osTestResult` state, `handleOsTest`, the entire button + surrounding help line. OSChannel + `buildSyntheticDigest` imports stay for potential future tests but remove unused. |
+| EM2 | Email section: collapsed-by-default card pattern | ✅ Done | `src/components/settings-email-section.tsx` rewrite. Mirror `settings-children.tsx` edit-in-place pattern: collapsed row shows either `No email configured` + `[Set up email]` or `smtp.gmail.com · you@gmail.com → a@x, b@y` + `[Update]`. Clicking Update/Set up reveals the full form inline; Cancel collapses without saving. |
+| EM3 | Field reorder + badge removal | ✅ Done | Inside the expanded form: order Host/Port → Username → **Password (moved up, under Username)** → From → To (multi). Delete the "Remove saved password" button + "Saved password present in keychain." badge. Password input behavior unchanged (blank = keep existing, type = overwrite on save). |
+| EM4 | Multi-recipient To input | ✅ Done | Replace single `to` input with a list. Each row: `Input` + `[x]` remove. `[+] Add recipient` button below. Store UI state as `to: string[]`. On commit, join non-empty entries with `, ` into the existing `smtp.to` string setting. On load, split by `,` + trim. At least 1 row always rendered. Save disables when any row is empty/invalid-email. |
+| EM5 | Rust SMTP multi-recipient | ✅ Done | `src-tauri/src/smtp.rs` — split `args.to` on `,`, trim whitespace, parse each as `Mailbox`. Add each via `Message::builder().to(mbox)` in a loop. Error early on first parse failure with "invalid recipient '…': {reason}". Log line: `to_domains=foo.com,bar.com` joining the right-hand sides. `cargo test` passes. |
+| EM6 | Save-as-whole + auto-send test email | ✅ Done | Remove per-field instant saves (keychain + settings still written at save time, but not on every keystroke). Single `[Save]` button at bottom commits host/port/user/password/from/to + writes `notify.refreshDigest.email` (the toggle is now inside the form). On successful save, immediately fire one synthetic `EmailChannel().send()` so the user sees the confirmation arrive in their inbox. If send fails, surface error inline; keep form expanded until dismissed. |
+| EM7 | Remove standalone "Send test email" section | ✅ Done | `settings-email-section.tsx` — delete the dedicated test-email card. The save-fires-test flow from EM6 replaces it. Any remaining references clean up. |
+| EM8 | Tests + CHANGELOG + progress close | ✅ Done | Add one `smtp.rs` unit test for comma-split recipient parsing (trim + empty-entry handling + bad-address error). TS unit test on the multi-recipient join/split round-trip if worth it. `pnpm check` + `cargo test` green. CHANGELOG Unreleased entry under Changed. Flip EM rows. |
 
 **End state:** Notifications tab shows the OS toggle, a single compact Email card (collapsed with summary or `Set up email` CTA, expands to the full form on demand), a compact Schedule block, and the `Send digest now` action. No more duplicated test buttons, no more instant per-field writes, no more "you can remove this" affordances cluttering the SMTP form. Multiple `To:` recipients supported end-to-end (TS UI → single comma-joined setting string → Rust multi-Mailbox send).
+
+## Phase 23: Settings tab unified section format (shared `<SettingsSection>` + hover-help pattern)
+
+Six Settings sub-tabs grew organically across Phases 14–22 with drifting section headers, card styles, and description placement. User feedback: the tabs feel non-uniform. Lock a single visual grammar across every panel.
+
+**Rules (applied by every sub-tab).**
+1. Each panel is a vertical stack of sections.
+2. Each section has a **title row** (`text-[14px] font-medium`) with a muted `Info` icon at the end; the icon's `title=` attribute carries the description as a native-browser hover tooltip. No more always-visible help paragraphs under the title.
+3. Each section's **content** lives inside the shared card shell: `rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]`.
+4. **Typography scale** (locked):
+   - Section title: `text-[14px] font-medium`
+   - Field label: `text-[13px]`
+   - Field help / inline error: `text-[12px]`
+   - Tiny caption / status line: `text-[11px]` (uppercase tracking-wider only for group-label usage, e.g. "Time slots").
+5. **Sub-section dividers** within a card use the existing `divide-y divide-border` treatment (unchanged — already consistent).
+
+Native `title=` tooltip chosen over a JS library (radix-ui etc.) — zero dep cost, works on every platform, consistent with the project's "no extra UI libs" ethos (Tailwind + shadcn only). If hover UX ever falls short, revisit under a later walkthrough.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| SS1 | `<SettingsSection>` primitive | ✅ Done | New `src/components/settings/section.tsx` exporting `<SettingsSection title="..." help="...">{children}</SettingsSection>`. Title row: `h2.text-[14px].font-medium` + `Info` icon (14px, muted, `title={help}`). Card body: the locked class. No state, pure layout. |
+| SS2 | Convert Children sub-tab | ✅ Done | `src/components/settings-children.tsx` — wrap the "Add a child" form + the list in `<SettingsSection>` blocks. Remove any always-on `<p className="text-[12px] text-muted-foreground">...</p>` help paragraphs that should move to hover. Child rows stay as-is (they're already self-contained cards). |
+| SS3 | Convert Appearance sub-tab | ✅ Done | `src/components/settings-appearance.tsx` — three sections ("Profile", "Mode", "Font size"). Each becomes a `<SettingsSection>`. Descriptions migrate from the current always-visible paragraphs to tooltip strings. |
+| SS4 | Convert Attention sub-tab | ✅ Done | `src/components/settings-attention.tsx` — two numeric inputs + the icon legend. Wrap each in a `<SettingsSection>` with tooltip-only help. Legend stays inside its own card. |
+| SS5 | Convert Fetch sub-tab | ✅ Done | `src/components/settings-fetch.tsx` — three sections (Schedule, Fetch now, Last successful fetch). Currently uses hand-rolled `<section>` + `<div>` shells with header rows; migrate each to the primitive. Description text (schedule rules) moves to the hover tooltip. |
+| SS6 | Convert Notifications sub-tab | ✅ Done | `src/components/settings-notifications.tsx` + `settings-email-section.tsx` — four sections (Desktop / Email / Schedule / Send digest now). Collapse redundant inline help into tooltips. Email card's expanded form stays as-is (it's already a dense form, not a section). |
+| SS7 | Convert Advanced sub-tab | ✅ Done | `src/components/settings-advanced.tsx` — audit + wrap each control in a `<SettingsSection>`. Clear-history warning stays visible (not a tooltip candidate — needs explicit attention). |
+| SS8 | Typography sweep | ✅ Done | Grep every `text-[NNpx]` across `src/components/settings-*.tsx` + `src/components/settings/**`. Align to the locked scale. Kill stragglers (e.g. anywhere using `text-sm` or `text-base` directly). |
+| SS9 | Docs + CHANGELOG | ✅ Done | CHANGELOG Unreleased entry. Flip SS rows to Done. Note the locked scale in this phase's end-state for future maintainers. |
+
+**End state:** Every Settings sub-tab renders the same visual grammar — section title row with a single info-icon that holds the description, card-wrapped content, consistent type scale. New sub-tabs added in future phases plug into `<SettingsSection>` without reinventing the shell.
+
+## Phase 24: Homework — keep everything + browse by month (per Q32)
+
+Q19's "Only the current month's entries persisted" rule worked fine when ingestion and display were both scoped to now, but parents want to look back across the school year. Q32 drops the write-side filter + replaces the 50-row History cap with a per-month dropdown.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| HM1 | Drop current-month filter in `persistHomework` | ✅ Done | `src/lib/ipc.ts` — remove the `if (Number.parseInt(monthStr ?? "", 10) !== currentMonth) continue;` guard inside the upsert loop + the `currentMonth` local. Every scraped entry now lands (still upserted by `UNIQUE(child_id, hw_date, subject)`). |
+| HM2 | `getHomeworkMonths` IPC helper | ✅ Done | `src/lib/ipc.ts` — new `getHomeworkMonths(childId): Promise<Array<{yearMonth: string; count: number}>>` via `SELECT substr(hw_date, 1, 7) AS ym, COUNT(*) AS n FROM homework WHERE child_id = $1 GROUP BY ym ORDER BY ym DESC`. |
+| HM3 | `getHomeworkByMonth` IPC helper | ✅ Done | `src/lib/ipc.ts` — new `getHomeworkByMonth(childId, "YYYY-MM"): Promise<HomeworkRecord[]>` via `SELECT * FROM homework WHERE child_id = $1 AND substr(hw_date, 1, 7) = $2 ORDER BY hw_date, id`. |
+| HM4 | History-view month dropdown | ✅ Done | `src/components/history-view.tsx` — render a `<select>` at the top (options: `{ym label: count}` formatted as `"April 2026 (23)"`), default to current month if present else most-recent-with-data. Swap `getRecentHomework(cId, 50)` call for `getHomeworkByMonth(cId, selectedMonth)`. Load months list on mount + on child switch. |
+| HM5 | `getRecentHomework` consumers audit | ✅ Done | Grep `src/` for `getRecentHomework`. If the only remaining caller is history-view (pre-migration), delete the export. Otherwise leave in place. |
+| HM6 | CHANGELOG + progress close | ✅ Done | Unreleased entry under Changed describing the retention + display change. Flip HM rows. |
+
+**End state:** Every homework entry the scraper sees lands in the DB forever (until Clear history). History tab shows a month dropdown populated from DB content; picking a month shows every row for that month (~25 typical). Current-month default mirrors prior UX; looking back at September or last October works from month one.
 
 ---
 

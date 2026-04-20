@@ -28,20 +28,36 @@ pub async fn send_email(args: SendEmailArgs) -> Result<(), String> {
         .map_err(|e| format!("smtp join error: {e}"))?
 }
 
+/// Splits the comma-separated `smtp.to` setting into individual `Mailbox`
+/// values. Trims whitespace and skips empty segments. Errors on the first
+/// malformed address with a message naming the bad entry.
+fn parse_recipients(raw: &str) -> Result<Vec<Mailbox>, String> {
+    let out: Vec<Mailbox> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            s.parse::<Mailbox>()
+                .map_err(|e| format!("invalid recipient '{s}': {e}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if out.is_empty() {
+        return Err("no recipients configured".to_string());
+    }
+    Ok(out)
+}
+
 fn send_blocking(args: SendEmailArgs) -> Result<(), String> {
     let from_mbox: Mailbox = args
         .from
         .parse()
         .map_err(|e| format!("invalid from address: {e}"))?;
-    let to_mbox: Mailbox = args
-        .to
-        .parse()
-        .map_err(|e| format!("invalid to address: {e}"))?;
+    let recipients = parse_recipients(&args.to)?;
 
-    let builder = Message::builder()
-        .from(from_mbox)
-        .to(to_mbox)
-        .subject(&args.subject);
+    let mut builder = Message::builder().from(from_mbox).subject(&args.subject);
+    for mbox in recipients.iter() {
+        builder = builder.to(mbox.clone());
+    }
 
     let email = match &args.html_body {
         Some(html) => builder
@@ -72,11 +88,15 @@ fn send_blocking(args: SendEmailArgs) -> Result<(), String> {
         .send(&email)
         .map_err(|e| format!("send failed: {e}"))?;
 
-    let to_domain = args.to.split('@').nth(1).unwrap_or("unknown");
+    let to_domains: Vec<String> = recipients
+        .iter()
+        .map(|m| m.email.domain().to_string())
+        .collect();
     log::info!(
-        "smtp: sent subject_len={} to_domain={}",
+        "smtp: sent subject_len={} recipients={} to_domains={}",
         args.subject.len(),
-        to_domain
+        recipients.len(),
+        to_domains.join(",")
     );
     Ok(())
 }
@@ -84,6 +104,44 @@ fn send_blocking(args: SendEmailArgs) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_recipients_single() {
+        let out = parse_recipients("alice@example.com").unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].email.to_string(), "alice@example.com");
+    }
+
+    #[test]
+    fn parse_recipients_multiple_with_whitespace() {
+        let out = parse_recipients("alice@example.com, bob@example.com ,  charlie@example.com")
+            .unwrap();
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].email.to_string(), "alice@example.com");
+        assert_eq!(out[1].email.to_string(), "bob@example.com");
+        assert_eq!(out[2].email.to_string(), "charlie@example.com");
+    }
+
+    #[test]
+    fn parse_recipients_skips_empty_segments() {
+        let out = parse_recipients("alice@example.com, , bob@example.com,").unwrap();
+        assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn parse_recipients_rejects_malformed() {
+        let err = parse_recipients("alice@example.com, not-an-email").unwrap_err();
+        assert!(err.contains("invalid recipient"));
+        assert!(err.contains("not-an-email"));
+    }
+
+    #[test]
+    fn parse_recipients_empty_input_errors() {
+        let err = parse_recipients("").unwrap_err();
+        assert!(err.contains("no recipients"));
+        let err = parse_recipients(" , , ").unwrap_err();
+        assert!(err.contains("no recipients"));
+    }
 
     // E5 — live-send smoke test. Silent-skip unless EMAIL_LIVE=1 (matches
     // TEACHEREASE_LIVE convention). Reads SMTP_* from sandbox/.env (dev-dep

@@ -1,6 +1,15 @@
 name: Release
 
+# Reusable build + sign + draft-release workflow. Called by auto-release.yml
+# after it tags a new version. Also triggerable directly by a tag push
+# for manual releases (e.g. maintainer-only hotfix).
+
 on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
   push:
     tags: ["v*"]
 
@@ -25,6 +34,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -58,7 +69,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: "TeacherEase Parent Companion v__VERSION__"
           releaseBody: "See the assets to download this version and install. This release was built automatically from the tag; edit these notes before publishing."
           releaseDraft: true

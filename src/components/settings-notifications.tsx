@@ -5,8 +5,9 @@
 // section mirrors Settings → Fetch exactly (N×/day + first-slot-at +
 // Skip-weekends) per Q31.
 
-import { Clock, Loader2, Send } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SettingsSection } from "@/components/settings/section";
 import { SettingsEmailSection } from "@/components/settings-email-section";
 import { SCHEDULES_CHANGED_EVENT, SEND_DIGEST_NOW_EVENT } from "@/components/shell/schedulers";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,6 @@ import {
   setSettingBool,
   setSettingString,
 } from "@/lib/ipc";
-import { OSChannel } from "@/lib/notify/os-channel";
-import { buildSyntheticDigest } from "@/lib/notify/synthetic";
 import { formatSlotMinutes } from "@/lib/schedule/fetch-schedule";
 import {
   computeNotifyNextRun,
@@ -65,10 +64,6 @@ function formatRelative(iso: string | null): string {
 
 export function SettingsNotifications() {
   const [osEnabled, setOsEnabled] = useState<boolean>(OS_DEFAULT_ENABLED);
-  const [osTesting, setOsTesting] = useState(false);
-  const [osTestResult, setOsTestResult] = useState<{ kind: "ok" | "err"; message: string } | null>(
-    null,
-  );
 
   const [runsPerDay, setRunsPerDay] = useState<number>(NOTIFY_RUNS_PER_DAY_DEFAULT);
   const [runsDraft, setRunsDraft] = useState<string>(String(NOTIFY_RUNS_PER_DAY_DEFAULT));
@@ -111,25 +106,6 @@ export function SettingsNotifications() {
     await setSettingBool(OS_KEY, next);
     await log(`settings: ${OS_KEY}=${next ? 1 : 0}`);
     setOsEnabled(next);
-  };
-
-  const handleOsTest = async () => {
-    setOsTesting(true);
-    setOsTestResult(null);
-    try {
-      await new OSChannel().send(buildSyntheticDigest());
-      setOsTestResult({ kind: "ok", message: "Sent — check your system's notification tray." });
-    } catch (err) {
-      await logErr(
-        `settings: test notification failed ${err instanceof Error ? err.message : "unknown"}`,
-      );
-      setOsTestResult({
-        kind: "err",
-        message: err instanceof Error ? err.message : "Couldn't send test notification.",
-      });
-    } finally {
-      setOsTesting(false);
-    }
   };
 
   const commitRunsPerDay = () => {
@@ -227,17 +203,18 @@ export function SettingsNotifications() {
   }, [runsPerDay, firstSlotAt, weekdaysOnly]);
 
   return (
-    <div className="space-y-6">
-      {/* OS */}
-      <section className="space-y-3">
-        <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Desktop</p>
+    <div className="space-y-5">
+      <SettingsSection
+        title="Desktop"
+        help="A hero-level system notification at each scheduled slot — what needs attention, today's homework counts."
+        card={false}
+      >
         <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-4 px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-medium">OS digest</p>
               <p className="text-[12px] text-muted-foreground">
-                A hero-level desktop notification at the scheduled time — what needs attention,
-                today's homework counts.
+                Toggle system notifications on or off.
               </p>
             </div>
             <Switch
@@ -249,52 +226,23 @@ export function SettingsNotifications() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={handleOsTest}
-            disabled={osTesting}
-            className="gap-1.5"
-          >
-            {osTesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {osTesting ? "Sending..." : "Send test OS notification"}
-          </Button>
-          {osTestResult && (
-            <p
-              className={`text-[12px] ${
-                osTestResult.kind === "ok" ? "text-muted-foreground" : "text-destructive"
-              }`}
-            >
-              {osTestResult.message}
-            </p>
-          )}
-        </div>
-        <p className="px-1 text-[11px] text-muted-foreground">
-          Fires a sample digest (Sample Student A/B) directly through the OS channel, bypassing the
-          toggle above.
-        </p>
-      </section>
+      </SettingsSection>
 
-      {/* Email */}
-      <section className="space-y-3">
-        <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Email</p>
+      <SettingsSection
+        title="Email"
+        help="SMTP-based daily digest with per-child detail. You bring the SMTP credentials; nothing relays through our servers. Click Update to change config and fire a test email."
+        card={false}
+      >
         <SettingsEmailSection />
-      </section>
+      </SettingsSection>
 
-      {/* Schedule */}
-      <section className="space-y-3">
-        <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Schedule</p>
-        <div className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-[14px] font-medium">Notification schedule</h2>
-          </div>
-          <p className="text-[12px] text-muted-foreground">
-            How many times per day — and anchored where — a digest fires. Each run reads whatever's
-            already in the database; fetch runs on its own schedule.
-          </p>
+      <SettingsSection
+        title="Schedule"
+        help={
+          "How many times per day — and anchored where — a digest fires. Each run reads whatever's already in the database; fetch runs on its own schedule."
+        }
+      >
+        <div className="space-y-3">
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="notify-runs-per-day" className="text-[13px]">
@@ -381,41 +329,35 @@ export function SettingsNotifications() {
             )}
           </p>
         </div>
+      </SettingsSection>
 
-        <div className="space-y-2 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center gap-2">
-            <Send className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-[14px] font-medium">Send digest now</h2>
-          </div>
-          <p className="text-[12px] text-muted-foreground">
-            Builds a digest from current data and dispatches through your enabled channels (respects
-            the toggles above). Useful to preview what the next scheduled notification will look
-            like.
-          </p>
-          <div className="flex items-center gap-3 pt-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={sendingDigest}
-              onClick={handleSendDigestNow}
-              className="gap-1.5"
+      <SettingsSection
+        title="Send digest now"
+        help="Builds a digest from current data and dispatches through your enabled channels (respects the toggles above). Useful to preview what the next scheduled notification will look like."
+      >
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={sendingDigest}
+            onClick={handleSendDigestNow}
+            className="gap-1.5"
+          >
+            {sendingDigest && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {sendingDigest ? "Sending…" : "Send digest now"}
+          </Button>
+          {digestResult && (
+            <p
+              className={`text-[12px] ${
+                digestResult.kind === "ok" ? "text-muted-foreground" : "text-destructive"
+              }`}
             >
-              {sendingDigest && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {sendingDigest ? "Sending…" : "Send digest now"}
-            </Button>
-            {digestResult && (
-              <p
-                className={`text-[12px] ${
-                  digestResult.kind === "ok" ? "text-muted-foreground" : "text-destructive"
-                }`}
-              >
-                {digestResult.message}
-              </p>
-            )}
-          </div>
+              {digestResult.message}
+            </p>
+          )}
         </div>
-      </section>
+      </SettingsSection>
     </div>
   );
 }

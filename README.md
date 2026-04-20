@@ -53,6 +53,18 @@ Updater payloads are cryptographically signed — the app verifies every downloa
 - **Credentials:** OS keychain via the `keyring` Rust crate (Keychain / Credential Manager / Secret Service)
 - **Updater:** `tauri-plugin-updater` with signed update payloads
 
+## Contributing / release process
+
+Solo-maintainer flow, documented for future reference:
+
+- **Day-to-day dev:** push to feature branches freely (CI doesn't fire). Push to `main` runs lint + typecheck + tests via GitHub Actions.
+- **Cutting a release:** every push to `main` auto-creates a tag + draft GitHub Release via `.github/workflows/auto-release.yml`. If `package.json` version was bumped in that push it's used as-is (good for `minor`/`major` jumps); otherwise the patch number is auto-incremented. The draft needs a maintainer click to publish.
+- **Version-bump helper:** `pnpm bump 0.2.0` edits the three version files that have to stay in sync (`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`).
+
+Full runbook with pre-flight checklist, smoke-test steps, and troubleshooting: **[docs/releasing.md](docs/releasing.md)**.
+
+Developer-oriented project docs: [CLAUDE.md](CLAUDE.md) (entry point), [docs/design-plan.md](docs/design-plan.md) (locked decisions), [docs/progress.md](docs/progress.md) (build phases).
+
 ## Predecessor
 
 This project is a rewrite of [`teacherease_parents_helper`](https://github.com/autumnfallenwang/teacherease_parents_helper), a Python + Playwright + cron script the author built as a personal tool. That project remains functional for server-side use; this one targets non-technical parents on desktop.

@@ -1,20 +1,18 @@
 "use client";
 
-// SMTP form + saved-password flow + Send-test-email + email toggle + Gmail
-// tutorial link. Extracted from the deleted settings-email.tsx so the
-// Notifications sub-tab can absorb email cleanly (Phase 19 CF5). The toggle
-// and test-email button live here because they're meaningless without a
-// configured SMTP server.
+// Settings → Notifications → Email section (Phase 22 EM2-EM7). Collapsed
+// summary card (mirrors settings-children.tsx's ChildRow) expands to a
+// single-Save form with multi-recipient To support. Save commits every
+// field atomically and fires one test email so the user sees it land.
 
-import { Loader2, Mail } from "lucide-react";
+import { Loader2, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  deleteSmtpPassword,
   getSettingBool,
   getSettingString,
   getSmtpPassword,
@@ -28,68 +26,209 @@ import { EmailChannel } from "@/lib/notify/email-channel";
 import { buildSyntheticDigest } from "@/lib/notify/synthetic";
 
 const EMAIL_KEY = "notify.refreshDigest.email";
-const EMAIL_DEFAULT_ENABLED = false;
 
-type TestStatus =
-  | { kind: "idle" }
-  | { kind: "sending" }
-  | { kind: "ok" }
-  | { kind: "error"; msg: string };
+interface LoadedConfig {
+  readonly host: string;
+  readonly port: string;
+  readonly username: string;
+  readonly from: string;
+  readonly to: readonly string[];
+  readonly hasSavedPassword: boolean;
+  readonly enabled: boolean;
+}
 
-function hasCompleteConfig(form: {
-  host: string;
-  port: string;
-  username: string;
-  from: string;
-  to: string;
-  hasSavedPassword: boolean;
-}): boolean {
-  const port = Number.parseInt(form.port, 10);
+function splitTo(raw: string): string[] {
+  const list = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return list.length > 0 ? list : [""];
+}
+
+function joinTo(list: readonly string[]): string {
+  return list
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .join(", ");
+}
+
+function isConfigured(c: LoadedConfig): boolean {
+  const port = Number.parseInt(c.port, 10);
   return Boolean(
-    form.host.trim() &&
+    c.host.trim() &&
       Number.isFinite(port) &&
       port > 0 &&
-      form.username.trim() &&
-      form.from.trim() &&
-      form.to.trim() &&
-      form.hasSavedPassword,
+      c.username.trim() &&
+      c.from.trim() &&
+      c.to.some((t) => t.trim().length > 0) &&
+      c.hasSavedPassword,
   );
 }
 
-export function SettingsEmailSection() {
-  const [host, setHost] = useState("");
-  const [port, setPort] = useState("");
-  const [username, setUsername] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [password, setPassword] = useState("");
-  const [hasSavedPassword, setHasSavedPassword] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
-  const [saving, setSaving] = useState(false);
-  const [savedToast, setSavedToast] = useState(false);
+async function loadConfig(): Promise<LoadedConfig> {
+  const [host, port, username, from, toRaw, pw, enabled] = await Promise.all([
+    getSettingString("smtp.host", ""),
+    getSettingString("smtp.port", ""),
+    getSettingString("smtp.username", ""),
+    getSettingString("smtp.from", ""),
+    getSettingString("smtp.to", ""),
+    getSmtpPassword(),
+    getSettingBool(EMAIL_KEY, false),
+  ]);
+  return {
+    host,
+    port,
+    username,
+    from,
+    to: splitTo(toRaw),
+    hasSavedPassword: pw !== null,
+    enabled,
+  };
+}
 
-  const [emailEnabled, setEmailEnabled] = useState<boolean>(EMAIL_DEFAULT_ENABLED);
-  const [testStatus, setTestStatus] = useState<TestStatus>({ kind: "idle" });
+export function SettingsEmailSection() {
+  const [config, setConfig] = useState<LoadedConfig | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const reload = useCallback(async () => {
+    setConfig(await loadConfig());
+  }, []);
 
   useEffect(() => {
-    void Promise.all([
-      getSettingString("smtp.host", ""),
-      getSettingString("smtp.port", ""),
-      getSettingString("smtp.username", ""),
-      getSettingString("smtp.from", ""),
-      getSettingString("smtp.to", ""),
-      getSmtpPassword(),
-      getSettingBool(EMAIL_KEY, EMAIL_DEFAULT_ENABLED),
-    ]).then(([h, p, u, f, t, pw, emailOn]) => {
-      setHost(h);
-      setPort(p);
-      setUsername(u);
-      setFrom(f);
-      setTo(t);
-      setHasSavedPassword(pw !== null);
-      setEmailEnabled(emailOn);
-    });
-  }, []);
+    void reload();
+  }, [reload]);
+
+  if (!config) {
+    return (
+      <div className="rounded-lg bg-card px-4 py-3 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        Loading…
+      </div>
+    );
+  }
+
+  const configured = isConfigured(config);
+
+  const toggleDigest = async (next: boolean) => {
+    if (!configured) return;
+    try {
+      await setSettingBool(EMAIL_KEY, next);
+      await log(`settings: ${EMAIL_KEY}=${next ? 1 : 0}`);
+      await reload();
+    } catch (e) {
+      await logErr(
+        `settings: email digest toggle failed — ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {editing ? (
+        <EmailForm
+          initial={config}
+          onDone={async () => {
+            setEditing(false);
+            await reload();
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <SmtpSummaryCard config={config} configured={configured} onEdit={() => setEditing(true)} />
+      )}
+
+      <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className={`flex items-center gap-4 px-4 py-3 ${configured ? "" : "opacity-60"}`}>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium">Email digest</p>
+            <p className="text-[12px] text-muted-foreground">
+              {configured
+                ? "Send the daily digest through the SMTP server above."
+                : "Set up SMTP above to enable."}
+            </p>
+          </div>
+          <Switch
+            checked={config.enabled && configured}
+            disabled={!configured}
+            onChange={(next) => {
+              void toggleDigest(next);
+            }}
+            aria-label="Email digest enabled"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SmtpSummaryCardProps {
+  readonly config: LoadedConfig;
+  readonly configured: boolean;
+  readonly onEdit: () => void;
+}
+
+function SmtpSummaryCard({ config, configured, onEdit }: SmtpSummaryCardProps) {
+  const summary = configured
+    ? `${config.host} · ${config.from} → ${config.to.filter(Boolean).join(", ")}`
+    : "No email configured";
+  const detail = configured
+    ? "SMTP server + recipients. Click Update to change."
+    : "Send the daily digest to one or more inboxes.";
+  return (
+    <div className="rounded-lg bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-4 w-4 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-medium">{summary}</p>
+          <p className="text-[11px] text-muted-foreground">{detail}</p>
+        </div>
+        <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-[12px]" onClick={onEdit}>
+          <Pencil className="h-3 w-3" />
+          {configured ? "Update" : "Set up email"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface EmailFormProps {
+  readonly initial: LoadedConfig;
+  readonly onDone: () => Promise<void>;
+  readonly onCancel: () => void;
+}
+
+type SaveStatus =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "sending" }
+  | { kind: "ok"; message: string }
+  | { kind: "err"; message: string };
+
+interface ToRow {
+  readonly id: string;
+  readonly value: string;
+}
+
+let rowCounter = 0;
+function makeRow(value: string): ToRow {
+  rowCounter += 1;
+  return { id: `to-${rowCounter}`, value };
+}
+
+function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
+  const [host, setHost] = useState(initial.host);
+  const [port, setPort] = useState(initial.port);
+  const [username, setUsername] = useState(initial.username);
+  const [password, setPassword] = useState("");
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState<ToRow[]>(() =>
+    initial.to.length > 0 ? initial.to.map(makeRow) : [makeRow("")],
+  );
+  const [sendTestOnSave, setSendTestOnSave] = useState<boolean>(true);
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [toErrors, setToErrors] = useState<Record<string, string | undefined>>({});
+  const [status, setStatus] = useState<SaveStatus>({ kind: "idle" });
 
   const validate = (): boolean => {
     const next: Partial<Record<string, string>> = {};
@@ -97,277 +236,240 @@ export function SettingsEmailSection() {
     const p = Number.parseInt(port, 10);
     if (!Number.isFinite(p) || p <= 0 || p > 65535) next.port = "Enter a port between 1 and 65535.";
     if (!username.trim()) next.username = "Required.";
+    if (!initial.hasSavedPassword && !password) next.password = "Required.";
     if (!from.trim() || !from.includes("@")) next.from = "Enter an email address.";
-    if (!to.trim() || !to.includes("@")) next.to = "Enter an email address.";
+    const toProblems: Record<string, string | undefined> = {};
+    const nonEmpty = to.filter((r) => r.value.trim().length > 0);
+    if (nonEmpty.length === 0) {
+      toProblems[to[0]?.id ?? "to-0"] = "Enter at least one recipient.";
+    } else {
+      for (const row of nonEmpty) {
+        if (!row.value.trim().includes("@")) toProblems[row.id] = "Enter an email address.";
+      }
+    }
     setErrors(next);
-    return Object.keys(next).length === 0;
+    setToErrors(toProblems);
+    return Object.keys(next).length === 0 && Object.keys(toProblems).length === 0;
   };
 
   const handleSave = async () => {
     if (!validate()) return;
-    setSaving(true);
+    setStatus({ kind: "saving" });
     try {
       await setSettingString("smtp.host", host.trim());
       await setSettingString("smtp.port", String(Number.parseInt(port, 10)));
       await setSettingString("smtp.username", username.trim());
       await setSettingString("smtp.from", from.trim());
-      await setSettingString("smtp.to", to.trim());
+      await setSettingString("smtp.to", joinTo(to.map((r) => r.value)));
       if (password) {
         await setSmtpPassword(password);
-        setHasSavedPassword(true);
-        setPassword("");
       }
-      await log(`settings: smtp saved host=${host.trim()} port=${Number.parseInt(port, 10)}`);
-      setSavedToast(true);
-      setTimeout(() => setSavedToast(false), 3000);
-    } catch (e) {
-      await logErr(`settings: smtp save failed ${e instanceof Error ? e.message : "unknown"}`);
-    } finally {
-      setSaving(false);
-    }
-  };
+      await log(
+        `settings: smtp saved host=${host.trim()} port=${Number.parseInt(port, 10)} recipients=${to.filter((r) => r.value.trim()).length} sendTest=${sendTestOnSave ? 1 : 0}`,
+      );
 
-  const handleRemovePassword = async () => {
-    await deleteSmtpPassword();
-    setHasSavedPassword(false);
-    setPassword("");
-    await log("settings: smtp password removed");
-  };
+      if (sendTestOnSave) {
+        setStatus({ kind: "sending" });
+        try {
+          await new EmailChannel().send(buildSyntheticDigest());
+          await log("settings: smtp save + test email sent");
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Unknown error";
+          await logErr(`settings: smtp save ok, test email failed: ${msg}`);
+          setStatus({ kind: "err", message: `Saved, but test email failed: ${msg}` });
+          return;
+        }
+      }
 
-  const toggleEmail = async (next: boolean) => {
-    await setSettingBool(EMAIL_KEY, next);
-    await log(`settings: ${EMAIL_KEY}=${next ? 1 : 0}`);
-    setEmailEnabled(next);
-  };
-
-  const handleSendTest = async () => {
-    setTestStatus({ kind: "sending" });
-    try {
-      await new EmailChannel().send(buildSyntheticDigest());
-      setTestStatus({ kind: "ok" });
-      await log("settings: smtp test email sent");
+      setStatus({ kind: "ok", message: "Saved." });
+      setTimeout(() => {
+        void onDone();
+      }, 600);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unknown error";
-      setTestStatus({ kind: "error", msg });
-      await logErr(`settings: smtp test email failed: ${msg}`);
+      await logErr(`settings: smtp save failed ${msg}`);
+      setStatus({ kind: "err", message: msg });
     }
-    setTimeout(() => setTestStatus({ kind: "idle" }), 5000);
   };
 
-  const configComplete = hasCompleteConfig({ host, port, username, from, to, hasSavedPassword });
+  const addRecipient = () => setTo([...to, makeRow("")]);
+  const removeRecipient = (id: string) => {
+    if (to.length <= 1) return;
+    setTo(to.filter((r) => r.id !== id));
+    setToErrors({});
+  };
+  const updateRecipient = (id: string, value: string) => {
+    setTo(to.map((r) => (r.id === id ? { ...r, value } : r)));
+  };
+
+  const inFlight = status.kind === "saving" || status.kind === "sending";
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div>
-          <h2 className="text-[14px] font-medium">SMTP server</h2>
-          <p className="text-[12px] text-muted-foreground">
-            BYO SMTP — we never relay through a server. Password stays on this computer, in the OS
-            keychain.
-          </p>
-        </div>
+    <div className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div>
+        <h2 className="text-[14px] font-medium">SMTP server</h2>
+        <p className="text-[12px] text-muted-foreground">
+          BYO SMTP — we never relay through a server. Password stays on this computer, in the OS
+          keychain.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-[1fr_100px] gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="smtp-host" className="text-[13px]">
-              Host
-            </Label>
-            <Input
-              id="smtp-host"
-              placeholder="smtp.gmail.com"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              aria-invalid={Boolean(errors.host)}
-              className="h-9 rounded-lg"
-            />
-            {errors.host && <p className="text-[12px] text-destructive">{errors.host}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="smtp-port" className="text-[13px]">
-              Port
-            </Label>
-            <Input
-              id="smtp-port"
-              type="number"
-              placeholder="587"
-              value={port}
-              onChange={(e) => setPort(e.target.value)}
-              aria-invalid={Boolean(errors.port)}
-              className="h-9 rounded-lg"
-            />
-            {errors.port && <p className="text-[12px] text-destructive">{errors.port}</p>}
-          </div>
-        </div>
-
+      <div className="grid grid-cols-[1fr_100px] gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="smtp-username" className="text-[13px]">
-            Username
+          <Label htmlFor="smtp-host" className="text-[13px]">
+            Host
           </Label>
           <Input
-            id="smtp-username"
-            placeholder="you@gmail.com"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            aria-invalid={Boolean(errors.username)}
+            id="smtp-host"
+            placeholder="smtp.gmail.com"
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            aria-invalid={Boolean(errors.host)}
             className="h-9 rounded-lg"
           />
-          {errors.username && <p className="text-[12px] text-destructive">{errors.username}</p>}
+          {errors.host && <p className="text-[12px] text-destructive">{errors.host}</p>}
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="smtp-from" className="text-[13px]">
-              From
-            </Label>
-            <Input
-              id="smtp-from"
-              type="email"
-              placeholder="you@gmail.com"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              aria-invalid={Boolean(errors.from)}
-              className="h-9 rounded-lg"
-            />
-            {errors.from && <p className="text-[12px] text-destructive">{errors.from}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="smtp-to" className="text-[13px]">
-              To
-            </Label>
-            <Input
-              id="smtp-to"
-              type="email"
-              placeholder="you@gmail.com"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              aria-invalid={Boolean(errors.to)}
-              className="h-9 rounded-lg"
-            />
-            {errors.to && <p className="text-[12px] text-destructive">{errors.to}</p>}
-          </div>
-        </div>
-
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="smtp-password" className="text-[13px]">
-              Password
-            </Label>
-            {hasSavedPassword && (
-              <button
-                type="button"
-                onClick={() => {
-                  void handleRemovePassword();
-                }}
-                className="text-[12px] text-muted-foreground hover:text-destructive"
-              >
-                Remove saved password
-              </button>
-            )}
-          </div>
+          <Label htmlFor="smtp-port" className="text-[13px]">
+            Port
+          </Label>
           <Input
-            id="smtp-password"
-            type="password"
-            placeholder={
-              hasSavedPassword ? "Enter to change (existing kept if left blank)" : "App password"
-            }
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            id="smtp-port"
+            type="number"
+            placeholder="587"
+            value={port}
+            onChange={(e) => setPort(e.target.value)}
+            aria-invalid={Boolean(errors.port)}
             className="h-9 rounded-lg"
           />
-          {hasSavedPassword && (
-            <p className="text-[12px] text-meeting">Saved password present in keychain.</p>
-          )}
+          {errors.port && <p className="text-[12px] text-destructive">{errors.port}</p>}
         </div>
+      </div>
 
-        <div className="flex items-center gap-3 pt-1">
-          <Button
-            type="button"
-            size="sm"
-            disabled={saving}
-            onClick={() => {
-              void handleSave();
-            }}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              "Save"
-            )}
-          </Button>
-          {savedToast && <p className="text-[12px] text-meeting">Saved.</p>}
-        </div>
-      </section>
+      <div className="space-y-1.5">
+        <Label htmlFor="smtp-username" className="text-[13px]">
+          Username
+        </Label>
+        <Input
+          id="smtp-username"
+          placeholder="you@gmail.com"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          aria-invalid={Boolean(errors.username)}
+          className="h-9 rounded-lg"
+        />
+        {errors.username && <p className="text-[12px] text-destructive">{errors.username}</p>}
+      </div>
 
-      <section className="space-y-2">
-        <div
-          className={`divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
-            configComplete ? "" : "opacity-60"
-          }`}
-        >
-          <div className="flex items-center gap-4 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Email digest</p>
-              <p className="text-[12px] text-muted-foreground">
-                Detailed per-child email from the notification schedule — attention list, today's
-                homework, and what's due.
-              </p>
+      <div className="space-y-1.5">
+        <Label htmlFor="smtp-password" className="text-[13px]">
+          Password
+        </Label>
+        <Input
+          id="smtp-password"
+          type="password"
+          placeholder={
+            initial.hasSavedPassword ? "Keep existing (type to replace)" : "App password"
+          }
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={Boolean(errors.password)}
+          className="h-9 rounded-lg"
+        />
+        {errors.password && <p className="text-[12px] text-destructive">{errors.password}</p>}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="smtp-from" className="text-[13px]">
+          From
+        </Label>
+        <Input
+          id="smtp-from"
+          type="email"
+          placeholder="you@gmail.com"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          aria-invalid={Boolean(errors.from)}
+          className="h-9 rounded-lg"
+        />
+        {errors.from && <p className="text-[12px] text-destructive">{errors.from}</p>}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-[13px]">To</Label>
+        {to.map((row) => (
+          <div key={row.id} className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Input
+                type="email"
+                placeholder="family@example.com"
+                value={row.value}
+                onChange={(e) => updateRecipient(row.id, e.target.value)}
+                aria-invalid={Boolean(toErrors[row.id])}
+                className="h-9 flex-1 rounded-lg"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                disabled={to.length <= 1}
+                onClick={() => removeRecipient(row.id)}
+                aria-label="Remove recipient"
+              >
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
             </div>
-            <Switch
-              checked={emailEnabled}
-              disabled={!configComplete}
-              onChange={(next) => {
-                void toggleEmail(next);
-              }}
-              aria-label="Refresh digest email notifications"
-            />
+            {toErrors[row.id] && <p className="text-[12px] text-destructive">{toErrors[row.id]}</p>}
           </div>
-        </div>
-        {!configComplete && (
-          <p className="px-1 text-[12px] text-muted-foreground">
-            Configure SMTP above to enable email notifications.
-          </p>
-        )}
-      </section>
+        ))}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1 px-2 text-[12px]"
+          onClick={addRecipient}
+        >
+          <Plus className="h-3 w-3" />
+          Add recipient
+        </Button>
+      </div>
 
-      <section className="space-y-2 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-2">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-[14px] font-medium">Send a test email</h2>
-        </div>
-        <p className="text-[12px] text-muted-foreground">
-          Sends a synthetic sample digest (Sample Student A/B) through the email channel, bypassing
-          the toggle above. Confirms your SMTP config works end-to-end.
-        </p>
-        <div className="flex items-center gap-3 pt-1">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!configComplete || testStatus.kind === "sending"}
-            onClick={() => {
-              void handleSendTest();
-            }}
-          >
-            {testStatus.kind === "sending" ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Sending…
-              </>
-            ) : (
-              "Send test email"
-            )}
-          </Button>
-          {testStatus.kind === "ok" && <p className="text-[12px] text-meeting">Test email sent.</p>}
-          {testStatus.kind === "error" && (
-            <p className="text-[12px] text-destructive">Failed: {testStatus.msg}</p>
+      <div className="flex items-center gap-3 pt-1">
+        <Switch
+          checked={sendTestOnSave}
+          onChange={setSendTestOnSave}
+          aria-label="Send test email after save"
+        />
+        <span className="text-[13px]">Send test email after save</span>
+      </div>
+
+      <div className="flex items-center gap-3 pt-2">
+        <Button type="button" size="sm" onClick={handleSave} disabled={inFlight}>
+          {status.kind === "saving" && (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Saving…
+            </>
           )}
-        </div>
-      </section>
+          {status.kind === "sending" && (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Sending test…
+            </>
+          )}
+          {status.kind !== "saving" &&
+            status.kind !== "sending" &&
+            (sendTestOnSave ? "Save & send test email" : "Save")}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={inFlight}>
+          Cancel
+        </Button>
+        {status.kind === "ok" && <p className="text-[12px] text-meeting">{status.message}</p>}
+        {status.kind === "err" && <p className="text-[12px] text-destructive">{status.message}</p>}
+      </div>
 
-      <p className="px-1 text-[11px] text-muted-foreground">
+      <p className="pt-1 text-[11px] text-muted-foreground">
         For Gmail, use an App Password (2-step verification required).{" "}
         <Link
           href="/gmail-app-password"

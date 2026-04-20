@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import { BookX, CheckCircle2, CircleDashed, TrendingDown } from "lucide-react";
 import { useEffect, useState } from "react";
+import { SettingsSection } from "@/components/settings/section";
 import {
   type AttentionConfig,
   DEFAULT_FORGIVENESS_WEEKS,
@@ -122,20 +123,12 @@ export function SettingsAttention() {
   };
 
   return (
-    <div className="space-y-6">
-      <p className="text-[12px] leading-relaxed text-muted-foreground">
-        These control how aggressive the app's attention signal is. They don't change TeacherEase's
-        grade calculations — they shape the <code>!</code> / <code>✓</code> layer the app overlays
-        on top.
-      </p>
-
-      <div className="space-y-2">
-        <h2 className="text-[14px] font-medium">Forgiveness window</h2>
-        <p className="text-[12px] text-muted-foreground">
-          How long a missing or low-score item keeps demanding attention before quietly aging into
-          the "Older" list. Default 2 weeks.
-        </p>
-        <div className="flex items-center gap-2 pt-1">
+    <div className="space-y-5">
+      <SettingsSection
+        title="Forgiveness window"
+        help="How long a missing or low-score item keeps demanding attention before quietly aging into Older. These knobs don't touch TeacherEase grades — they shape the ! / ✓ layer this app overlays. Default 2 weeks."
+      >
+        <div className="flex items-center gap-2">
           <input
             type="number"
             min={1}
@@ -157,16 +150,13 @@ export function SettingsAttention() {
             weeks (1–12, press Enter to apply)
           </span>
         </div>
-      </div>
+      </SettingsSection>
 
-      <div className="space-y-2">
-        <h2 className="text-[14px] font-medium">Low-score threshold</h2>
-        <p className="text-[12px] text-muted-foreground">
-          Numeric scores strictly below this count as attention-worthy. TeacherEase's rubric caps at
-          3 (Meeting); default is 3.0 so anything below Meeting counts. Lower to 2.0 if you only
-          want to flag clearly-below-Progressing.
-        </p>
-        <div className="flex items-center gap-2 pt-1">
+      <SettingsSection
+        title="Low-score threshold"
+        help="Scores strictly below this count as attention-worthy. TeacherEase caps at 3 (Meeting); default 3.0 flags anything below Meeting. Lower to 2.0 if you only want clearly-below-Progressing. These knobs don't touch TeacherEase grades."
+      >
+        <div className="flex items-center gap-2">
           <input
             type="number"
             min={0}
@@ -186,14 +176,10 @@ export function SettingsAttention() {
           />
           <span className="text-[12px] text-muted-foreground">(0.0–4.0, press Enter to apply)</span>
         </div>
-      </div>
+      </SettingsSection>
 
-      <div className="space-y-2">
-        <h2 className="text-[14px] font-medium">Icon reference</h2>
-        <p className="text-[12px] text-muted-foreground">
-          What the icons in the Classes drilldown mean.
-        </p>
-        <div className="space-y-2 rounded-lg border border-border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <SettingsSection title="Icon reference" help="What the icons in the Classes drilldown mean.">
+        <div className="space-y-2">
           {ICON_REFERENCE.map((row) => {
             const Icon = row.icon;
             return (
@@ -207,7 +193,7 @@ export function SettingsAttention() {
             );
           })}
         </div>
-      </div>
+      </SettingsSection>
     </div>
   );
 }

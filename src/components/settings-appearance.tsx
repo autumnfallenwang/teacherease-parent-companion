@@ -3,6 +3,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { SettingsSection } from "@/components/settings/section";
 import {
   FONT_SIZE_DEFAULT,
   FONT_SIZE_MAX,
@@ -129,9 +130,12 @@ export function SettingsAppearance() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-[14px] font-medium">Profile</h2>
+    <div className="space-y-5">
+      <SettingsSection
+        title="Profile"
+        help="Five curated palettes with light + dark variants. Pick the one that matches your eye; descriptions below preview each."
+        card={false}
+      >
         <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {PROFILE_ORDER.map((p) => {
             const active = p === profile;
@@ -165,16 +169,13 @@ export function SettingsAppearance() {
             );
           })}
         </div>
-      </div>
+      </SettingsSection>
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-[14px] font-medium">Mode</h2>
-          <p className="text-[12px] text-muted-foreground">
-            System uses your operating system's preference and follows it live.
-          </p>
-        </div>
-
+      <SettingsSection
+        title="Mode"
+        help="System follows your operating system's light/dark preference live. Light and Dark lock the app to that mode regardless of the OS."
+        card={false}
+      >
         <div className="inline-flex rounded-lg border border-border bg-card p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {MODE_OPTIONS.map((opt) => {
             const active = mode === opt.value;
@@ -199,64 +200,63 @@ export function SettingsAppearance() {
             );
           })}
         </div>
-      </div>
+      </SettingsSection>
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-[14px] font-medium">Size</h2>
-          <p className="text-[12px] text-muted-foreground">
-            Scales everything — text, icons, spacing, borders — proportionally.
-          </p>
-        </div>
+      <SettingsSection
+        title="Size"
+        help="Scales everything — text, icons, spacing, borders — proportionally. Pick a preset or type a custom percentage."
+        card={false}
+      >
+        <div className="space-y-3">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            {FONT_SIZE_PRESETS.map((preset) => {
+              const active = isScaleNear(scale, preset.value);
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={preset.label}
+                  onClick={() => {
+                    void applyScale(preset.value);
+                  }}
+                  className={`inline-flex items-center rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+                    active
+                      ? "bg-secondary font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="inline-flex rounded-lg border border-border bg-card p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          {FONT_SIZE_PRESETS.map((preset) => {
-            const active = isScaleNear(scale, preset.value);
-            return (
-              <button
-                key={preset.label}
-                type="button"
-                aria-pressed={active}
-                aria-label={preset.label}
-                onClick={() => {
-                  void applyScale(preset.value);
-                }}
-                className={`inline-flex items-center rounded-md px-3 py-1.5 text-[13px] transition-colors ${
-                  active
-                    ? "bg-secondary font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
+          <div className="flex items-center gap-2">
+            <label htmlFor="font-size-custom" className="text-[12px] text-muted-foreground">
+              Custom
+            </label>
+            <input
+              id="font-size-custom"
+              type="number"
+              min={Math.round(FONT_SIZE_MIN * 100)}
+              max={Math.round(FONT_SIZE_MAX * 100)}
+              step={5}
+              value={percentInput}
+              onChange={(e) => setPercentInput(e.target.value)}
+              onBlur={commitPercentInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitPercentInput();
+                }
+              }}
+              className="h-8 w-20 rounded-md border border-input bg-card px-2 text-[13px] text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            />
+            <span className="text-[12px] text-muted-foreground">% (press Enter to apply)</span>
+          </div>
         </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <label htmlFor="font-size-custom" className="text-[12px] text-muted-foreground">
-            Custom
-          </label>
-          <input
-            id="font-size-custom"
-            type="number"
-            min={Math.round(FONT_SIZE_MIN * 100)}
-            max={Math.round(FONT_SIZE_MAX * 100)}
-            step={5}
-            value={percentInput}
-            onChange={(e) => setPercentInput(e.target.value)}
-            onBlur={commitPercentInput}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitPercentInput();
-              }
-            }}
-            className="h-8 w-20 rounded-md border border-input bg-card px-2 text-[13px] text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          />
-          <span className="text-[12px] text-muted-foreground">% (press Enter to apply)</span>
-        </div>
-      </div>
+      </SettingsSection>
     </div>
   );
 }

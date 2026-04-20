@@ -1,6 +1,11 @@
 # Releasing — runbook
 
-End-to-end steps for cutting a release. The release workflow (`.github/workflows/release.yml`) handles building, signing, and draft-release creation on tag push; the maintainer does the version bump, commit, tag, review, and publish.
+Every push to `main` cuts a release. Two workflows drive the pipeline:
+
+- **`.github/workflows/auto-release.yml`** — fires on push to main. Detects whether the version was bumped in that push; if not, auto-bumps the patch number, commits `chore: release vX.Y.Z [skip ci]` back to main, creates the tag, and pushes it.
+- **`.github/workflows/release.yml`** — reusable build workflow. Called by auto-release.yml (or triggerable by direct tag push). Runs the 4-runner matrix (Linux / Windows / macOS arm64 / macOS x64), minisign-signs each bundle, and creates a **draft** GitHub Release with artifacts + `latest.json`.
+
+The maintainer's job is now: decide version (optional), merge to main, watch the workflow, review the draft release, publish.
 
 See also: [`updater-signing.md`](updater-signing.md) for the signing keypair and GH-secret setup.
 
@@ -11,55 +16,59 @@ Run once before the very first release. For every release after, skim to confirm
 - [ ] `gh secret list` shows `TAURI_SIGNING_PRIVATE_KEY`. (See `docs/updater-signing.md` if not.)
 - [ ] (Password-protected key only:) also shows `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 - [ ] `cat tauri-updater.pub` matches `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` — drift here breaks signature verification for every installed app.
-- [ ] Repo → Settings → Actions → General → Workflow permissions is "Read and write permissions". `tauri-action` needs this to create Releases.
+- [ ] Repo → Settings → Actions → General → Workflow permissions is "Read and write permissions". Both `tauri-action` (for Releases) and `auto-release.yml` (for pushing the bump commit + tag) need this.
 - [ ] `pnpm check` green on main: lint + typecheck + full test suite.
 - [ ] `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` green in `src-tauri/`.
-- [ ] Working tree clean: `git status` has no uncommitted tracked changes.
 
 ## Cut a release
 
-### 1. Update the changelog
+### Path A — let auto-release decide the version (patch bump)
+
+Typical flow. Merge a feature branch to main without touching version files; auto-release handles the rest.
+
+```bash
+git checkout main && git pull
+git merge --ff-only feat/foo   # or PR merge via GitHub UI
+git push origin main
+```
+
+That's it. `auto-release.yml` detects no version change, bumps `0.1.2 → 0.1.3`, commits the bump back to main, tags `v0.1.3`, and hands off to `release.yml`.
+
+### Path B — explicit version (any semver bump)
+
+When you want a `minor`/`major` bump (new feature, breaking change) instead of patch, set the version explicitly before merging.
+
+```bash
+git checkout feat/foo
+pnpm bump 0.2.0                # edits all 3 version files
+git commit -am "chore: release v0.2.0"
+git push origin feat/foo
+# merge PR / fast-forward to main
+git checkout main && git merge --ff-only feat/foo
+git push origin main
+```
+
+`auto-release.yml` sees the bump, uses `0.2.0` as-is, tags `v0.2.0`, hands off to `release.yml`.
+
+### Update the changelog (either path, before merging)
 
 Edit `CHANGELOG.md`:
 
-- Move everything under `## [Unreleased]` into a new `## [X.Y.Z] — YYYY-MM-DD` section. Fill in today's date.
-- Leave a new empty `## [Unreleased]` above it.
-- Update the comparison links at the bottom of the file.
+- Move everything under `## [Unreleased]` into a new `## [X.Y.Z] — YYYY-MM-DD` section.
+- Leave an empty `## [Unreleased]` above it.
+- If you're on Path A, use whatever version auto-release will pick (last tag + 0.0.1).
 
-### 2. Bump version numbers
-
-Keep these in sync:
-
-- `package.json` → `"version": "X.Y.Z"`
-- `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
-
-### 3. Commit
-
-```bash
-git add CHANGELOG.md package.json src-tauri/tauri.conf.json
-git commit -m "chore: release vX.Y.Z"
-```
-
-### 4. Tag and push
-
-```bash
-git tag vX.Y.Z
-git push origin main --tags
-```
-
-The tag push triggers `.github/workflows/release.yml` immediately.
-
-### 5. Watch the workflow
+### Watch the workflow
 
 ```bash
 gh run watch
 ```
 
-Or open the Actions tab in the browser. Four jobs run in parallel (Linux / Windows / macOS-arm64 / macOS-x64) and typically complete in 10–15 minutes each.
+Or open the Actions tab in the browser. `auto-release.yml` finishes the tag step in a few seconds, then `release.yml` kicks off four jobs in parallel (Linux / Windows / macOS-arm64 / macOS-x64) — 10–15 minutes each.
 
-If a job fails, see Troubleshooting below. The workflow is re-runnable from the Actions tab.
+If a job fails, see Troubleshooting below. Both workflows are re-runnable from the Actions tab.
 
-### 6. Review the draft release
+### Review the draft release
 
 Once all jobs succeed, `tauri-action` creates a **draft** release at:
 
@@ -78,7 +87,7 @@ Verify the assets list includes:
 
 Exact file names may vary by Tauri version; the key thing is each bundle has a matching `.sig` and `latest.json` is present.
 
-### 7. Edit the release body and publish
+### Edit the release body and publish
 
 1. Click the draft release → Edit.
 2. Replace the placeholder body with the new `[X.Y.Z]` section from `CHANGELOG.md`.

@@ -2,6 +2,7 @@
 
 import { Loader2, Lock, Pencil, Plus, Trash2, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { SettingsSection } from "@/components/settings/section";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,20 +94,30 @@ export function SettingsChildren() {
   );
 
   return (
-    <div>
-      {children.length === 0 && !showAdd && (
-        <div className="rounded-lg border border-dashed py-8 text-center">
-          <p className="text-sm text-muted-foreground">No children added yet.</p>
-        </div>
-      )}
+    <div className="space-y-5">
+      <SettingsSection
+        title="Children"
+        help="The kids this app tracks. Each row edits name, TeacherEase login, and optional homework URL."
+        card={false}
+      >
+        {children.length === 0 && !showAdd ? (
+          <div className="rounded-lg border border-dashed py-8 text-center">
+            <p className="text-[13px] text-muted-foreground">No children added yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {children.map((child) => (
+              <ChildRow key={child.id} child={child} onRemove={handleRemove} onChanged={refresh} />
+            ))}
+          </div>
+        )}
+      </SettingsSection>
 
-      <div className="space-y-2">
-        {children.map((child) => (
-          <ChildRow key={child.id} child={child} onRemove={handleRemove} onChanged={refresh} />
-        ))}
-      </div>
-
-      <div className="mt-4">
+      <SettingsSection
+        title="Add a child"
+        help="Validates the TeacherEase login before saving so a bad password doesn't silently land. Homework URL is optional."
+        card={false}
+      >
         {showAdd ? (
           <AddChildForm
             onDone={async () => {
@@ -122,7 +133,7 @@ export function SettingsChildren() {
             Add another child
           </Button>
         )}
-      </div>
+      </SettingsSection>
     </div>
   );
 }
