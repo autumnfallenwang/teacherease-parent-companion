@@ -786,6 +786,53 @@ We also have an implicit convention now that should be written down: **every tim
 
 **Promoted to:** Phase 24 in `docs/progress.md`.
 
+### Q33 — First-run wizard collapsed to disclaimer gate + in-app "Reset app data" (supersedes Q7's 4-screen linear-wizard model)
+
+**Problem.** Q7 spec'd a 4-screen wizard (Welcome / Add child / Notifications / Done). Phases 14+ grew Settings → Children into a full add/edit/delete surface with the same live-login validation the wizard has, and the unified attention + schedule + notifications UI makes the old "Notifications" pre-prompt redundant. What the wizard uniquely provided shrunk to: (a) the on-boarding moment for a non-technical parent, (b) an inline first-scrape. The first is better served by a lighter gate + a GitHub-hosted user guide; the second is fine to defer to the Settings → Fetch "Fetch now" button. Meanwhile: we have no clean-uninstall story — users have to manually wipe `~/Library/Application Support/`, Credential Manager entries, keychain entries, etc. across 3 OSes. A single in-app "Reset all data" button can cover 99% of that without trying to self-delete the binary (which is platform-ugly).
+
+**Decision.**
+
+1. **Wizard = legal-disclaimer gate only.** Single screen at `/setup`. Shows the disclaimer text sourced from `src/lib/legal.ts` (the Q15 single-source). Two buttons:
+   - **"I understand — continue"** → writes `wizard.disclaimerAcknowledgedAt = <ISO timestamp>` to `settings`, navigates to `/`.
+   - **"Quit"** → `@tauri-apps/plugin-process` `exit(0)`.
+   No Skip link. The acknowledgment IS the gate.
+
+2. **Trigger on shell-layout mount.** If `wizard.disclaimerAcknowledgedAt` is empty → redirect to `/setup`. Else render the normal layout. The trigger lives in `src/components/shell/disclaimer-gate.tsx` (new, small, client-only), runs before any data-loading.
+
+3. **Add-child and notifications guidance moves to `docs/user-guide.md`.** New markdown file, parent-friendly tone (no code snippets). Sections: install per OS, add your first child, fetch schedule, getting notifications, troubleshooting. Linked from: the wizard screen ("New here? Read the user guide →"), the Today tab empty state, Settings → About, README. Not rendered in-app — opens in the default browser via `shell:allow-open`.
+
+4. **Today tab empty state gets a direct CTA.** When `children.length === 0`, the empty-state component shows a "Add your first child" button that navigates to `/settings` directly (Children sub-tab is the default). No intermediate wizard step. Second link below: "New here? Read the user guide →".
+
+5. **Reset all data button** in Settings → Advanced → Danger zone. Wipes:
+   - Every row from every DB table (`DELETE FROM children / fetch_runs / homework / classes / standards / grades / assignments / raw_payloads / settings`).
+   - Every keychain entry (one per child via `keychainDelete("child-{id}")` BEFORE deleting the children rows so we have IDs, plus `smtp-main` + any other known services).
+   - Autostart entry via `disableAutostart()`.
+   - `wizard.disclaimerAcknowledgedAt` (so the disclaimer gate fires again on next launch).
+   Confirmation: modal "This wipes everything. Sure?" with typed confirmation or strong-worded confirm dialog. On success, `app.exit(0)` — user relaunches into first-install state.
+
+6. **What "Reset" deliberately does NOT do:**
+   - Delete the SQLite file itself (migrations re-run cleanly on empty tables; deleting the file risks schema-version drift corner cases).
+   - Delete the app binary (`.app` / `.exe` / `.AppImage`). Platform-ugly on macOS + Linux AppImage; users drag-to-Trash or Add/Remove Programs afterward to remove the binary itself.
+   - Touch the OS-level uninstall registry (that's the OS's job).
+
+**What stays locked (Q15 + other wizard-adjacent).**
+- `src/lib/legal.ts` is still the single source of truth for disclaimer text. The new wizard reads from there; no duplicate copy.
+- Add-child flow and its live TeacherEase-login validation (Q19) live in Settings → Children unchanged.
+- Tray menu + autostart + notification-permission prompt behavior unchanged.
+
+**What this supersedes.**
+- **Q7's 4 screens (Welcome / Add-child / Notifications / Done)** → 1 screen (Disclaimer).
+- **Q7's "Skip link top-right of every screen"** → no skip; acknowledgment required.
+- **Q7's "Run first scrape inline, show summary" Done screen** → no inline scrape. User clicks Fetch now from Settings → Fetch after adding their first child, or waits for the scheduler. Post-add scrape may land as a future polish.
+
+**Non-goals.**
+- No self-delete of the app binary. Platform restrictions + no user value.
+- No in-app markdown renderer for the user guide. GitHub's renderer + the default browser are fine.
+- No rollback or "undo reset" — reset is one-way by design; the warning copy says so.
+- No progress indicator for the reset — it's a handful of SQL deletes + a few keychain calls; finishes in well under a second. App.exit(0) masks any residual flicker.
+
+**Promoted to:** Phase 25 in `docs/progress.md`.
+
 ---
 
 ## Tech Stack

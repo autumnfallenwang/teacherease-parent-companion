@@ -1021,6 +1021,12 @@ export interface UpdateInfo {
   date: string | null;
 }
 
+/** Currently installed app version — sourced from tauri.conf.json at build time. */
+export async function getAppVersion(): Promise<string> {
+  const { getVersion } = await import("@tauri-apps/api/app");
+  return getVersion();
+}
+
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
   const { check } = await import("@tauri-apps/plugin-updater");
   const update = await check();
@@ -1069,6 +1075,58 @@ export async function clearHistory(): Promise<void> {
   await d.execute("DELETE FROM homework");
   await d.execute("DELETE FROM classes");
   await invoke("log_info", { message: "settings: clearHistory executed" });
+}
+
+/** Wipe everything back to first-install state: keychain entries for every
+ *  child + SMTP, every DB table's rows, autostart, and the disclaimer flag.
+ *  Schema stays intact (migrations re-run cleanly on next launch). Caller
+ *  typically chains this with `quitApp()` so the user relaunches fresh. */
+export async function resetAllAppData(): Promise<void> {
+  const d = await getDb();
+
+  // 1. Collect child IDs BEFORE deleting the row so we still have them.
+  const childRows = await d.select<Array<{ id: number }>>("SELECT id FROM children");
+  for (const { id } of childRows) {
+    try {
+      await keychainDelete(childKeychainKey(id));
+    } catch {
+      // Best-effort — a missing entry is fine.
+    }
+  }
+  try {
+    await keychainDelete(SMTP_KEYCHAIN_KEY);
+  } catch {
+    // Best-effort.
+  }
+
+  // 2. Wipe every DB table. Order matters for FKs (children last).
+  await d.execute("DELETE FROM grades");
+  await d.execute("DELETE FROM assignments");
+  await d.execute("DELETE FROM standards");
+  await d.execute("DELETE FROM classes");
+  await d.execute("DELETE FROM homework");
+  await d.execute("DELETE FROM raw_payloads");
+  await d.execute("DELETE FROM fetch_runs");
+  await d.execute("DELETE FROM settings");
+  await d.execute("DELETE FROM children");
+
+  // 3. Disable autostart (best-effort; plugin tolerates already-disabled).
+  try {
+    await disableAutostart();
+  } catch {
+    // Best-effort.
+  }
+
+  await invoke("log_info", {
+    message: `settings: resetAllAppData executed children=${childRows.length}`,
+  });
+}
+
+/** Quit the app immediately (used after resetAllAppData so the next
+ *  launch replays the disclaimer gate). Wraps tauri-plugin-process. */
+export async function quitApp(): Promise<void> {
+  const { exit } = await import("@tauri-apps/plugin-process");
+  await exit(0);
 }
 
 // ---------------------------------------------------------------------------

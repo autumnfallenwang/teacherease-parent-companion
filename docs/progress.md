@@ -261,6 +261,23 @@ Q19's "Only the current month's entries persisted" rule worked fine when ingesti
 
 **End state:** Every homework entry the scraper sees lands in the DB forever (until Clear history). History tab shows a month dropdown populated from DB content; picking a month shows every row for that month (~25 typical). Current-month default mirrors prior UX; looking back at September or last October works from month one.
 
+## Phase 25: First-run wizard → disclaimer gate + in-app Reset app data (per Q33)
+
+Q7's 4-screen wizard (Welcome / Add child / Notifications / Done) compresses to a single disclaimer-acknowledgment screen. Add-child guidance moves to a new `docs/user-guide.md` linked from the wizard + the Today empty state + Settings → About + README. Settings → Advanced gets a "Reset app data" button in Danger zone that wipes DB + keychain + autostart + the disclaimer flag and exits the app, giving users a one-click path back to first-install state without trying to self-delete the binary.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| WZ1 | `docs/user-guide.md` | ✅ Done | New parent-friendly markdown. Sections: Install per OS (drag-to-Apps / double-click / AppImage), Add your first child, How fetch works, How notifications work, Troubleshooting. Linked from wizard + empty state + Settings → About + README. |
+| WZ2 | `DisclaimerGate` shell component | ✅ Done | `src/components/shell/disclaimer-gate.tsx` — client-only wrapper mounted at top of `(shell)/layout.tsx`. On mount: read `wizard.disclaimerAcknowledgedAt` via `getSettingString`; if empty, `router.replace("/setup")`. Renders nothing visible. |
+| WZ3 | Simplified `setup-wizard.tsx` | ✅ Done | Delete wizard-welcome/add-child/notifications/done files. Rewrite setup-wizard.tsx as single disclaimer screen: reads legal text from `src/lib/legal.ts`, shows in a centered card with "I understand — continue" + "Quit" buttons + a "User guide →" link. Continue → `setSettingString("wizard.disclaimerAcknowledgedAt", new Date().toISOString())` then `router.replace("/")`. Quit → `@tauri-apps/plugin-process` `exit(0)` via new `quitApp` IPC helper. |
+| WZ4 | Today empty state rewrite | ✅ Done | `src/components/empty-state.tsx` — replace "Get started" CTA with "Add your first child" navigating to `/settings` (Children sub-tab opens by default). Second link below: "New here? Read the user guide →" opens `https://github.com/autumnfallenwang/teacherease-parent-companion/blob/main/docs/user-guide.md` in default browser via `shell:allow-open` (already permitted per existing Gmail-app-password link pattern). |
+| WZ5 | `resetAllAppData` IPC helper | ✅ Done | `src/lib/ipc.ts` — new `async function resetAllAppData()` that: (1) reads all children IDs, (2) calls `keychainDelete` for each child key + `smtp-main`, (3) executes `DELETE FROM` for every known table, (4) `disableAutostart()`, (5) returns. Parent component calls this then triggers `quitApp()`. Order matters — keychain sweep before children delete so we have IDs. |
+| WZ6 | Danger zone "Reset app data" button | ✅ Done | `src/components/settings-advanced.tsx` — new row inside the Danger zone section below Clear history. Distinct semantics: Clear history wipes grade/homework data, keeps children + creds; **Reset app data wipes everything**. Uses `window.confirm` (matches existing Clear history pattern) with blunt copy. On confirm → `resetAllAppData()` → `quitApp()`. |
+| WZ7 | `quitApp` IPC helper + `shell:allow-open` verify | ✅ Done | `src/lib/ipc.ts` — new `async function quitApp()` wrapping `@tauri-apps/plugin-process` `exit(0)`. Confirm `tauri.conf.json` capabilities allow `shell:allow-open` for external URL opening (existing Gmail-app-password link uses this). |
+| WZ8 | Docs + CHANGELOG + progress close | ✅ Done | README links `docs/user-guide.md`. Flip WZ rows. CHANGELOG Unreleased entry under Changed. |
+
+**End state:** First launch shows a disclaimer modal; acknowledging it unlocks the app permanently. Add-child guidance lives in a markdown doc, not in-app screens. Danger-zone "Reset app data" is the clean-uninstall prep step users didn't previously have; after clicking it, the next launch replays the disclaimer gate as if they'd just installed.
+
 ---
 
 ## What's Working

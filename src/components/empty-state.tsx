@@ -1,6 +1,9 @@
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
+import { REPO_URL } from "@/lib/legal";
 import { Button } from "./ui/button";
+
+const USER_GUIDE_URL = `${REPO_URL}/blob/main/docs/user-guide.md`;
 
 export function EmptyState() {
   return (
@@ -19,15 +22,25 @@ export function EmptyState() {
         >
           Welcome to Parent Companion
         </h2>
-        <p className="mx-auto max-w-[300px] text-[14px] leading-relaxed text-muted-foreground">
-          Connect your TeacherEase account and we&apos;ll keep track of grades and missing
-          assignments — right here on your computer.
+        <p className="mx-auto max-w-[320px] text-[14px] leading-relaxed text-muted-foreground">
+          No children are set up yet. Add your first child and we&apos;ll keep track of grades and
+          missing assignments — right here on your computer.
         </p>
       </div>
 
-      <Button size="lg" className="rounded-xl px-6" asChild>
-        <Link href="/setup">Get started</Link>
-      </Button>
+      <div className="flex flex-col items-center gap-3">
+        <Button size="lg" className="rounded-xl px-6" asChild>
+          <Link href="/settings">Add your first child</Link>
+        </Button>
+        <a
+          href={USER_GUIDE_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          New here? Read the user guide →
+        </a>
+      </div>
     </div>
   );
 }

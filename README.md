@@ -42,6 +42,8 @@ Pre-built installers are on the [Releases page](https://github.com/autumnfallenw
 
 Because v1 builds are unsigned at the OS level, Windows SmartScreen and macOS Gatekeeper will show a warning on first launch. Walkthroughs for bypassing them: `docs/first-launch-windows.md` and `docs/first-launch-macos.md` (ships alongside v0.1.0).
 
+New users: the **[user guide](docs/user-guide.md)** walks through install, adding your first child, fetch + notification schedules, and troubleshooting.
+
 Updater payloads are cryptographically signed — the app verifies every downloaded update against a public key baked into the installed build before applying it.
 
 ## Tech stack
@@ -73,7 +75,7 @@ This project is a rewrite of [`teacherease_parents_helper`](https://github.com/a
 
 This is an unofficial tool — **not** affiliated with TeacherEase or Common Goal Systems Inc. Full disclaimer, privacy notice, and responsible-use policy: **[DISCLAIMER.md](DISCLAIMER.md)**.
 
-The same text is shown inside the app (wizard welcome screen + Settings → About). The single source of truth for all legal text is [`src/lib/legal.ts`](src/lib/legal.ts).
+The same text is shown inside the app (first-run disclaimer gate + Settings → About). The single source of truth for all legal text is [`src/lib/legal.ts`](src/lib/legal.ts).
 
 ## License
 
