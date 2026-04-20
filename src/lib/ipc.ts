@@ -191,7 +191,7 @@ function mapChildRow(row: RawChildRow): ChildRecord {
     grade: row.grade,
     school: row.school,
     homeworkUrl: row.homework_url,
-    createdAt: row.created_at,
+    createdAt: sqliteUtcToIso(row.created_at),
   };
 }
 
@@ -833,7 +833,7 @@ function mapHomeworkRow(r: RawHomeworkRow): HomeworkRecord {
     content: r.content,
     dueDate: r.due_date,
     dueDateInferred: r.due_date_inferred === 1,
-    scrapedAt: r.scraped_at,
+    scrapedAt: sqliteUtcToIso(r.scraped_at),
   };
 }
 

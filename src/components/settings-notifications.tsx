@@ -1,11 +1,12 @@
 "use client";
 
-// Unified Notifications panel (Phase 19 CF5). Absorbs the old "Email"
-// sub-tab so parents see every output channel in one place. Adds the notify
-// schedule (time picker + Send digest now) per Q29.
+// Unified Notifications panel (Phase 19 CF5 + Phase 21 NS7). Absorbs the
+// old "Email" sub-tab so every output channel lives in one place. Schedule
+// section mirrors Settings → Fetch exactly (N×/day + first-slot-at +
+// Skip-weekends) per Q31.
 
 import { Clock, Loader2, Send } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SettingsEmailSection } from "@/components/settings-email-section";
 import { SCHEDULES_CHANGED_EVENT, SEND_DIGEST_NOW_EVENT } from "@/components/shell/schedulers";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,24 @@ import {
 } from "@/lib/ipc";
 import { OSChannel } from "@/lib/notify/os-channel";
 import { buildSyntheticDigest } from "@/lib/notify/synthetic";
-import { NOTIFY_TIME_DEFAULT, parseNotifyTime } from "@/lib/schedule/notify-schedule";
+import { formatSlotMinutes } from "@/lib/schedule/fetch-schedule";
+import {
+  computeNotifyNextRun,
+  computeNotifySlots,
+  NOTIFY_FIRST_SLOT_DEFAULT,
+  NOTIFY_RUNS_PER_DAY_DEFAULT,
+  NOTIFY_RUNS_PER_DAY_MAX,
+  NOTIFY_RUNS_PER_DAY_MIN,
+  parseNotifyFirstSlot,
+  parseNotifyRunsPerDay,
+} from "@/lib/schedule/notify-schedule";
+import { isWeekend } from "@/lib/schedule/weekday";
 
 const OS_KEY = "notify.refreshDigest.os";
 const OS_DEFAULT_ENABLED = true;
-const NOTIFY_TIME_KEY = "notify.time";
+const NOTIFY_RUNS_PER_DAY_KEY = "notify.runsPerDay";
+const NOTIFY_FIRST_SLOT_KEY = "notify.firstSlotAt";
+const NOTIFY_WEEKDAYS_ONLY_KEY = "notify.weekdaysOnly";
 const NOTIFY_NEXT_RUN_KEY = "notify.nextRunAt";
 
 function formatLocal(iso: string | null): string {
@@ -36,6 +50,19 @@ function formatLocal(iso: string | null): string {
   return d.toLocaleString();
 }
 
+function formatRelative(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const ms = d.getTime() - Date.now();
+  if (ms <= 0) return "due now";
+  const mins = Math.round(ms / 60_000);
+  if (mins < 60) return `in ${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `in ${h}h` : `in ${h}h ${m}m`;
+}
+
 export function SettingsNotifications() {
   const [osEnabled, setOsEnabled] = useState<boolean>(OS_DEFAULT_ENABLED);
   const [osTesting, setOsTesting] = useState(false);
@@ -43,8 +70,11 @@ export function SettingsNotifications() {
     null,
   );
 
-  const [notifyTime, setNotifyTime] = useState<string>(NOTIFY_TIME_DEFAULT);
-  const [notifyTimeDraft, setNotifyTimeDraft] = useState<string>(NOTIFY_TIME_DEFAULT);
+  const [runsPerDay, setRunsPerDay] = useState<number>(NOTIFY_RUNS_PER_DAY_DEFAULT);
+  const [runsDraft, setRunsDraft] = useState<string>(String(NOTIFY_RUNS_PER_DAY_DEFAULT));
+  const [firstSlotAt, setFirstSlotAt] = useState<string>(NOTIFY_FIRST_SLOT_DEFAULT);
+  const [firstSlotDraft, setFirstSlotDraft] = useState<string>(NOTIFY_FIRST_SLOT_DEFAULT);
+  const [weekdaysOnly, setWeekdaysOnly] = useState<boolean>(false);
   const [notifyNextRunAt, setNotifyNextRunAt] = useState<string | null>(null);
 
   const [sendingDigest, setSendingDigest] = useState(false);
@@ -59,14 +89,20 @@ export function SettingsNotifications() {
 
   useEffect(() => {
     void (async () => {
-      const [os, time] = await Promise.all([
+      const [os, rawRuns, rawSlot, wd] = await Promise.all([
         getSettingBool(OS_KEY, OS_DEFAULT_ENABLED),
-        getSettingString(NOTIFY_TIME_KEY, NOTIFY_TIME_DEFAULT),
+        getSettingString(NOTIFY_RUNS_PER_DAY_KEY, String(NOTIFY_RUNS_PER_DAY_DEFAULT)),
+        getSettingString(NOTIFY_FIRST_SLOT_KEY, NOTIFY_FIRST_SLOT_DEFAULT),
+        getSettingBool(NOTIFY_WEEKDAYS_ONLY_KEY, false),
       ]);
       setOsEnabled(os);
-      const parsedTime = parseNotifyTime(time);
-      setNotifyTime(parsedTime);
-      setNotifyTimeDraft(parsedTime);
+      const parsedRuns = parseNotifyRunsPerDay(rawRuns);
+      const parsedSlot = parseNotifyFirstSlot(rawSlot);
+      setRunsPerDay(parsedRuns);
+      setRunsDraft(String(parsedRuns));
+      setFirstSlotAt(parsedSlot);
+      setFirstSlotDraft(parsedSlot);
+      setWeekdaysOnly(wd);
       await reloadNextRun();
     })();
   }, [reloadNextRun]);
@@ -96,32 +132,62 @@ export function SettingsNotifications() {
     }
   };
 
-  const commitNotifyTime = () => {
-    const parsed = parseNotifyTime(notifyTimeDraft);
-    setNotifyTimeDraft(parsed);
-    if (parsed === notifyTime) return;
-    setNotifyTime(parsed);
+  const commitRunsPerDay = () => {
+    const parsed = parseNotifyRunsPerDay(runsDraft);
+    setRunsDraft(String(parsed));
+    if (parsed === runsPerDay) return;
+    setRunsPerDay(parsed);
     void (async () => {
       try {
-        await setSettingString(NOTIFY_TIME_KEY, parsed);
-        await log(`settings: ${NOTIFY_TIME_KEY}=${parsed}`);
+        await setSettingString(NOTIFY_RUNS_PER_DAY_KEY, String(parsed));
+        await log(`settings: ${NOTIFY_RUNS_PER_DAY_KEY}=${parsed}`);
         window.dispatchEvent(new CustomEvent(SCHEDULES_CHANGED_EVENT));
-        // Give scheduler a moment to write the new nextRunAt, then refresh.
         setTimeout(() => void reloadNextRun(), 500);
       } catch (e) {
         await logErr(
-          `settings: notify.time save failed — ${e instanceof Error ? e.message : "unknown"}`,
+          `settings: notify.runsPerDay save failed — ${e instanceof Error ? e.message : "unknown"}`,
         );
       }
     })();
+  };
+
+  const commitFirstSlot = () => {
+    const parsed = parseNotifyFirstSlot(firstSlotDraft);
+    setFirstSlotDraft(parsed);
+    if (parsed === firstSlotAt) return;
+    setFirstSlotAt(parsed);
+    void (async () => {
+      try {
+        await setSettingString(NOTIFY_FIRST_SLOT_KEY, parsed);
+        await log(`settings: ${NOTIFY_FIRST_SLOT_KEY}=${parsed}`);
+        window.dispatchEvent(new CustomEvent(SCHEDULES_CHANGED_EVENT));
+        setTimeout(() => void reloadNextRun(), 500);
+      } catch (e) {
+        await logErr(
+          `settings: notify.firstSlotAt save failed — ${e instanceof Error ? e.message : "unknown"}`,
+        );
+      }
+    })();
+  };
+
+  const toggleWeekdays = async (next: boolean) => {
+    setWeekdaysOnly(next);
+    try {
+      await setSettingBool(NOTIFY_WEEKDAYS_ONLY_KEY, next);
+      await log(`settings: ${NOTIFY_WEEKDAYS_ONLY_KEY}=${next ? 1 : 0}`);
+      window.dispatchEvent(new CustomEvent(SCHEDULES_CHANGED_EVENT));
+      setTimeout(() => void reloadNextRun(), 500);
+    } catch (e) {
+      await logErr(
+        `settings: notify.weekdaysOnly save failed — ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
   };
 
   const handleSendDigestNow = () => {
     setSendingDigest(true);
     setDigestResult(null);
     window.dispatchEvent(new CustomEvent(SEND_DIGEST_NOW_EVENT));
-    // The scheduler handles the dispatch; we can't know exactly when it
-    // finishes, so just show a short confirmation after a small delay.
     setTimeout(() => {
       setSendingDigest(false);
       setDigestResult({
@@ -131,6 +197,34 @@ export function SettingsNotifications() {
       setTimeout(() => setDigestResult(null), 5000);
     }, 1500);
   };
+
+  // Chip view: chronological list with "(tomorrow)" / "(Mon)" tags per slot.
+  // When weekdaysOnly is on and "today" is Sat/Sun, show Monday's slots.
+  const slotView = useMemo(() => {
+    const raw = computeNotifySlots(runsPerDay, firstSlotAt);
+    const now = new Date();
+    const showMondayInstead = weekdaysOnly && isWeekend(now);
+    if (showMondayInstead) {
+      return [...raw].sort((a, b) => a - b).map((mins) => ({ mins, rollover: true as const }));
+    }
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const todaySlots = [...raw].filter((s) => s > nowMins).sort((a, b) => a - b);
+    const tomorrowSlots = [...raw].filter((s) => s <= nowMins).sort((a, b) => a - b);
+    return [
+      ...todaySlots.map((mins) => ({ mins, rollover: false as const })),
+      ...tomorrowSlots.map((mins) => ({ mins, rollover: true as const })),
+    ];
+  }, [runsPerDay, firstSlotAt, weekdaysOnly]);
+
+  const rolloverLabel = useMemo(() => {
+    const now = new Date();
+    return weekdaysOnly && isWeekend(now) ? "(Mon)" : "(tomorrow)";
+  }, [weekdaysOnly]);
+
+  const nextSlotMins = useMemo(() => {
+    const d = computeNotifyNextRun(new Date(), runsPerDay, firstSlotAt, weekdaysOnly);
+    return d.getHours() * 60 + d.getMinutes();
+  }, [runsPerDay, firstSlotAt, weekdaysOnly]);
 
   return (
     <div className="space-y-6">
@@ -195,37 +289,97 @@ export function SettingsNotifications() {
         <div className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-[14px] font-medium">Notification time</h2>
+            <h2 className="text-[14px] font-medium">Notification schedule</h2>
           </div>
           <p className="text-[12px] text-muted-foreground">
-            One notification per day at this local time. Draws from whatever's in the database —
-            fetch runs on its own schedule.
+            How many times per day — and anchored where — a digest fires. Each run reads whatever's
+            already in the database; fetch runs on its own schedule.
           </p>
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="notify-time" className="text-[13px]">
-                Time
+              <Label htmlFor="notify-runs-per-day" className="text-[13px]">
+                Notifications per day ({NOTIFY_RUNS_PER_DAY_MIN}–{NOTIFY_RUNS_PER_DAY_MAX})
               </Label>
               <Input
-                id="notify-time"
-                type="time"
-                value={notifyTimeDraft}
-                onChange={(e) => setNotifyTimeDraft(e.target.value)}
-                onBlur={commitNotifyTime}
+                id="notify-runs-per-day"
+                type="number"
+                min={NOTIFY_RUNS_PER_DAY_MIN}
+                max={NOTIFY_RUNS_PER_DAY_MAX}
+                value={runsDraft}
+                onChange={(e) => setRunsDraft(e.target.value)}
+                onBlur={commitRunsPerDay}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    commitNotifyTime();
+                    commitRunsPerDay();
+                  }
+                }}
+                className="h-9 w-24 rounded-lg"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="notify-first-slot" className="text-[13px]">
+                First slot at
+              </Label>
+              <Input
+                id="notify-first-slot"
+                type="time"
+                value={firstSlotDraft}
+                onChange={(e) => setFirstSlotDraft(e.target.value)}
+                onBlur={commitFirstSlot}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitFirstSlot();
                   }
                 }}
                 className="h-9 w-32 rounded-lg"
               />
             </div>
-            <p className="pb-2 text-[12px] text-muted-foreground">
-              Next run:{" "}
-              <span className="font-medium text-foreground">{formatLocal(notifyNextRunAt)}</span>
-            </p>
           </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Time slots</p>
+            <div className="flex flex-wrap gap-1.5">
+              {slotView.map(({ mins, rollover }) => {
+                const isNext = !rollover && mins === nextSlotMins;
+                return (
+                  <span
+                    key={`${mins}-${rollover ? "r" : "t"}`}
+                    className={`rounded-full border px-2.5 py-1 text-[12px] tabular-nums ${
+                      isNext
+                        ? "border-primary bg-primary/10 font-semibold text-foreground"
+                        : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {formatSlotMinutes(mins)}
+                    {rollover && (
+                      <span className="ml-1 text-[10px] opacity-70">{rolloverLabel}</span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <Switch
+              checked={weekdaysOnly}
+              onChange={(next) => {
+                void toggleWeekdays(next);
+              }}
+              aria-label="Skip weekends"
+            />
+            <span className="text-[13px]">Skip weekends (Sat + Sun)</span>
+          </div>
+
+          <p className="text-[12px] text-muted-foreground">
+            Next run:{" "}
+            <span className="font-medium text-foreground">{formatLocal(notifyNextRunAt)}</span>
+            {notifyNextRunAt && formatRelative(notifyNextRunAt) && (
+              <span className="ml-1.5">({formatRelative(notifyNextRunAt)})</span>
+            )}
+          </p>
         </div>
 
         <div className="space-y-2 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">

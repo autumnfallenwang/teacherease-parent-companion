@@ -9,6 +9,7 @@ import { runFetchCycle } from "@/lib/fetch/cycle";
 import {
   getChildren,
   getLatestSuccessfulFetchRun,
+  getSettingBool,
   getSettingString,
   listenTauriEvent,
   log,
@@ -19,14 +20,18 @@ import { buildDigestFromDb } from "@/lib/notify/build-from-db";
 import { buildNotifyRouter } from "@/lib/notify/default";
 import {
   computeFetchNextRun,
+  FETCH_FIRST_SLOT_DEFAULT,
   FETCH_RUNS_PER_DAY_DEFAULT,
+  parseFetchFirstSlot,
   parseFetchRunsPerDay,
 } from "@/lib/schedule/fetch-schedule";
 import { ScheduleLoop } from "@/lib/schedule/loop";
 import {
   computeNotifyNextRun,
-  NOTIFY_TIME_DEFAULT,
-  parseNotifyTime,
+  NOTIFY_FIRST_SLOT_DEFAULT,
+  NOTIFY_RUNS_PER_DAY_DEFAULT,
+  parseNotifyFirstSlot,
+  parseNotifyRunsPerDay,
 } from "@/lib/schedule/notify-schedule";
 
 export const SCHEDULES_CHANGED_EVENT = "schedules-changed";
@@ -78,13 +83,21 @@ export function Schedulers() {
       const runsPerDay = parseFetchRunsPerDay(
         await getSettingString("fetch.runsPerDay", String(FETCH_RUNS_PER_DAY_DEFAULT)),
       );
-      const notifyTime = parseNotifyTime(
-        await getSettingString("notify.time", NOTIFY_TIME_DEFAULT),
+      const firstSlotAt = parseFetchFirstSlot(
+        await getSettingString("fetch.firstSlotAt", FETCH_FIRST_SLOT_DEFAULT),
       );
+      const fetchWeekdaysOnly = await getSettingBool("fetch.weekdaysOnly", false);
+      const notifyRunsPerDay = parseNotifyRunsPerDay(
+        await getSettingString("notify.runsPerDay", String(NOTIFY_RUNS_PER_DAY_DEFAULT)),
+      );
+      const notifyFirstSlotAt = parseNotifyFirstSlot(
+        await getSettingString("notify.firstSlotAt", NOTIFY_FIRST_SLOT_DEFAULT),
+      );
+      const notifyWeekdaysOnly = await getSettingBool("notify.weekdaysOnly", false);
 
       fetchLoop = new ScheduleLoop({
         nextRunAt: (n) => {
-          const next = computeFetchNextRun(n, runsPerDay);
+          const next = computeFetchNextRun(n, runsPerDay, firstSlotAt, fetchWeekdaysOnly);
           void setSettingString("fetch.nextRunAt", next.toISOString());
           return next;
         },
@@ -98,7 +111,12 @@ export function Schedulers() {
 
       notifyLoop = new ScheduleLoop({
         nextRunAt: (n) => {
-          const next = computeNotifyNextRun(n, notifyTime);
+          const next = computeNotifyNextRun(
+            n,
+            notifyRunsPerDay,
+            notifyFirstSlotAt,
+            notifyWeekdaysOnly,
+          );
           void setSettingString("notify.nextRunAt", next.toISOString());
           return next;
         },
@@ -107,7 +125,9 @@ export function Schedulers() {
       });
       notifyLoop.start();
 
-      await log(`scheduler: started runsPerDay=${runsPerDay} notifyTime=${notifyTime}`);
+      await log(
+        `scheduler: started fetch(n=${runsPerDay} anchor=${firstSlotAt} weekdays=${fetchWeekdaysOnly}) notify(n=${notifyRunsPerDay} anchor=${notifyFirstSlotAt} weekdays=${notifyWeekdaysOnly})`,
+      );
     };
 
     const handleSchedulesChanged = (): void => {

@@ -714,6 +714,42 @@ We also have an implicit convention now that should be written down: **every tim
 
 **Promoted to:** Phase 20 in `docs/progress.md`.
 
+### Q31 — Notify schedule gets Fetch-model parity + shared weekday-only toggle (supersedes Q29's claim that notify is "exactly 1 run per day at a user-picked HH:MM," Q29's Non-goal "No per-weekday schedules. Same N slots every day," and Q30's claim that "Notify schedule stays unchanged")
+
+**Problem.** Q29 modeled notify as a single-knob schedule (1×/day HH:MM) on the theory that one notification per day is the ceiling a parent tolerates. In practice parents who test the feature want the same transparency Fetch offers — "show me every trigger time as a chip, not just one line" — which is only meaningful if notify can also be N×/day. A parent who wants morning + evening digest (breakfast prep + homework check) has no way to configure that today without setting both fetch + notify to the same time. Separately: weekend runs are near-useless — TeacherEase data doesn't change Sat/Sun, so cron ticks at those times waste CPU + add confusion ("why did it notify at 07:00 Sunday if nothing changed?"). A single checkbox skipping weekends covers the 99% case cleanly.
+
+**Decision.**
+
+1. **Notify schedule gains Fetch's two-knob model.** `notify-schedule.ts` exposes `NOTIFY_RUNS_PER_DAY_DEFAULT = 1` + `NOTIFY_FIRST_SLOT_DEFAULT = "07:00"` and the same `computeNotifySlots / computeNotifyNextRun(now, n, firstSlotAt)` shape as fetch. Defaults preserve Q29 behavior: N=1, first-slot-at=07:00 → exactly one run per day at 07:00 local. Parents who want 2×/day set N=2 + pick an anchor; slots evenly space from there.
+
+2. **Settings → Notifications UI mirrors Settings → Fetch.** Two inputs side-by-side (`Notifications per day` 1–8, default 1; `First slot at` time picker, default 07:00) + chip list (single chip when N=1, multiple chips with `(tomorrow)` annotations when N≥2) + "Next run" with relative offset. The existing Send-test-OS / Send-test-email / Send-digest-now buttons stay.
+
+3. **Weekday-only toggle on BOTH tabs.** New setting keys `fetch.weekdaysOnly` + `notify.weekdaysOnly` (boolean, default `false`). A checkbox labeled "Skip weekends (Sat + Sun)" lives inside each tab's Schedule section, right under the chip list. Default off so the v0.1.0 behavior doesn't flip under existing users — parents opt in when they notice weekend noise.
+
+4. **Scheduler honors weekdaysOnly.** `computeFetchNextRun` / `computeNotifyNextRun` gain an optional `weekdaysOnly: boolean` param. When true, if the computed next-run falls on Saturday (`day === 6`) or Sunday (`day === 0`), advance to the first slot of the following Monday. Shared `nextWeekday(date)` helper in `src/lib/schedule/weekday.ts` is the single source of the advance rule; both compute functions re-pick the slot against Monday's midnight after advancing. Pure; DST-safe.
+
+5. **Chip list reflects the weekday rule.** When `weekdaysOnly` is on and "today" is Saturday or Sunday, the chip list shows Monday's slots tagged `(Mon)` instead of today's. Otherwise behavior unchanged (today's slots, with `(tomorrow)` tags as today rolls over).
+
+**What stays locked.**
+- Q29's decoupled-schedulers architecture. Fetch + notify still run independently.
+- Q29's "always fire" rule. Weekday-only is content-agnostic skipping, not silencing.
+- Q29's settings-reorganization (Fetch + Notifications tabs). Unchanged.
+- Q30's first-slot-anchor model. Now applied to notify too.
+- Q30's UTC-in-storage / local-in-UI convention. Unchanged.
+- "Send digest now" + "Send test" buttons unchanged.
+
+**What this supersedes.**
+- **Q29 point 1's "Notify schedule — exactly 1 run per day at a user-picked local HH:MM"** — notify becomes N×/day + anchor. Default behavior (N=1, anchor=07:00) matches the prior single-knob semantics.
+- **Q29 Non-goals' "No per-weekday schedules. Same N slots every day."** — parents get a weekday-only toggle.
+- **Q30's "Notify schedule stays unchanged"** — model parity lands.
+
+**Non-goals.**
+- No per-weekday-schedule flexibility beyond "weekdays vs not." No "Mon + Wed + Fri only," no holiday calendar.
+- No quiet-hours inside the day ("not after 22:00"). Parents pick slots they're OK with.
+- No migration code — `notify.time` (the old HH:MM setting) becomes `notify.firstSlotAt`; on next save the old key is overwritten with `07:00` default, preserving behavior. Leftover `notify.time` row is benign (nothing reads it post-Q31).
+
+**Promoted to:** Phase 21 in `docs/progress.md`.
+
 ---
 
 ## Tech Stack
