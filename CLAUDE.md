@@ -4,7 +4,7 @@ Cross-platform desktop app that monitors a child's TeacherEase portal and notifi
 
 ## Stack
 
-Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + React + TypeScript | `fetch` + `cheerio` scraper bundled into the frontend | SQLite (`tauri-plugin-sql`) | OS keychain via `keyring` Rust crate (wrapped in Tauri commands) | Biome + Vitest | `tauri-plugin-updater`
+Tauri 2 (Rust shell, native OS webview) | Next.js (App Router, static export) + React + TypeScript | `fetch` + `cheerio` scraper bundled into the frontend | SQLite (`tauri-plugin-sql`) — credentials + settings live here per Q34 (keychain code retained but dormant for rollback) | Biome + Vitest | `tauri-plugin-updater`
 
 ## Structure
 

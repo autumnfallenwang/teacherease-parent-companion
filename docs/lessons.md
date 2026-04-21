@@ -16,6 +16,20 @@ Corrections and patterns to avoid repeating. Append entries here whenever a user
 
 <!-- Entries below, newest first. -->
 
+## 2026-04-21 — Unsigned apps + macOS keychain ACL = per-read prompt storm
+
+**Context:** First real-world install of v0.1.2 on an Apple Silicon Mac. Q3 had locked OS keychain as the credential store with the confident claim "On macOS and Windows: zero prompts, ever." Within minutes of adding a child and clicking "Fetch", macOS started throwing the "confidential information in keychain" unlock dialog on every `keychain_get` call. Even after clicking "Always Allow", the prompt returned on the very next fetch. One scheduled fetch logged a 194-second duration because the process was blocked waiting on the dialog while the user was away.
+
+**Mistake:** Q3 assumed keychain would be transparent for users. That's true for **code-signed** apps — macOS's keychain ACL pins the "Always Allow" grant to the caller's code signature, and a stable signature (Apple Developer ID cert) makes future reads silent. For **unsigned** apps, macOS ad-hoc-signs each build with a random hash, so "Always Allow" binds to a signature that changes every rebuild. The shipped binary is ad-hoc-signed by definition (Q9 defers paid signing past v1), so keychain was never going to be silent.
+
+**Correction:** Q34 moves credentials into SQLite (plaintext, protected by home-dir permissions) and leaves the keychain code in place but dormant. If we ever ship a signed build (either $99/yr Apple Developer ID or a Boston Identity LLC team slot), flipping the 8 call sites in `ipc.ts` back restores keychain storage. See design-plan.md Q34 for the full threat-model justification.
+
+**How to avoid next time:**
+1. "Zero prompts" claims for OS-mediated permission systems (keychain, notifications, Full Disk Access, Accessibility, Screen Recording) only hold for **signed** apps on Apple platforms. Always check whether the permission is signature-pinned before committing to it as a UX-transparent store.
+2. Before relying on any macOS permission claim, do a full install-and-use session on a fresh user on real hardware — not just `pnpm tauri:dev`. Dev-mode behavior diverges in signing, code caching, and TCC prompts.
+3. When evaluating "encrypt it locally with a key we derive from X" proposals, remember: if the app can access X unattended for scheduled work, any process running as the user can access X the same way. There's no middle-tier between "plaintext + home-dir perms" and "real code signing + OS-mediated vault."
+4. Document threat models explicitly in the design decision (who can read this, under what conditions) so the tradeoff is auditable later.
+
 ## 2026-04-17 — Seed script must populate `_sqlx_migrations` or runtime migrations collide
 
 **Context:** Dev workflow — `pnpm seed` creates the DB with the final schema directly via `SCHEMA_SQL`. User ran `pnpm tauri:dev` and saw `while executing migration 3: error returned from database: (code: 1) duplicate column name: homework_url`, which killed the app at launch.

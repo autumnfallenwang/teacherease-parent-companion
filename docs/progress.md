@@ -278,6 +278,25 @@ Q7's 4-screen wizard (Welcome / Add child / Notifications / Done) compresses to 
 
 **End state:** First launch shows a disclaimer modal; acknowledging it unlocks the app permanently. Add-child guidance lives in a markdown doc, not in-app screens. Danger-zone "Reset app data" is the clean-uninstall prep step users didn't previously have; after clicking it, the next launch replays the disclaimer gate as if they'd just installed.
 
+## Phase 26: Credentials in SQLite (per Q34, supersedes Q3)
+
+Unsigned builds + macOS keychain ACL = per-fetch re-prompt storm (observed 2026-04-21 on a fresh M4 install of v0.1.2, including a 194-second hang during a scheduled fetch waiting for the user to respond to the keychain dialog). Q9 defers code signing past v1, so keychain prompts are unavoidable on shipped binaries. Q34 moves credentials into SQLite under the user's home directory (plaintext, home-dir permissions), leaves all keychain code in place but dormant for cheap rollback if we ever ship a signed build, and auto-migrates existing installs on first read.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| C1 | Migration v7 — `children.portal_password` column | 🔜 | `ALTER TABLE children ADD COLUMN portal_password TEXT`. Nothing for SMTP — `settings` table already holds strings. |
+| C2 | DB-backed credential getters/setters in `ipc.ts` | 🔜 | New private helpers `getChildPasswordFromDb` / `setChildPasswordInDb` / `getSmtpPasswordFromDb` / `setSmtpPasswordInDb`. SMTP under `settings` key `smtp.password`. |
+| C3 | Switch 8 call sites from keychain to DB | 🔜 | `addChild`, `removeChild`, `updateChildPassword`, `getChildPassword`, `getSmtpPassword`/`setSmtpPassword`/`deleteSmtpPassword`, and the two loops inside `resetAllAppData`. `keychainSet/Get/Delete` wrappers + `SMTP_KEYCHAIN_KEY` constant + `childKeychainKey` helper all stay in file as dormant private code. |
+| C4 | One-time keychain → DB fallback on first read | 🔜 | If `getChildPasswordFromDb(id)` returns NULL, try `keychainGet("child-{id}")`; on hit, `setChildPasswordInDb(id, pw)` + INFO log `credentials: migrated child=<id> from keychain to db`. Same pattern for SMTP. Keychain entry left in place (preserved for rollback, `resetAllAppData` already sweeps it). |
+| C5 | Tests | 🔜 | Update children-CRUD and SMTP ipc tests for DB-backed storage. Add fallback-migration test (mock keychain hit → DB populated → keychain untouched). Existing keychain-mock tests stay as regression coverage for the dormant path. |
+| C6 | `resetAllAppData` — wipe `children.portal_password` + `smtp.password` | 🔜 | New: `UPDATE children SET portal_password = NULL` before the `DELETE FROM children`; `DELETE FROM settings WHERE key = 'smtp.password'`. Keep existing keychain sweep untouched (v0.1.2 installs still have keychain entries; reset should clean them). |
+| C7 | Update `.claude/rules/security.md` | 🔜 | Replace the "Credentials & keychain" section to describe DB storage as the shipped path, keychain as dormant-for-rollback. Keep "never in .env / source / logs / fixtures" rules unchanged. |
+| C8 | Update `CLAUDE.md` Stack one-liner | 🔜 | Replace "OS keychain via `keyring` Rust crate" with "SQLite (credentials + settings) with keychain code dormant for rollback (Q34)". |
+| C9 | `docs/lessons.md` entry | 🔜 | Dated 2026-04-21: unsigned app + macOS keychain ACL = per-launch re-prompt storm; don't propose keychain-based credential storage for unsigned-binary projects without checking the ACL trade first. |
+| C10 | `CHANGELOG.md` Unreleased entry | 🔜 | Under Changed: "Credentials now stored in the app's SQLite DB (was OS keychain). Eliminates per-fetch keychain prompts on unsigned builds. Existing installs migrate on first fetch. Threat model documented in design-plan.md Q34." |
+
+**End state (target):** No keychain prompts on any platform during fetch, add-child, SMTP save, or reset. Existing v0.1.2 installs migrate their credentials silently on first post-update fetch. Keychain plumbing stays wired end-to-end (Rust crate + Tauri commands + ipc wrappers) so a future signed build can be restored to keychain storage by flipping the 8 call sites back.
+
 ---
 
 ## What's Working

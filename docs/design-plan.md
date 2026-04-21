@@ -835,6 +835,58 @@ We also have an implicit convention now that should be written down: **every tim
 
 ---
 
+### Q34 — Credentials in plaintext SQLite (supersedes Q3's "OS keychain via keyring" mandate)
+
+**Problem.** Q3 assumed OS keychain would be transparent ("On macOS and Windows: zero prompts, ever"). That assumption holds **only for code-signed apps**. Our shipped binaries are unsigned per Q9, and macOS's keychain ACL is pinned to an app's code signature: unsigned = ad-hoc signature that changes on every rebuild, so "Always Allow" never sticks. Real-world result on 2026-04-21 M4 install: the installed v0.1.2 app prompted for the login-keychain password on every single `keychain_get` call during scheduled and manual fetches — including one 194-second hang while the process waited for the user to respond. For a background-monitoring app whose whole point is silent scheduled refreshes, this is a dealbreaker.
+
+Signing ($99/yr Apple Developer ID) solves it cleanly, but Q9 explicitly defers signing to post-v1. Staying on keychain under that constraint means shipping an app that re-prompts on every fetch and on every auto-update. We evaluated intermediate options (self-signed cert, free Personal Team cert, client-side encryption with a key in the bundle) — all are security theater or fail for users other than the developer.
+
+**Decision.**
+
+1. **Portal passwords live in `children.portal_password` (new TEXT column).** Plaintext, accessed only through the existing Rust-backed `tauri-plugin-sql` bridge. Migration v7 adds the column; existing rows get NULL and fall back to the keychain-migration path below on first fetch.
+
+2. **SMTP password lives in `settings` under key `smtp.password`.** Consistent with the other SMTP fields (`smtp.host`, `smtp.port`, `smtp.username`, `smtp.from`, `smtp.to`) that already live in the same table. No schema change needed.
+
+3. **Keychain code stays in the tree but goes dormant.** `src-tauri/src/keychain.rs` + `keyring` crate + the three `#[tauri::command]` handlers remain registered and unused. `keychainSet/Get/Delete` wrappers in `ipc.ts` stay private. Rationale: if signing becomes viable (a $99 payment, an employer-sponsored Developer team, or a future free Apple tier), the rollback is a one-line swap at each of the 8 call sites in `ipc.ts`. Deleting the code now and re-adding it later is strictly worse.
+
+4. **One-time migration on first read.** The first `getChildPassword(childId)` or `getSmtpPassword()` call that finds NULL in the DB attempts a keychain read as a fallback; if the keychain still has the credential (true for existing v0.1.2 installs), write it to the DB and log `credentials: migrated <scope> from keychain to db`. Subsequent reads hit the DB directly. The keychain entry is left in place — harmless, and preserved for the possible rollback described above. Users upgrading from v0.1.2 see at most two keychain prompts during the one-time migration, then silence forever.
+
+5. **File permissions on `app.db` are left at SQLite's defaults (`0644`).** Tightening to `0600` is on the table but not shipped here; the parent directory `~/Library/Application Support/` is already `drwx------+` on macOS and the equivalent on Windows/Linux, so other users on the same machine cannot traverse into it. Revisit if the threat model changes.
+
+**Threat model, explicit.**
+
+Who can read the plaintext password in `app.db`:
+- ✅ The user themselves, via any tool they run (Finder with Full Disk Access, Terminal, their own code).
+- ✅ Any process running as the same user (malware, other apps) — same as before; keychain vs. DB is not a meaningful defense against malware-as-user on an unsigned build (malware can also walk right up to the keychain and trigger the same ACL prompt the legitimate app triggers).
+- ✅ An admin with `sudo` on the machine.
+- ✅ A thief with the unlocked Mac, or with the disk if FileVault is off.
+- ✅ A thief with an unencrypted Time Machine / Carbonite / Backblaze backup.
+- ❌ Another user account on the same machine (home-directory perms block them).
+- ❌ A thief with a locked Mac if FileVault is on.
+
+The delta vs. keychain is narrow: keychain additionally protects against the two backup / cold-storage scenarios. For a personal family tool on a FileVault-enabled Mac, that delta is acceptable. Users who want defense-in-depth should enable FileVault (macOS) / BitLocker (Windows) / LUKS (Linux) — called out in the user guide.
+
+**What stays locked.**
+- Credentials are still **never** stored in `.env`, shell history, committed files, commit messages, fixtures, or logs. The rule "credentials never in source control" is unchanged.
+- Non-secret SMTP fields continue to live in `settings`. No consolidation beyond adding `smtp.password`.
+- `resetAllAppData` still wipes keychain entries (best-effort) in addition to DB rows — existing v0.1.2 installs have keychain data that should be cleaned during a reset.
+- Logging rules from Q14 unchanged — the password value is never logged, only the key name.
+
+**What this supersedes.**
+- **Q3's "Credential storage: OS keychain via the `keyring` Rust crate"** → credentials now in SQLite; keychain code dormant but retained for rollback.
+- **Q3's "On macOS and Windows: zero prompts, ever"** claim — wrong for unsigned builds. New claim: "zero credential prompts on any platform, at the cost of plaintext-at-rest inside the user's home directory."
+- The **Keying convention block** in Q3 — DB column name `portal_password` replaces the `user = "child-{id}"` keychain key; settings key `smtp.password` replaces `user = "smtp-main"`.
+
+**Non-goals.**
+- No encryption of the DB file. Any encryption scheme that works unattended for a background scheduler puts the key somewhere the process can read it, which means malware-as-user can read it too. Not worth the complexity.
+- No prompt-on-unlock flow (the 1Password-style pattern). Breaks the scheduled-fetch model — if the Mac reboots overnight, the scheduler can't unlock the vault without user input.
+- No per-user file encryption keyed to hardware UUID / login password. Same failure mode as above plus false confidence.
+- No change to the OS-level install story (Gatekeeper warning on first launch / after auto-update stays).
+
+**Promoted to:** Phase 26 in `docs/progress.md`.
+
+---
+
 ## Tech Stack
 
 | Layer | Tech | Rationale link |
@@ -844,7 +896,7 @@ We also have an implicit convention now that should be written down: **every tim
 | Styling | Tailwind + shadcn/ui (planned) | — |
 | Scraper | `fetch` + `cheerio`, bundled into frontend | Q1, Q11 |
 | Storage | SQLite via `tauri-plugin-sql` | Q8 |
-| Credentials | OS keychain via the `keyring` Rust crate (wrapped in Tauri commands) | Q3, Q5 |
+| Credentials | SQLite (plaintext in user's home dir) — Q34 supersedes Q3; keychain code retained dormant | Q34 |
 | Scheduler | In-process `setTimeout` timer | Q2 |
 | Notifications | `tauri-plugin-notification` | Q4, Q5 |
 | Autostart | `tauri-plugin-autostart` | Q5 |
