@@ -96,7 +96,7 @@ describe("EmailChannel.isEnabled", () => {
     expect(ipc.getSettingBool).not.toHaveBeenCalled();
   });
 
-  it("returns false when keychain password is missing", async () => {
+  it("returns false when SMTP password is missing", async () => {
     mockSmtpConfigured(null);
     const ch = new EmailChannel();
     expect(await ch.isEnabled(emptyDigest())).toBe(false);
