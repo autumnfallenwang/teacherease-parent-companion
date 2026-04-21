@@ -305,7 +305,7 @@ Q33 carried two Danger-zone actions: Clear history (wipes fetch_runs + homework 
 |---|------|--------|-------|
 | R1 | Delete `clearHistory` IPC | ✅ Done | Removed from `src/lib/ipc.ts`. Not retained as dead code (unlike keychain, there's no rollback scenario). Git history preserves it if ever needed. |
 | R2 | Remove Clear-history button + handler in `settings-advanced.tsx` | ✅ Done | Button, `handleClear`, `clearing` / `clearedToast` state, and the `clearHistory` import all gone. |
-| R3 | Shorten Reset description + title | ✅ Done | Title "Reset app data" → "Reset app". Description shrunk to "Wipes all app data and returns to first-install state." `window.confirm` text tightened to a single sentence. |
+| R3 | Shorten Reset description + title | ✅ Done | Title "Reset app data" → "Reset app". Description shrunk to "Wipes all app data and returns to first-install state." Confirmation moved from `window.confirm` (silently suppressed in macOS release webviews — see 2026-04-21 lesson) to an inline destructive-tinted panel mirroring the D-07 child-delete pattern. |
 | R4 | Fix user-visible keychain claims | ✅ Done | `src/lib/legal.ts`, `DISCLAIMER.md`, `README.md`, `docs/user-guide.md`, `docs/first-launch-macos.md`, `docs/first-launch-windows.md` — replace "stored in your OS keychain" language with accurate Q34 description; uninstall docs now reference the in-app Reset button and tag keychain cleanup as v0.1.2-upgrader-only. |
 | R5 | CHANGELOG Unreleased entry | ✅ Done | Under Changed — describes removal + motivation. |
 

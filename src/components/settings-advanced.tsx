@@ -52,6 +52,7 @@ export function SettingsAdvanced() {
   const [checkState, setCheckState] = useState<CheckState>({ kind: "idle" });
   const [installing, setInstalling] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const runCheck = useCallback(async (manual: boolean) => {
     setCheckState({ kind: "checking" });
@@ -132,10 +133,8 @@ export function SettingsAdvanced() {
   };
 
   const handleReset = async () => {
-    const ok = window.confirm(
-      "Reset the app to first-install state? This wipes all local data and cannot be undone. The app will quit.",
-    );
-    if (!ok) return;
+    // Inline confirmation panel handles the user decision; this runs only
+    // after the user clicks the explicit destructive Reset button.
     setResetting(true);
     try {
       await resetAllAppData();
@@ -276,25 +275,55 @@ export function SettingsAdvanced() {
         help="One-way deletion. Back up your data if in doubt."
         danger
       >
-        <div className="flex items-start gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium">Reset app</p>
-            <p className="text-[12px] text-muted-foreground">
-              Wipes all app data and returns to first-install state.
-            </p>
+        {confirmingReset ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium">Reset the app to first-install state?</p>
+                <p className="text-[12px] text-muted-foreground">
+                  Wipes all local data. Cannot be undone. The app will quit.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-8"
+                disabled={resetting}
+                onClick={() => {
+                  void handleReset();
+                }}
+              >
+                {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reset"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => setConfirmingReset(false)}
+                disabled={resetting}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={resetting}
-            onClick={() => {
-              void handleReset();
-            }}
-            className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-          >
-            {resetting ? "Resetting…" : "Reset app"}
-          </Button>
-        </div>
+        ) : (
+          <div className="flex items-start gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium">Reset app</p>
+              <p className="text-[12px] text-muted-foreground">
+                Wipes all app data and returns to first-install state.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmingReset(true)}
+              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+            >
+              Reset app
+            </Button>
+          </div>
+        )}
       </SettingsSection>
     </div>
   );

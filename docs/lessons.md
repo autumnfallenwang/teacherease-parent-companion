@@ -16,6 +16,20 @@ Corrections and patterns to avoid repeating. Append entries here whenever a user
 
 <!-- Entries below, newest first. -->
 
+## 2026-04-21 — `window.confirm` is silently suppressed in Tauri release webviews on macOS
+
+**Context:** Phase 27 shipped a simplified "Reset app" button using `window.confirm` for its destructive confirmation. Local release build on macOS 26 / M4: clicking the button produced *no* dialog, *no* action, *no* log entry — nothing at all. The handler runs, hits `if (!ok) return;` with `ok` falsy, and returns silently. The underlying `resetAllAppData` was wired correctly; the bug was just that the confirmation never happened.
+
+**Mistake:** I treated `window.confirm` as a reasonable lowest-effort confirmation UX. The codebase already had a data point against this pattern — `docs/backlog.md` D-07 explicitly migrated a Settings → Children delete-confirm off `window.confirm` onto an inline panel back in 2026-04-18, calling the browser modal "a dialog that breaks the app's visual language and can't be styled." I read this as a cosmetic complaint and kept `window.confirm` in the Reset handler. It's not cosmetic — at least on macOS release builds, some webview configurations fully **suppress** `window.confirm`, returning a falsy value with no dialog ever drawn. Which means every gate behind `window.confirm` silently does nothing, with no error, no log, and no visible feedback.
+
+**Correction:** Replaced `window.confirm` with the same inline destructive-tinted panel pattern D-07 used for child deletion — a `confirmingReset` state flips the danger-zone content between the normal "Reset app" row and an inline panel with explicit Reset + Cancel buttons. Same visual language as the rest of the app, same state machine, and crucially it actually renders and responds to clicks.
+
+**How to avoid next time:**
+1. Don't use `window.confirm`, `window.alert`, `window.prompt`, or `beforeunload` in Tauri webviews. Assume they're a no-op in release. Build confirmation into the app UI with an inline panel or shadcn `Dialog`.
+2. Backlog / lessons entries that call out a pattern as "breaks the app's visual language" are worth taking seriously even when they sound cosmetic — they often encode a real bug the author didn't fully articulate. Re-read them before repeating the pattern.
+3. When a click produces *no log* at all, the handler didn't reach its logging lines. Don't assume the handler ran and quietly failed — it more likely bailed at the first gate.
+4. Smoke test destructive actions on a **release build**, not just dev mode. Webview behavior diverges between them (different CSP, different dialog handling, different error surfacing).
+
 ## 2026-04-21 — Unsigned apps + macOS keychain ACL = per-read prompt storm
 
 **Context:** First real-world install of v0.1.2 on an Apple Silicon Mac. Q3 had locked OS keychain as the credential store with the confident claim "On macOS and Windows: zero prompts, ever." Within minutes of adding a child and clicking "Fetch", macOS started throwing the "confidential information in keychain" unlock dialog on every `keychain_get` call. Even after clicking "Always Allow", the prompt returned on the very next fetch. One scheduled fetch logged a 194-second duration because the process was blocked waiting on the dialog while the user was away.
