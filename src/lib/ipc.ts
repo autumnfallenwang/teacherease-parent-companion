@@ -52,11 +52,12 @@ async function getDb(): Promise<Database> {
 }
 
 // ---------------------------------------------------------------------------
-// Keychain wrappers (dormant per Q34). Only keychainGet is still reached at
-// runtime — via the one-time migration fallback in getChildPassword /
-// getSmtpPassword for v0.1.2-era upgraders. keychainSet and keychainDelete
-// are retained in case we ever ship a signed build and want to flip back to
-// keychain-native storage; neither is reachable from production code paths.
+// Keychain wrappers (fully dormant per Q34). Zero runtime call sites after
+// the v0.1.2 migration fallbacks were removed — the DB is now the only
+// credential store. These wrappers are kept so a future signed build can
+// flip back to keychain-native storage with a small diff at each credential
+// call site in this file. The Rust commands + keyring crate stay registered
+// in src-tauri/ for the same reason.
 // ---------------------------------------------------------------------------
 
 // biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
@@ -64,6 +65,7 @@ async function keychainSet(key: string, password: string): Promise<void> {
   await invoke("keychain_set", { key, password });
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 async function keychainGet(key: string): Promise<string | null> {
   return await invoke<string | null>("keychain_get", { key });
 }
@@ -83,6 +85,7 @@ export async function listenTauriEvent(event: string, handler: () => void): Prom
   return await listen(event, handler);
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 function childKeychainKey(childId: number): string {
   return `child-${childId}`;
 }
@@ -190,17 +193,7 @@ export async function setHomeworkUrl(childId: number, url: string | null): Promi
 }
 
 export async function getChildPassword(childId: number): Promise<string | null> {
-  const fromDb = await getChildPasswordFromDb(childId);
-  if (fromDb !== null) return fromDb;
-  // Q34 migration: first read after upgrade from a v0.1.2-era install.
-  // Harmless on fresh installs — keychain returns null fast.
-  const fromKeychain = await keychainGet(childKeychainKey(childId));
-  if (fromKeychain === null) return null;
-  await setChildPasswordInDb(childId, fromKeychain);
-  await invoke("log_info", {
-    message: `credentials: migrated child=${childId} from keychain to db`,
-  });
-  return fromKeychain;
+  return await getChildPasswordFromDb(childId);
 }
 
 interface RawChildRow {
@@ -1016,18 +1009,11 @@ export async function getAttentionConfig(): Promise<AttentionConfig> {
 // key `smtp-main` remains for one-time migration of v0.1.2-era installs.
 // ---------------------------------------------------------------------------
 
-const SMTP_KEYCHAIN_KEY = "smtp-main";
 const SMTP_PASSWORD_SETTING_KEY = "smtp.password";
 
 export async function getSmtpPassword(): Promise<string | null> {
   const fromDb = await getSettingString(SMTP_PASSWORD_SETTING_KEY, "");
-  if (fromDb !== "") return fromDb;
-  // Q34 migration fallback.
-  const fromKeychain = await keychainGet(SMTP_KEYCHAIN_KEY);
-  if (fromKeychain === null) return null;
-  await setSettingString(SMTP_PASSWORD_SETTING_KEY, fromKeychain);
-  await invoke("log_info", { message: "credentials: migrated smtp from keychain to db" });
-  return fromKeychain;
+  return fromDb === "" ? null : fromDb;
 }
 
 export async function setSmtpPassword(password: string): Promise<void> {
