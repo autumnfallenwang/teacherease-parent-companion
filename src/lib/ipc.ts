@@ -52,11 +52,11 @@ async function getDb(): Promise<Database> {
 }
 
 // ---------------------------------------------------------------------------
-// Keychain wrappers (dormant per Q34). keychainGet is still called by the
-// one-time migration fallback in getChildPassword / getSmtpPassword;
-// keychainDelete is still called by resetAllAppData to sweep legacy entries.
-// keychainSet is intentionally retained for rollback if we ever ship a signed
-// build and flip back to keychain-native storage.
+// Keychain wrappers (dormant per Q34). Only keychainGet is still reached at
+// runtime — via the one-time migration fallback in getChildPassword /
+// getSmtpPassword for v0.1.2-era upgraders. keychainSet and keychainDelete
+// are retained in case we ever ship a signed build and want to flip back to
+// keychain-native storage; neither is reachable from production code paths.
 // ---------------------------------------------------------------------------
 
 // biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
@@ -68,6 +68,7 @@ async function keychainGet(key: string): Promise<string | null> {
   return await invoke<string | null>("keychain_get", { key });
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 async function keychainDelete(key: string): Promise<void> {
   await invoke("keychain_delete", { key });
 }
@@ -1113,30 +1114,20 @@ export async function setLastUpdateCheckMs(ms: number): Promise<void> {
 }
 
 /** Wipe everything back to first-install state: every DB table's rows (which
- *  per Q34 now includes the portal passwords and smtp.password), best-effort
- *  sweep of legacy keychain entries left over from v0.1.2-era installs,
- *  autostart, and the disclaimer flag. Schema stays intact (migrations re-run
- *  cleanly on next launch). Caller typically chains this with `quitApp()` so
- *  the user relaunches fresh. */
+ *  per Q34 now includes the portal passwords and smtp.password), autostart,
+ *  and the disclaimer flag. Schema stays intact (migrations re-run cleanly on
+ *  next launch). Caller typically chains this with `quitApp()` so the user
+ *  relaunches fresh.
+ *
+ *  Legacy keychain entries from v0.1.2-era installs are deliberately NOT
+ *  swept here — each keychainDelete triggers a macOS ACL prompt on unsigned
+ *  builds (the very UX problem Q34 moved away from). Orphaned keychain
+ *  entries are harmless; the first-launch docs describe manual cleanup via
+ *  Keychain Access for users who want it. */
 export async function resetAllAppData(): Promise<void> {
   const d = await getDb();
 
-  // 1. Collect child IDs BEFORE deleting the row so we still have them.
-  const childRows = await d.select<Array<{ id: number }>>("SELECT id FROM children");
-  for (const { id } of childRows) {
-    try {
-      await keychainDelete(childKeychainKey(id));
-    } catch {
-      // Best-effort — a missing entry is fine.
-    }
-  }
-  try {
-    await keychainDelete(SMTP_KEYCHAIN_KEY);
-  } catch {
-    // Best-effort.
-  }
-
-  // 2. Wipe every DB table. Order matters for FKs (children last).
+  // Wipe every DB table. Order matters for FKs (children last).
   await d.execute("DELETE FROM grades");
   await d.execute("DELETE FROM assignments");
   await d.execute("DELETE FROM standards");
@@ -1154,9 +1145,7 @@ export async function resetAllAppData(): Promise<void> {
     // Best-effort.
   }
 
-  await invoke("log_info", {
-    message: `settings: resetAllAppData executed children=${childRows.length}`,
-  });
+  await invoke("log_info", { message: "settings: resetAllAppData executed" });
 }
 
 /** Quit the app immediately (used after resetAllAppData so the next
