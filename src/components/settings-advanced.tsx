@@ -8,7 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { shouldCheckNow } from "@/lib/core/update-banner";
 import {
   checkForUpdate,
-  clearHistory,
   disableAutostart,
   getAppVersion,
   getLastUpdateCheckMs,
@@ -52,8 +51,6 @@ export function SettingsAdvanced() {
   const [appVersion, setAppVersion] = useState<string>("…");
   const [checkState, setCheckState] = useState<CheckState>({ kind: "idle" });
   const [installing, setInstalling] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [clearedToast, setClearedToast] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   const runCheck = useCallback(async (manual: boolean) => {
@@ -134,26 +131,9 @@ export function SettingsAdvanced() {
     }
   };
 
-  const handleClear = async () => {
-    const ok = window.confirm(
-      "Delete all fetch history, homework entries, and classes for every child? Credentials and settings stay intact.",
-    );
-    if (!ok) return;
-    setClearing(true);
-    try {
-      await clearHistory();
-      setClearedToast(true);
-      setTimeout(() => setClearedToast(false), 3000);
-    } catch (e) {
-      await logErr(`settings: clearHistory failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setClearing(false);
-    }
-  };
-
   const handleReset = async () => {
     const ok = window.confirm(
-      "Wipe EVERYTHING — every child, every stored password, all grade and homework data, and every setting — back to first-install state? This cannot be undone. The app will quit; re-open it to set up again.",
+      "Reset the app to first-install state? This wipes all local data and cannot be undone. The app will quit.",
     );
     if (!ok) return;
     setResetting(true);
@@ -293,54 +273,27 @@ export function SettingsAdvanced() {
 
       <SettingsSection
         title="Danger zone"
-        help="One-way deletions. Back up your data if in doubt."
+        help="One-way deletion. Back up your data if in doubt."
         danger
       >
-        <div className="space-y-4">
-          <div className="flex items-start gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Clear history</p>
-              <p className="text-[12px] text-muted-foreground">
-                Wipes fetch runs, homework entries, and class data for every child. Credentials,
-                children, and settings stay intact.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={clearing || resetting}
-              onClick={() => {
-                void handleClear();
-              }}
-              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-            >
-              {clearing ? "Clearing…" : "Clear history"}
-            </Button>
+        <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium">Reset app</p>
+            <p className="text-[12px] text-muted-foreground">
+              Wipes all app data and returns to first-install state.
+            </p>
           </div>
-          {clearedToast && <p className="text-[12px] text-meeting">History cleared.</p>}
-
-          <div className="flex items-start gap-4 border-t border-destructive/10 pt-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Reset app data</p>
-              <p className="text-[12px] text-muted-foreground">
-                Wipes <em>everything</em> — children, stored passwords, grade + homework history,
-                all settings — back to first-install state. The app quits; re-open it to set up
-                again. Uninstall the binary afterward via your OS (Add/Remove Programs, drag to
-                Trash, etc.) for a clean removal.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={clearing || resetting}
-              onClick={() => {
-                void handleReset();
-              }}
-              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-            >
-              {resetting ? "Resetting…" : "Reset app data"}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={resetting}
+            onClick={() => {
+              void handleReset();
+            }}
+            className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+          >
+            {resetting ? "Resetting…" : "Reset app"}
+          </Button>
         </div>
       </SettingsSection>
     </div>

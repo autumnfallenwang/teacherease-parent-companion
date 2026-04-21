@@ -297,6 +297,20 @@ Unsigned builds + macOS keychain ACL = per-fetch re-prompt storm (observed 2026-
 
 **End state (target):** No keychain prompts on any platform during fetch, add-child, SMTP save, or reset. Existing v0.1.2 installs migrate their credentials silently on first post-update fetch. Keychain plumbing stays wired end-to-end (Rust crate + Tauri commands + ipc wrappers) so a future signed build can be restored to keychain storage by flipping the 8 call sites back.
 
+## Phase 27: Advanced-tab cleanup — drop Clear history, tighten Reset copy
+
+Q33 carried two Danger-zone actions: Clear history (wipes fetch_runs + homework + classes) and Reset app data (wipes everything). After first real install on a Mac (2026-04-21) the Clear-history differential stopped feeling worth a separate button — any missing data repopulates on the next fetch, and the multi-paragraph description of Reset was heavier than the action warrants. Cleanup keeps only Reset with a one-line description.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| R1 | Delete `clearHistory` IPC | ✅ Done | Removed from `src/lib/ipc.ts`. Not retained as dead code (unlike keychain, there's no rollback scenario). Git history preserves it if ever needed. |
+| R2 | Remove Clear-history button + handler in `settings-advanced.tsx` | ✅ Done | Button, `handleClear`, `clearing` / `clearedToast` state, and the `clearHistory` import all gone. |
+| R3 | Shorten Reset description + title | ✅ Done | Title "Reset app data" → "Reset app". Description shrunk to "Wipes all app data and returns to first-install state." `window.confirm` text tightened to a single sentence. |
+| R4 | Fix user-visible keychain claims | ✅ Done | `src/lib/legal.ts`, `DISCLAIMER.md`, `README.md`, `docs/user-guide.md`, `docs/first-launch-macos.md`, `docs/first-launch-windows.md` — replace "stored in your OS keychain" language with accurate Q34 description; uninstall docs now reference the in-app Reset button and tag keychain cleanup as v0.1.2-upgrader-only. |
+| R5 | CHANGELOG Unreleased entry | ✅ Done | Under Changed — describes removal + motivation. |
+
+**End state:** Settings → Advanced → Danger zone has one action: Reset app. User-facing docs no longer claim credentials live in the OS keychain.
+
 ---
 
 ## What's Working

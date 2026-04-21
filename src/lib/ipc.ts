@@ -1112,14 +1112,6 @@ export async function setLastUpdateCheckMs(ms: number): Promise<void> {
   await setSettingString(LAST_CHECKED_KEY, String(ms));
 }
 
-export async function clearHistory(): Promise<void> {
-  const d = await getDb();
-  await d.execute("DELETE FROM fetch_runs");
-  await d.execute("DELETE FROM homework");
-  await d.execute("DELETE FROM classes");
-  await invoke("log_info", { message: "settings: clearHistory executed" });
-}
-
 /** Wipe everything back to first-install state: every DB table's rows (which
  *  per Q34 now includes the portal passwords and smtp.password), best-effort
  *  sweep of legacy keychain entries left over from v0.1.2-era installs,

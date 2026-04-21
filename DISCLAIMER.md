@@ -19,8 +19,8 @@ By using this software, you acknowledge that:
 
 All data stays on your computer:
 
-- Portal credentials are stored in your operating system's secure keychain — never in plain files.
-- Grade and homework data is stored in a local database in your OS app-data folder.
+- Portal credentials are stored locally in this app's SQLite database under your home directory — never sent to any server.
+- Grade and homework data is stored in the same local database in your OS app-data folder.
 - No data is sent to any server except TeacherEase itself (to check grades) and optionally your own SMTP server (if you enable email reports).
 - No telemetry, no analytics, no tracking, no third-party services.
 

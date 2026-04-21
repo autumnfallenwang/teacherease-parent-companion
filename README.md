@@ -20,8 +20,8 @@ A cross-platform desktop app that keeps track of your child's grades and homewor
 ## Privacy & data handling
 
 - **100% local.** All data stays on your computer. No cloud, no servers, no accounts with us.
-- Portal credentials are stored in your operating system's keychain (Windows Credential Manager, macOS Keychain, Linux libsecret) — never in plain files.
-- Grade and homework data is stored in a local SQLite database in your OS app-data folder.
+- Portal credentials are stored locally in this app's SQLite database under your home directory — never sent to any server.
+- Grade and homework data is stored in the same local SQLite database in your OS app-data folder.
 - The only network calls the app makes are: (1) logging into TeacherEase with **your** credentials, (2) reading **your child's** grade pages, (3) optional SMTP sending if you enable email reports, and (4) checking GitHub for app updates.
 - No telemetry, no analytics, no tracking, no third-party services.
 - Your child's data is never sent anywhere except TeacherEase itself (where it already lives) and optionally your own SMTP server.
@@ -51,8 +51,7 @@ Updater payloads are cryptographically signed — the app verifies every downloa
 - **Desktop shell:** [Tauri 2](https://tauri.app/) (Rust core + native OS webview)
 - **Frontend:** Next.js (static export) + React + TypeScript
 - **Scraper:** `fetch` + `cheerio` (plain HTTP, no headless browser)
-- **Storage:** SQLite via `tauri-plugin-sql`
-- **Credentials:** OS keychain via the `keyring` Rust crate (Keychain / Credential Manager / Secret Service)
+- **Storage:** SQLite via `tauri-plugin-sql` (credentials + settings live here per Q34; OS keychain plumbing retained dormant for rollback if we ever ship a signed build)
 - **Updater:** `tauri-plugin-updater` with signed update payloads
 
 ## Contributing / release process

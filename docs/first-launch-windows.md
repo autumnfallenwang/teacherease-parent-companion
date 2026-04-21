@@ -54,6 +54,7 @@ For update-time integrity, `tauri-plugin-updater` verifies every downloaded upda
 
 ## Uninstall
 
+- Before uninstalling, the cleanest way to wipe all data is **Settings → Advanced → Reset app** from inside the app. That nukes the local DB (credentials + grades + homework + all settings) in one click.
 - **Settings → Apps → Installed apps** → find **TeacherEase Parent Companion** → **Uninstall**.
-- The app-data folder at `%APPDATA%\dev.autumnfallenwang.teacherease-parent-companion\` contains your local database + logs. Delete it manually if you want to wipe all state.
-- OS keychain entries under **Credential Manager → Windows Credentials** (look for entries named `teacherease-parent-companion`) can be removed manually.
+- The app-data folder at `%APPDATA%\dev.autumnfallenwang.teacherease-parent-companion\` contains your local database + logs. Delete it manually if you skipped the in-app reset.
+- **Upgraders from v0.1.2**: if you ever used a pre-Q34 build, there may be leftover entries under **Credential Manager → Windows Credentials** named `teacherease-parent-companion`. Reset-app already sweeps them, but they can also be removed manually.
