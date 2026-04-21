@@ -23,6 +23,21 @@ import {
   setupAutostart,
   type UpdateInfo,
 } from "@/lib/ipc";
+import { describeError } from "@/lib/utils";
+
+// The updater endpoint returns 404 / empty body until a release is actually
+// published with a `latest.json` asset. Treat those as "up to date" so users
+// don't see a scary error on the "Check now" button just because no release
+// exists yet. Genuine network / auth errors still surface as errors.
+function isNoReleaseYetError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("did not respond with a successful status code") ||
+    m.includes("could not fetch a valid release json") ||
+    m.includes("404") ||
+    m.includes("not found")
+  );
+}
 
 type CheckState =
   | { kind: "idle" }
@@ -54,9 +69,13 @@ export function SettingsAdvanced() {
         setCheckState({ kind: "up-to-date" });
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
+      const msg = describeError(e);
       await logErr(`updater: check failed: ${msg}`);
-      setCheckState({ kind: "error", message: msg });
+      if (isNoReleaseYetError(msg)) {
+        setCheckState({ kind: "up-to-date" });
+      } else {
+        setCheckState({ kind: "error", message: msg });
+      }
     }
   }, []);
 
@@ -108,7 +127,7 @@ export function SettingsAdvanced() {
       await installUpdate();
       // relaunch happens inside installUpdate — this line only runs if it throws.
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
+      const msg = describeError(e);
       await logErr(`updater: install failed: ${msg}`);
       setCheckState({ kind: "error", message: `Install failed: ${msg}` });
       setInstalling(false);

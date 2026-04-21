@@ -176,5 +176,14 @@ pub fn initial() -> Vec<Migration> {
         "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "v6_assignments_add_name_column",
+            // Column was written by ipc.ts but never declared in migrations 1-5.
+            sql: r#"
+            ALTER TABLE assignments ADD COLUMN name TEXT;
+        "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }

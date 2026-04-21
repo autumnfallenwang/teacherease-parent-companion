@@ -2,6 +2,7 @@
 // fetch_runs row lifecycle. Sequential execution, per-source error isolation.
 
 import type { ChildRecord } from "@/lib/scraper/types";
+import { describeError } from "@/lib/utils";
 import type { FetchRunnerDeps, FetchRunnerRun, FetchRunnerSummary, FetchSource } from "./types";
 
 export class FetchRunner {
@@ -53,7 +54,7 @@ export class FetchRunner {
         });
       } catch (err) {
         const durationMs = now() - start;
-        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        const errorMessage = describeError(err);
         await this.deps.completeFetchRun(fetchRunId, {
           status: "failed",
           durationMs,

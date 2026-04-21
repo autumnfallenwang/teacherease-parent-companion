@@ -201,7 +201,7 @@ describe("FetchRunner", () => {
     );
   });
 
-  it("translates non-Error throws to 'Unknown error' message", async () => {
+  it("preserves string throws verbatim so Tauri plugin errors are not lost", async () => {
     const deps = makeDeps();
     const s = source({
       name: "teacherease",
@@ -213,7 +213,23 @@ describe("FetchRunner", () => {
 
     expect(deps.completeFetchRun).toHaveBeenCalledWith(
       expect.any(Number),
-      expect.objectContaining({ status: "failed", errorMessage: "Unknown error" }),
+      expect.objectContaining({ status: "failed", errorMessage: "not an Error object" }),
+    );
+  });
+
+  it("extracts message from plain objects (tauri rejection shape)", async () => {
+    const deps = makeDeps();
+    const s = source({
+      name: "teacherease",
+      run: () => Promise.reject({ message: "tls handshake failed" }),
+    });
+    const runner = new FetchRunner([s], deps);
+
+    await runner.runAll(makeChild());
+
+    expect(deps.completeFetchRun).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.objectContaining({ status: "failed", errorMessage: "tls handshake failed" }),
     );
   });
 });
