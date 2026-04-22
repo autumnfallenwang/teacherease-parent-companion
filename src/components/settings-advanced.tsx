@@ -8,7 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { shouldCheckNow } from "@/lib/core/update-banner";
 import {
   checkForUpdate,
-  clearHistory,
   disableAutostart,
   getAppVersion,
   getLastUpdateCheckMs,
@@ -23,6 +22,7 @@ import {
   setupAutostart,
   type UpdateInfo,
 } from "@/lib/ipc";
+import { REPO_URL } from "@/lib/legal";
 import { describeError } from "@/lib/utils";
 
 // The updater endpoint returns 404 / empty body until a release is actually
@@ -48,13 +48,11 @@ type CheckState =
 
 export function SettingsAdvanced() {
   const [autostartOn, setAutostartOn] = useState<boolean | null>(null);
-  const [updaterOn, setUpdaterOn] = useState<boolean | null>(null);
   const [appVersion, setAppVersion] = useState<string>("…");
   const [checkState, setCheckState] = useState<CheckState>({ kind: "idle" });
   const [installing, setInstalling] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [clearedToast, setClearedToast] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const runCheck = useCallback(async (manual: boolean) => {
     setCheckState({ kind: "checking" });
@@ -82,16 +80,13 @@ export function SettingsAdvanced() {
   useEffect(() => {
     void Promise.all([
       getSettingBool("autostart.enabled", true),
-      getSettingBool("updater.enabled", true),
       getAppVersion().catch(() => "unknown"),
       getLastUpdateCheckMs(),
-    ]).then(async ([a, u, v, lastChecked]) => {
+    ]).then(async ([a, v, lastChecked]) => {
       setAutostartOn(a);
-      setUpdaterOn(u);
       setAppVersion(v);
-      // Auto-check on mount only when updater is enabled AND we haven't
-      // checked within the throttle window (24h per shouldCheckNow).
-      if (u && shouldCheckNow(lastChecked, Date.now())) {
+      // Auto-check on mount when 24h+ elapsed since the last check.
+      if (shouldCheckNow(lastChecked, Date.now())) {
         await runCheck(false);
       }
     });
@@ -112,13 +107,6 @@ export function SettingsAdvanced() {
     }
   };
 
-  const toggleUpdater = async (next: boolean) => {
-    setUpdaterOn(next);
-    await setSettingBool("updater.enabled", next);
-    await log(`settings: updater.enabled=${next ? 1 : 0}`);
-    if (!next) setCheckState({ kind: "idle" });
-  };
-
   const handleInstall = async () => {
     if (checkState.kind !== "available") return;
     setInstalling(true);
@@ -134,28 +122,9 @@ export function SettingsAdvanced() {
     }
   };
 
-  const handleClear = async () => {
-    const ok = window.confirm(
-      "Delete all fetch history, homework entries, and classes for every child? Credentials and settings stay intact.",
-    );
-    if (!ok) return;
-    setClearing(true);
-    try {
-      await clearHistory();
-      setClearedToast(true);
-      setTimeout(() => setClearedToast(false), 3000);
-    } catch (e) {
-      await logErr(`settings: clearHistory failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setClearing(false);
-    }
-  };
-
   const handleReset = async () => {
-    const ok = window.confirm(
-      "Wipe EVERYTHING — every child, every stored password, all grade and homework data, and every setting — back to first-install state? This cannot be undone. The app will quit; re-open it to set up again.",
-    );
-    if (!ok) return;
+    // Inline confirmation panel handles the user decision; this runs only
+    // after the user clicks the explicit destructive Reset button.
     setResetting(true);
     try {
       await resetAllAppData();
@@ -174,7 +143,7 @@ export function SettingsAdvanced() {
     <div className="space-y-5">
       <SettingsSection
         title="Updates"
-        help="Installed version + auto-updater status. When an update is available, clicking Install downloads + verifies the signature + replaces the app + relaunches automatically. First-install users get installers from GitHub Releases; after that, updates flow here."
+        help="Installed version. The app quietly checks GitHub Releases at most once every 24 hours when you open this tab. When an update is available, clicking Install downloads + verifies the signature + replaces the app + relaunches automatically. First-install users get installers from GitHub Releases; after that, updates flow here."
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -186,7 +155,7 @@ export function SettingsAdvanced() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={!updaterOn || checkState.kind === "checking" || installing}
+              disabled={checkState.kind === "checking" || installing}
               onClick={() => {
                 void runCheck(true);
               }}
@@ -209,11 +178,14 @@ export function SettingsAdvanced() {
                   <p className="text-[13px] font-medium">
                     Version {checkState.update.version} available
                   </p>
-                  {checkState.update.notes && (
-                    <p className="mt-1 line-clamp-3 text-[12px] text-muted-foreground">
-                      {checkState.update.notes.split("\n")[0]?.slice(0, 160)}
-                    </p>
-                  )}
+                  <a
+                    href={`${REPO_URL}/releases/tag/v${checkState.update.version}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="mt-1 inline-block text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Release notes →
+                  </a>
                 </div>
                 <Button
                   type="button"
@@ -246,12 +218,6 @@ export function SettingsAdvanced() {
           {checkState.kind === "error" && (
             <p className="text-[12px] text-destructive">Check failed: {checkState.message}</p>
           )}
-
-          {!updaterOn && (
-            <p className="text-[12px] text-muted-foreground">
-              Automatic update checks are off. Enable them below, or click Check now to check once.
-            </p>
-          )}
         </div>
       </SettingsSection>
 
@@ -272,76 +238,63 @@ export function SettingsAdvanced() {
               aria-label="Start on login"
             />
           </div>
-
-          <div className="flex items-center gap-4 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Check for updates</p>
-              <p className="text-[12px] text-muted-foreground">
-                Silently check GitHub Releases once a day for a newer version.
-              </p>
-            </div>
-            <Switch
-              checked={updaterOn ?? true}
-              onChange={(next) => {
-                void toggleUpdater(next);
-              }}
-              aria-label="Check for updates"
-            />
-          </div>
         </div>
       </SettingsSection>
 
       <SettingsSection
         title="Danger zone"
-        help="One-way deletions. Back up your data if in doubt."
+        help="One-way deletion. Back up your data if in doubt."
         danger
       >
-        <div className="space-y-4">
+        {confirmingReset ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium">Reset the app to first-install state?</p>
+                <p className="text-[12px] text-muted-foreground">
+                  Wipes all local data. Cannot be undone. The app will quit.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-8"
+                disabled={resetting}
+                onClick={() => {
+                  void handleReset();
+                }}
+              >
+                {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reset"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => setConfirmingReset(false)}
+                disabled={resetting}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
           <div className="flex items-start gap-4">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Clear history</p>
+              <p className="text-[13px] font-medium">Reset app</p>
               <p className="text-[12px] text-muted-foreground">
-                Wipes fetch runs, homework entries, and class data for every child. Credentials,
-                children, and settings stay intact.
+                Wipes all app data and returns to first-install state.
               </p>
             </div>
             <Button
               variant="outline"
               size="sm"
-              disabled={clearing || resetting}
-              onClick={() => {
-                void handleClear();
-              }}
+              onClick={() => setConfirmingReset(true)}
               className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
             >
-              {clearing ? "Clearing…" : "Clear history"}
+              Reset app
             </Button>
           </div>
-          {clearedToast && <p className="text-[12px] text-meeting">History cleared.</p>}
-
-          <div className="flex items-start gap-4 border-t border-destructive/10 pt-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Reset app data</p>
-              <p className="text-[12px] text-muted-foreground">
-                Wipes <em>everything</em> — children, stored passwords, grade + homework history,
-                all settings — back to first-install state. The app quits; re-open it to set up
-                again. Uninstall the binary afterward via your OS (Add/Remove Programs, drag to
-                Trash, etc.) for a clean removal.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={clearing || resetting}
-              onClick={() => {
-                void handleReset();
-              }}
-              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-            >
-              {resetting ? "Resetting…" : "Reset app data"}
-            </Button>
-          </div>
-        </div>
+        )}
       </SettingsSection>
     </div>
   );

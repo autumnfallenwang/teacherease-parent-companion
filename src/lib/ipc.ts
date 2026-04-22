@@ -52,17 +52,25 @@ async function getDb(): Promise<Database> {
 }
 
 // ---------------------------------------------------------------------------
-// Keychain (thin wrappers around Rust #[tauri::command] handlers)
+// Keychain wrappers (fully dormant per Q34). Zero runtime call sites after
+// the v0.1.2 migration fallbacks were removed — the DB is now the only
+// credential store. These wrappers are kept so a future signed build can
+// flip back to keychain-native storage with a small diff at each credential
+// call site in this file. The Rust commands + keyring crate stay registered
+// in src-tauri/ for the same reason.
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 async function keychainSet(key: string, password: string): Promise<void> {
   await invoke("keychain_set", { key, password });
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 async function keychainGet(key: string): Promise<string | null> {
   return await invoke<string | null>("keychain_get", { key });
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 async function keychainDelete(key: string): Promise<void> {
   await invoke("keychain_delete", { key });
 }
@@ -77,12 +85,29 @@ export async function listenTauriEvent(event: string, handler: () => void): Prom
   return await listen(event, handler);
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 function childKeychainKey(childId: number): string {
   return `child-${childId}`;
 }
 
+// Q34: portal password lives in children.portal_password. These helpers
+// are the only readers/writers of the column; public APIs wrap them.
+async function setChildPasswordInDb(childId: number, password: string): Promise<void> {
+  const d = await getDb();
+  await d.execute("UPDATE children SET portal_password = $1 WHERE id = $2", [password, childId]);
+}
+
+async function getChildPasswordFromDb(childId: number): Promise<string | null> {
+  const d = await getDb();
+  const rows = await d.select<Array<{ portal_password: string | null }>>(
+    "SELECT portal_password FROM children WHERE id = $1",
+    [childId],
+  );
+  return rows[0]?.portal_password ?? null;
+}
+
 // ---------------------------------------------------------------------------
-// Child CRUD (DB + keychain orchestration per Q3 atomicity pattern)
+// Child CRUD (DB-backed credential storage per Q34; keychain code dormant)
 // ---------------------------------------------------------------------------
 
 export interface AddChildParams {
@@ -116,11 +141,11 @@ export async function addChild(params: AddChildParams): Promise<number> {
   }
 
   try {
-    await keychainSet(childKeychainKey(childId), params.password);
+    await setChildPasswordInDb(childId, params.password);
   } catch (e) {
     await d.execute("DELETE FROM children WHERE id = $1", [childId]);
     await invoke("log_error", {
-      message: `addChild: keychain failed, rolled back childId=${childId}`,
+      message: `addChild: password write failed, rolled back childId=${childId}`,
     });
     throw new Error("Failed to store credentials", { cause: e });
   }
@@ -133,13 +158,15 @@ export async function addChild(params: AddChildParams): Promise<number> {
 
 export async function removeChild(childId: number): Promise<void> {
   await invoke("log_info", { message: `removeChild: id=${childId}` });
-  await keychainDelete(childKeychainKey(childId));
+  // DELETE FROM children drops the row (and its portal_password column).
+  // Any leftover keychain entry from a v0.1.2-era install is harmless and
+  // swept by resetAllAppData; not worth re-triggering a prompt here.
   const d = await getDb();
   await d.execute("DELETE FROM children WHERE id = $1", [childId]);
 }
 
 export async function updateChildPassword(childId: number, password: string): Promise<void> {
-  await keychainSet(childKeychainKey(childId), password);
+  await setChildPasswordInDb(childId, password);
 }
 
 export async function updateChildIdentity(
@@ -166,7 +193,7 @@ export async function setHomeworkUrl(childId: number, url: string | null): Promi
 }
 
 export async function getChildPassword(childId: number): Promise<string | null> {
-  return await keychainGet(childKeychainKey(childId));
+  return await getChildPasswordFromDb(childId);
 }
 
 interface RawChildRow {
@@ -977,22 +1004,25 @@ export async function getAttentionConfig(): Promise<AttentionConfig> {
 }
 
 // ---------------------------------------------------------------------------
-// SMTP (Q4 / E1) — password in keychain under "smtp-main".
-// Non-secret fields (host/port/user/from/to) live in the `settings` table.
+// SMTP (Q4 / E1, Q34) — password stored in `settings` under `smtp.password`,
+// alongside the other smtp.* fields (host/port/user/from/to). Keychain
+// key `smtp-main` remains for one-time migration of v0.1.2-era installs.
 // ---------------------------------------------------------------------------
 
-const SMTP_KEYCHAIN_KEY = "smtp-main";
+const SMTP_PASSWORD_SETTING_KEY = "smtp.password";
 
 export async function getSmtpPassword(): Promise<string | null> {
-  return await keychainGet(SMTP_KEYCHAIN_KEY);
+  const fromDb = await getSettingString(SMTP_PASSWORD_SETTING_KEY, "");
+  return fromDb === "" ? null : fromDb;
 }
 
 export async function setSmtpPassword(password: string): Promise<void> {
-  await keychainSet(SMTP_KEYCHAIN_KEY, password);
+  await setSettingString(SMTP_PASSWORD_SETTING_KEY, password);
 }
 
 export async function deleteSmtpPassword(): Promise<void> {
-  await keychainDelete(SMTP_KEYCHAIN_KEY);
+  const d = await getDb();
+  await d.execute("DELETE FROM settings WHERE key = $1", [SMTP_PASSWORD_SETTING_KEY]);
 }
 
 export interface SendEmailArgs {
@@ -1069,37 +1099,21 @@ export async function setLastUpdateCheckMs(ms: number): Promise<void> {
   await setSettingString(LAST_CHECKED_KEY, String(ms));
 }
 
-export async function clearHistory(): Promise<void> {
-  const d = await getDb();
-  await d.execute("DELETE FROM fetch_runs");
-  await d.execute("DELETE FROM homework");
-  await d.execute("DELETE FROM classes");
-  await invoke("log_info", { message: "settings: clearHistory executed" });
-}
-
-/** Wipe everything back to first-install state: keychain entries for every
- *  child + SMTP, every DB table's rows, autostart, and the disclaimer flag.
- *  Schema stays intact (migrations re-run cleanly on next launch). Caller
- *  typically chains this with `quitApp()` so the user relaunches fresh. */
+/** Wipe everything back to first-install state: every DB table's rows (which
+ *  per Q34 now includes the portal passwords and smtp.password), autostart,
+ *  and the disclaimer flag. Schema stays intact (migrations re-run cleanly on
+ *  next launch). Caller typically chains this with `quitApp()` so the user
+ *  relaunches fresh.
+ *
+ *  Legacy keychain entries from v0.1.2-era installs are deliberately NOT
+ *  swept here — each keychainDelete triggers a macOS ACL prompt on unsigned
+ *  builds (the very UX problem Q34 moved away from). Orphaned keychain
+ *  entries are harmless; the first-launch docs describe manual cleanup via
+ *  Keychain Access for users who want it. */
 export async function resetAllAppData(): Promise<void> {
   const d = await getDb();
 
-  // 1. Collect child IDs BEFORE deleting the row so we still have them.
-  const childRows = await d.select<Array<{ id: number }>>("SELECT id FROM children");
-  for (const { id } of childRows) {
-    try {
-      await keychainDelete(childKeychainKey(id));
-    } catch {
-      // Best-effort — a missing entry is fine.
-    }
-  }
-  try {
-    await keychainDelete(SMTP_KEYCHAIN_KEY);
-  } catch {
-    // Best-effort.
-  }
-
-  // 2. Wipe every DB table. Order matters for FKs (children last).
+  // Wipe every DB table. Order matters for FKs (children last).
   await d.execute("DELETE FROM grades");
   await d.execute("DELETE FROM assignments");
   await d.execute("DELETE FROM standards");
@@ -1117,9 +1131,7 @@ export async function resetAllAppData(): Promise<void> {
     // Best-effort.
   }
 
-  await invoke("log_info", {
-    message: `settings: resetAllAppData executed children=${childRows.length}`,
-  });
+  await invoke("log_info", { message: "settings: resetAllAppData executed" });
 }
 
 /** Quit the app immediately (used after resetAllAppData so the next

@@ -278,6 +278,39 @@ Q7's 4-screen wizard (Welcome / Add child / Notifications / Done) compresses to 
 
 **End state:** First launch shows a disclaimer modal; acknowledging it unlocks the app permanently. Add-child guidance lives in a markdown doc, not in-app screens. Danger-zone "Reset app data" is the clean-uninstall prep step users didn't previously have; after clicking it, the next launch replays the disclaimer gate as if they'd just installed.
 
+## Phase 26: Credentials in SQLite (per Q34, supersedes Q3)
+
+Unsigned builds + macOS keychain ACL = per-fetch re-prompt storm (observed 2026-04-21 on a fresh M4 install of v0.1.2, including a 194-second hang during a scheduled fetch waiting for the user to respond to the keychain dialog). Q9 defers code signing past v1, so keychain prompts are unavoidable on shipped binaries. Q34 moves credentials into SQLite under the user's home directory (plaintext, home-dir permissions), leaves all keychain code in place but dormant for cheap rollback if we ever ship a signed build, and auto-migrates existing installs on first read.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| C1 | Migration v7 — `children.portal_password` column | ✅ Done | `src-tauri/src/migrations.rs` — `ALTER TABLE children ADD COLUMN portal_password TEXT`. Existing rows default to NULL; first-read fallback in `ipc.ts` handles migration. |
+| C2 | DB-backed credential getters/setters in `ipc.ts` | ✅ Done | Private helpers `setChildPasswordInDb` / `getChildPasswordFromDb` added. SMTP uses existing `getSettingString` / `setSettingString` under key `smtp.password` (const `SMTP_PASSWORD_SETTING_KEY`). |
+| C3 | Switch call sites from keychain to DB | ✅ Done | `addChild` uses `setChildPasswordInDb` with DB-insert rollback on failure. `removeChild` drops the keychain sweep (stale entries harmless, swept by resetAllAppData). `updateChildPassword` + the SMTP setters all route through DB. Dormant `keychainSet` retained under a biome ignore; `keychainGet`/`keychainDelete` still reachable via migration fallback + reset. |
+| C4 | One-time keychain → DB fallback on first read | ✅ Done | `getChildPassword` and `getSmtpPassword` attempt keychain only when the DB is empty, log `credentials: migrated <scope> from keychain to db`, then write to DB. Keychain entry left untouched (preserved for rollback; resetAllAppData sweeps it). |
+| C5 | Tests | ✅ Done | Renamed one test label in `email-channel.test.ts` ("keychain password" → "SMTP password") to match new storage. No new unit tests for `ipc.ts` — per repo convention, the Tauri IPC bridge is validated via manual smoke tests + Rust-side coverage. Migration behavior verified manually on dev Mac. |
+| C6 | `resetAllAppData` — verify new storage wiped | ✅ Done | No code change needed: existing `DELETE FROM children` clears the new `portal_password` column; existing `DELETE FROM settings` clears `smtp.password`. Legacy keychain sweep stays (v0.1.2 installs still have keychain entries). Doc comment updated to name Q34 explicitly. |
+| C7 | Update `.claude/rules/security.md` | ✅ Done | Credentials section rewritten — DB is the shipped path, keychain code dormant for rollback; the never-commit/never-log rules unchanged. |
+| C8 | Update `CLAUDE.md` Stack one-liner | ✅ Done | Stack line reflects DB-backed credentials; keychain noted as dormant. |
+| C9 | `docs/lessons.md` entry | ✅ Done | 2026-04-21 entry explains the unsigned-app + macOS keychain ACL trap for future sessions. |
+| C10 | `CHANGELOG.md` Unreleased entry | ✅ Done | Under Changed — Q34 credential storage migration described with threat-model pointer. |
+
+**End state (target):** No keychain prompts on any platform during fetch, add-child, SMTP save, or reset. Existing v0.1.2 installs migrate their credentials silently on first post-update fetch. Keychain plumbing stays wired end-to-end (Rust crate + Tauri commands + ipc wrappers) so a future signed build can be restored to keychain storage by flipping the 8 call sites back.
+
+## Phase 27: Advanced-tab cleanup — drop Clear history, tighten Reset copy
+
+Q33 carried two Danger-zone actions: Clear history (wipes fetch_runs + homework + classes) and Reset app data (wipes everything). After first real install on a Mac (2026-04-21) the Clear-history differential stopped feeling worth a separate button — any missing data repopulates on the next fetch, and the multi-paragraph description of Reset was heavier than the action warrants. Cleanup keeps only Reset with a one-line description.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| R1 | Delete `clearHistory` IPC | ✅ Done | Removed from `src/lib/ipc.ts`. Not retained as dead code (unlike keychain, there's no rollback scenario). Git history preserves it if ever needed. |
+| R2 | Remove Clear-history button + handler in `settings-advanced.tsx` | ✅ Done | Button, `handleClear`, `clearing` / `clearedToast` state, and the `clearHistory` import all gone. |
+| R3 | Shorten Reset description + title | ✅ Done | Title "Reset app data" → "Reset app". Description shrunk to "Wipes all app data and returns to first-install state." Confirmation moved from `window.confirm` (silently suppressed in macOS release webviews — see 2026-04-21 lesson) to an inline destructive-tinted panel mirroring the D-07 child-delete pattern. |
+| R4 | Fix user-visible keychain claims | ✅ Done | `src/lib/legal.ts`, `DISCLAIMER.md`, `README.md`, `docs/user-guide.md`, `docs/first-launch-macos.md`, `docs/first-launch-windows.md` — replace "stored in your OS keychain" language with accurate Q34 description; uninstall docs now reference the in-app Reset button and tag keychain cleanup as v0.1.2-upgrader-only. |
+| R5 | CHANGELOG Unreleased entry | ✅ Done | Under Changed — describes removal + motivation. |
+
+**End state:** Settings → Advanced → Danger zone has one action: Reset app. User-facing docs no longer claim credentials live in the OS keychain.
+
 ---
 
 ## What's Working

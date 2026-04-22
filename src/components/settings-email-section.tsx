@@ -309,8 +309,8 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
       <div>
         <h2 className="text-[14px] font-medium">SMTP server</h2>
         <p className="text-[12px] text-muted-foreground">
-          BYO SMTP — we never relay through a server. Password stays on this computer, in the OS
-          keychain.
+          BYO SMTP — we never relay through a server. Password stays on this computer, in the app's
+          local database.
         </p>
       </div>
 

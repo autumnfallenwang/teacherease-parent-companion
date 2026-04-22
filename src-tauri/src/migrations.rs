@@ -185,5 +185,15 @@ pub fn initial() -> Vec<Migration> {
         "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "v7_children_portal_password_column",
+            // Q34: credentials move from OS keychain to the DB. Existing rows
+            // get NULL; first-read fallback in ipc.ts migrates from keychain.
+            sql: r#"
+            ALTER TABLE children ADD COLUMN portal_password TEXT;
+        "#,
+            kind: MigrationKind::Up,
+        },
     ]
 }

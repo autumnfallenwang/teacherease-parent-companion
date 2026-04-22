@@ -28,7 +28,7 @@ That takes you to **Settings → Children**. Click **Add another child** and fil
 
 - **Child's name** — whatever you want to call them in the app. Not sent anywhere.
 - **TeacherEase email** — the email you use to log into your school's TeacherEase portal.
-- **Password** — your TeacherEase portal password. Stored in your OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service), not in the app's database.
+- **Password** — your TeacherEase portal password. Stored locally in the app's SQLite database under your home directory; never sent anywhere except TeacherEase itself at fetch time.
 - **Homework page URL** (optional) — if your school publishes homework on a Google Sites page, paste that URL here. Leave blank if not. You can add it later.
 
 Click **Save**. The app validates the login against TeacherEase live. If it fails, you'll see an error — likely a typo in email or password.
@@ -86,7 +86,7 @@ The desktop notification is a concise hero-level summary. The email version show
 
 ## Troubleshooting
 
-**"No stored password" error in logs.** Your OS keychain either denied access or the stored credential is missing. Open Settings → Children → Edit the child → re-enter password → Save.
+**"No stored password" error in logs.** The stored credential is missing. Open Settings → Children → Edit the child → re-enter password → Save.
 
 **Fetch keeps failing.** Check Settings → Fetch → "Last successful fetch" per child. If it's been failing for a while, try **Fetch now** and watch Settings → About → View logs for the specific error. Most common: password changed on the portal side; re-enter in Settings → Children.
 
@@ -94,9 +94,9 @@ The desktop notification is a concise hero-level summary. The email version show
 
 **Homework tab shows nothing.** The child's homework URL isn't configured, or the URL is correct but the Google Sites page structure isn't what the scraper expects. Settings → Children → Edit → paste a working Google Sites URL.
 
-**App is using too much disk.** The DB accumulates scrape history forever. Settings → Advanced → **Clear history** wipes grades/homework/classes tables but keeps children and credentials. Or use **Reset app data** to wipe everything back to first-install state.
+**App is using too much disk.** The DB accumulates scrape history forever. Settings → Advanced → **Reset app** wipes everything back to first-install state. Next fetch repopulates current grades/homework; only the historical record is lost.
 
-**I want to uninstall cleanly.** Click **Settings → Advanced → Reset app data**, confirm, and the app exits. Then uninstall the app via your OS's normal mechanism (Windows: Add/Remove Programs. macOS: drag to Trash. Linux: `apt remove` or delete the AppImage).
+**I want to uninstall cleanly.** Click **Settings → Advanced → Reset app**, confirm, and the app exits. Then uninstall the app via your OS's normal mechanism (Windows: Add/Remove Programs. macOS: drag to Trash. Linux: `apt remove` or delete the AppImage).
 
 ---
 

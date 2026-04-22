@@ -54,19 +54,7 @@ Compare against a hash from a second download on a different network, or a known
 
 ## Uninstall
 
+- Before trashing the app, the cleanest way to wipe all data is **Settings → Advanced → Reset app** from inside the app. That nukes the local DB (credentials + grades + homework + all settings) in one click.
 - Drag `/Applications/TeacherEase Parent Companion.app` to the Trash.
-- App data lives at `~/Library/Application Support/dev.autumnfallenwang.teacherease-parent-companion/` — delete this folder to wipe the local database and logs.
-- OS keychain entries in **Keychain Access → login keychain** (look for entries named `teacherease-parent-companion`) can be removed manually.
-
----
-
-## Linux bonus: first launch on GNOME
-
-Linux doesn't have Gatekeeper/SmartScreen, but GNOME's default setup prompts for a keyring password the first time the app writes to the OS Secret Service (where your portal password is stored).
-
-1. Launch the AppImage or install the `.deb` and open from your application menu.
-2. On first keyring write, GNOME shows: *"Choose password to secure your new keyring"* or *"Unlock Login Keyring"*.
-3. Enter your user account login password. Ideally, check the box to unlock the keyring automatically on login — otherwise you'll be prompted every session.
-4. From then on, the app reads and writes portal passwords silently.
-
-KDE, Sway with `gnome-keyring`, and other Secret-Service-compatible agents behave similarly. If you run with no Secret Service agent at all (e.g. a headless session), the app's keychain calls will fail and grade scraping won't work; install `gnome-keyring` or equivalent and restart the session.
+- App data lives at `~/Library/Application Support/dev.autumnfallenwang.teacherease-parent-companion/` — delete this folder to wipe the local database and logs if you skipped the in-app reset.
+- **Upgraders from v0.1.2**: if you ever used a pre-Q34 build, there may be leftover keychain entries in **Keychain Access → login keychain** named `teacherease-parent-companion`. Reset-app already sweeps them, but they can also be removed manually.

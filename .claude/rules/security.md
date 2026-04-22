@@ -1,11 +1,12 @@
 # Security Rules
 
-## Credentials & keychain
+## Credentials storage (Q34 — supersedes Q3)
 
-- Credentials ONLY in OS keychain, never in SQLite, env files, plaintext, or JS memory beyond one operation.
-- Keychain keying convention: service = `"teacherease-parent-companion"`, user = `"child-{id}"` for portal passwords, `"smtp-main"` for SMTP password.
-- SMTP credentials in keychain. Non-secret SMTP fields (host/port/user/from/to) in SQLite `settings` table.
-- Fetch credentials on-demand from keychain, never cache in JS memory across operations.
+- Credentials live in the app's SQLite DB (`children.portal_password` for portal passwords, `settings` key `smtp.password` for SMTP). Plaintext at rest. Reason: unsigned shipped builds cannot avoid per-read keychain prompts on macOS — see Q34 in design-plan.md.
+- Credentials NEVER in `.env` / env files, source files, fixtures, comments, commit messages, logs, or JS memory beyond one operation.
+- The keychain plumbing in `src-tauri/src/keychain.rs` + `ipc.ts` `keychainSet/Get/Delete` + `childKeychainKey` + `SMTP_KEYCHAIN_KEY` is DORMANT but retained for rollback if we ever ship a signed build. Do not delete this code. Do not call it from new code — use the DB-backed helpers instead.
+- Fetch credentials on-demand via the DB, never cache in JS memory across operations.
+- `resetAllAppData` wipes BOTH the DB columns/rows AND does a best-effort keychain sweep (existing v0.1.2 installs may still have keychain entries).
 
 ## PII in codebase
 
