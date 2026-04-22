@@ -22,6 +22,7 @@ import {
   setupAutostart,
   type UpdateInfo,
 } from "@/lib/ipc";
+import { REPO_URL } from "@/lib/legal";
 import { describeError } from "@/lib/utils";
 
 // The updater endpoint returns 404 / empty body until a release is actually
@@ -177,11 +178,14 @@ export function SettingsAdvanced() {
                   <p className="text-[13px] font-medium">
                     Version {checkState.update.version} available
                   </p>
-                  {checkState.update.notes && (
-                    <p className="mt-1 line-clamp-3 text-[12px] text-muted-foreground">
-                      {checkState.update.notes.split("\n")[0]?.slice(0, 160)}
-                    </p>
-                  )}
+                  <a
+                    href={`${REPO_URL}/releases/tag/v${checkState.update.version}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="mt-1 inline-block text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Release notes →
+                  </a>
                 </div>
                 <Button
                   type="button"
