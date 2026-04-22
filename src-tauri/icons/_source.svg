@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Ivory rounded-square background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="229" ry="229" fill="#F5EFDF"/>
+
+  <!-- Pole, with rounded top/bottom edges so it reads as a single clean line -->
+  <rect x="360" y="180" width="60"
+        height="664"
+        rx="30" ry="30" fill="#2E8B8E"/>
+
+  <!-- Finial: a simple filled circle on top of the pole -->
+  <circle cx="390" cy="180" r="50" fill="#2E8B8E"/>
+
+  <!-- Pennant: pointed flag extending to the right -->
+  <path d="M 360 240
+           L 820 390
+           L 360 540
+           Z"
+        fill="#2E8B8E"/>
+</svg>

@@ -1,17 +1,11 @@
 "use client";
 
 import { FolderOpen } from "lucide-react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { openLogDir } from "@/lib/ipc";
-import {
-  APP_NAME,
-  APP_VERSION,
-  DISCLAIMER_FULL,
-  PRIVACY_NOTICE,
-  REPO_URL,
-  RESPONSIBLE_USE,
-} from "@/lib/legal";
+import { getAppVersion, openLogDir } from "@/lib/ipc";
+import { APP_NAME, DISCLAIMER_FULL, PRIVACY_NOTICE, REPO_URL, RESPONSIBLE_USE } from "@/lib/legal";
 
 function Section({ title, content }: { title: string; content: string }) {
   return (
@@ -30,6 +24,14 @@ function Section({ title, content }: { title: string; content: string }) {
 }
 
 export function AboutPage() {
+  const [appVersion, setAppVersion] = useState<string>("…");
+
+  useEffect(() => {
+    void getAppVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion("unknown"));
+  }, []);
+
   return (
     <>
       <PageHeader title="About" />
@@ -46,7 +48,7 @@ export function AboutPage() {
             </div>
             <div>
               <p className="text-[14px] font-medium">{APP_NAME}</p>
-              <p className="text-[12px] text-muted-foreground">Version {APP_VERSION}</p>
+              <p className="text-[12px] text-muted-foreground">Version {appVersion}</p>
             </div>
           </div>
 

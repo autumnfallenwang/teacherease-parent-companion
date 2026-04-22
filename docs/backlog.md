@@ -4,6 +4,26 @@ Findings discovered via the walkthrough skill. One row per finding, grouped by t
 
 ---
 
+## B-16 — About page shows hardcoded v0.1.0 instead of real app version
+**Where:** `src/components/about-page.tsx:49` — the "Version X" line on the About card.
+**Observed:** After updating via the in-app updater from v0.1.2 to v0.1.4, the About page still displayed "Version 0.1.0". Source of truth is `APP_VERSION = "0.1.0"` in `src/lib/legal.ts:5` — a hardcoded constant never updated by `pnpm bump`. The Settings → Advanced tab already uses the dynamic `getAppVersion()` (from `@tauri-apps/api/app`, sourced from `tauri.conf.json` at build time) and shows the correct version. About page just didn't adopt it.
+**Proposed:** Use `getAppVersion()` in `about-page.tsx` same as `settings-advanced.tsx` does. Drop `APP_VERSION` from `legal.ts` entirely (no other callers) so there's one source of truth (the build-time version in `tauri.conf.json`).
+**Status:** done
+
+## B-17 — Binary name is literally "app" → macOS Login Items shows "app" with generic icon
+**Where:** `src-tauri/tauri.conf.json` — the Tauri bundle config.
+**Observed:** macOS System Settings → Login Items & Extensions → "App Background Activity" lists this app as "app — Item from unidentified developer" with the generic launchd icon. The installed binary is at `/Applications/TeacherEase Parent Companion.app/Contents/MacOS/app` — literally named `app` (Tauri's default binary name). macOS UIs that read the binary name fall back to that raw string, and the bundle icon doesn't register because the plist references the binary path not a proper bundle.
+**Proposed:** Set `mainBinaryName = "teacherease-parent-companion"` in `tauri.conf.json`. Rebuilds will produce `.app/Contents/MacOS/teacherease-parent-companion` and macOS will pick up a friendlier name + the bundle icon (already committed in `src-tauri/icons/`). Doesn't affect the LaunchAgent plist we already wrote (that binds to an absolute path at registration time) — but the next autostart re-registration will use the new path, so users who update will get the friendlier label next time the autostart toggle is flipped. Unsigned status is unrelated and not fixed here.
+**Status:** deferred — unblocks with a future commit; B-18 (icon redesign) addressed the more visible half of the complaint for now.
+
+## B-18 — Default Tauri figure-8 icon replaced with custom pennant mark
+**Where:** `src-tauri/icons/*` — every platform icon format.
+**Observed:** Every Tauri-default app ships with the teal+yellow figure-8 logo, which (a) doesn't look like a real product and (b) is easy to confuse with other Tauri apps in the user's Dock/Login Items. The user asked for a simple, flat, one-concept replacement and specifically rejected cap/book/graduation metaphors as cliched.
+**Proposed:** A pennant/flag glyph on an ivory rounded-square background. The pennant is both a clean silhouette at 32px and a subtle nod to the app's actual job (flagging assignments that need attention) without being literal about notifications. Single teal foreground color (matches the app's primary palette), single ivory background — no gradients, no extra accents. Add `scripts/gen-icon.mjs` that renders an inline SVG via `sharp` to `_source.png`, then `pnpm tauri icon` regenerates all 14 desktop variants (icns / ico / png / Square*.png / StoreLogo). SVG committed as the art source, PNG artifact gitignored.
+**Status:** done
+
+---
+
 ## D-01 — Appearance settings (theme + font size)
 **Where:** Settings → new "Appearance" sub-tab (sibling of Children / Notifications / Email / Advanced)
 **Observed:** No way for the user to change theme (light/dark/system) or text size from within the app. Dark CSS variables already defined under `.dark` in `src/app/globals.css:101+` but no toggle wiring, no persistence, no system-detection. Font scaling has zero infrastructure.

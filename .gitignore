@@ -37,6 +37,10 @@ src-tauri/WixTools/
 # ---------- Tauri bundler output ----------
 src-tauri/target/release/bundle/
 
+# Icon generator rendering artifact — regenerated via `node scripts/gen-icon.mjs`.
+# The SVG source (_source.svg) is the art source of truth and IS committed.
+src-tauri/icons/_source.png
+
 # Release artifacts downloaded to the repo root for local testing — never
 # commit shippable binaries to source.
 /*.dmg

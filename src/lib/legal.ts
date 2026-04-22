@@ -2,7 +2,6 @@
 // README.md, and DISCLAIMER.md. Update here — everything else references this.
 
 export const APP_NAME = "TeacherEase Parent Companion";
-export const APP_VERSION = "0.1.0";
 export const REPO_URL = "https://github.com/autumnfallenwang/teacherease-parent-companion";
 
 export const DISCLAIMER_SHORT =
