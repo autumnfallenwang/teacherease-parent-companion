@@ -47,7 +47,6 @@ type CheckState =
 
 export function SettingsAdvanced() {
   const [autostartOn, setAutostartOn] = useState<boolean | null>(null);
-  const [updaterOn, setUpdaterOn] = useState<boolean | null>(null);
   const [appVersion, setAppVersion] = useState<string>("…");
   const [checkState, setCheckState] = useState<CheckState>({ kind: "idle" });
   const [installing, setInstalling] = useState(false);
@@ -80,16 +79,13 @@ export function SettingsAdvanced() {
   useEffect(() => {
     void Promise.all([
       getSettingBool("autostart.enabled", true),
-      getSettingBool("updater.enabled", true),
       getAppVersion().catch(() => "unknown"),
       getLastUpdateCheckMs(),
-    ]).then(async ([a, u, v, lastChecked]) => {
+    ]).then(async ([a, v, lastChecked]) => {
       setAutostartOn(a);
-      setUpdaterOn(u);
       setAppVersion(v);
-      // Auto-check on mount only when updater is enabled AND we haven't
-      // checked within the throttle window (24h per shouldCheckNow).
-      if (u && shouldCheckNow(lastChecked, Date.now())) {
+      // Auto-check on mount when 24h+ elapsed since the last check.
+      if (shouldCheckNow(lastChecked, Date.now())) {
         await runCheck(false);
       }
     });
@@ -108,13 +104,6 @@ export function SettingsAdvanced() {
         `settings: autostart toggle failed: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
-  };
-
-  const toggleUpdater = async (next: boolean) => {
-    setUpdaterOn(next);
-    await setSettingBool("updater.enabled", next);
-    await log(`settings: updater.enabled=${next ? 1 : 0}`);
-    if (!next) setCheckState({ kind: "idle" });
   };
 
   const handleInstall = async () => {
@@ -153,7 +142,7 @@ export function SettingsAdvanced() {
     <div className="space-y-5">
       <SettingsSection
         title="Updates"
-        help="Installed version + auto-updater status. When an update is available, clicking Install downloads + verifies the signature + replaces the app + relaunches automatically. First-install users get installers from GitHub Releases; after that, updates flow here."
+        help="Installed version. The app quietly checks GitHub Releases at most once every 24 hours when you open this tab. When an update is available, clicking Install downloads + verifies the signature + replaces the app + relaunches automatically. First-install users get installers from GitHub Releases; after that, updates flow here."
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -165,7 +154,7 @@ export function SettingsAdvanced() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={!updaterOn || checkState.kind === "checking" || installing}
+              disabled={checkState.kind === "checking" || installing}
               onClick={() => {
                 void runCheck(true);
               }}
@@ -225,12 +214,6 @@ export function SettingsAdvanced() {
           {checkState.kind === "error" && (
             <p className="text-[12px] text-destructive">Check failed: {checkState.message}</p>
           )}
-
-          {!updaterOn && (
-            <p className="text-[12px] text-muted-foreground">
-              Automatic update checks are off. Enable them below, or click Check now to check once.
-            </p>
-          )}
         </div>
       </SettingsSection>
 
@@ -249,22 +232,6 @@ export function SettingsAdvanced() {
                 void toggleAutostart(next);
               }}
               aria-label="Start on login"
-            />
-          </div>
-
-          <div className="flex items-center gap-4 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Check for updates</p>
-              <p className="text-[12px] text-muted-foreground">
-                Silently check GitHub Releases once a day for a newer version.
-              </p>
-            </div>
-            <Switch
-              checked={updaterOn ?? true}
-              onChange={(next) => {
-                void toggleUpdater(next);
-              }}
-              aria-label="Check for updates"
             />
           </div>
         </div>
