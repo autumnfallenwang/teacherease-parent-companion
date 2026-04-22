@@ -114,8 +114,8 @@ mod tests {
 
     #[test]
     fn parse_recipients_multiple_with_whitespace() {
-        let out = parse_recipients("alice@example.com, bob@example.com ,  charlie@example.com")
-            .unwrap();
+        let out =
+            parse_recipients("alice@example.com, bob@example.com ,  charlie@example.com").unwrap();
         assert_eq!(out.len(), 3);
         assert_eq!(out[0].email.to_string(), "alice@example.com");
         assert_eq!(out[1].email.to_string(), "bob@example.com");
