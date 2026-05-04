@@ -48,7 +48,7 @@ Rule of thumb: if you'd want to see it in a bug report from a parent, it's INFO.
 |---|---|---|
 | **Rust** (`src-tauri/src/`) | `log::info!()`, `log::warn!()`, etc. | `use log;` (implicit via Cargo) |
 | **TS components** (`src/components/`, `src/app/`) | `await log()`, `await logWarning()`, `await logErr()` | `import { log, logWarning, logErr } from "@/lib/ipc"` |
-| **TS IPC layer** (`src/lib/ipc.ts`) | `await invoke("log_info", { message })` | Direct invoke (ipc.ts IS the wrapper) |
+| **TS IPC layer** (`src/lib/ipc.ts`) | `await pluginInfo(message)` (and `pluginWarn` / `pluginError`) | Direct call into `@tauri-apps/plugin-log` (ipc.ts IS the wrapper). |
 | **Scraper** (`src/lib/scraper/`) | **Do NOT log from here.** Scraper is a pure module with no Tauri imports. Log at the CALL SITE (dashboard, wizard) instead. |
 
 ### What to NEVER log

@@ -311,6 +311,27 @@ Q33 carried two Danger-zone actions: Clear history (wipes fetch_runs + homework 
 
 **End state:** Settings → Advanced → Danger zone has one action: Reset app. User-facing docs no longer claim credentials live in the OS keychain.
 
+## Phase 28: Migrate logging to `tauri-plugin-log` (per D-21)
+
+Hand-rolled `JsonFileLogger` (`src-tauri/src/json_log.rs`, ~73 lines) + IPC shim (`src-tauri/src/log_commands.rs`, ~24 lines) are working but missing five next-step features that each block hand-extension: rotation (`app.log` already 6 MB after a few weeks), Rust panic capture, runtime level override, per-module filter spec, and webview-console output in dev. The audit (`docs/audits/audit-2026-05-04.md` watch-list discussion) flagged 2/5 swap signals — foundation-becomes-ceiling (weak) + knowledge-isolation. `tauri-plugin-log` is already in `Cargo.toml` (paid for, not used) and aligns with the same maintenance line as our other Tauri plugins (sql, http, updater, notification, autostart). Single sink stays single; line shape stays the same so existing `app.log` parsers don't break. **No end-user log settings UI** — parents are non-technical, log-level dropdown would confuse without benefit (Slack/1Password pattern, not VS Code pattern). Power-user override via `TPC_LOG_LEVEL` env var only.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| L1 | Wire `tauri-plugin-log` plugin in `src-tauri/src/lib.rs::run()` | ✅ Done | `Builder::new().clear_targets()` + Folder/Stdout/Webview targets, registered as the first plugin in the `tauri::Builder` chain so subsequent plugin init events are captured. Also added `"log:default"` to `src-tauri/capabilities/default.json` — the plugin's webview-side `info()`/`warn()`/`error()` calls invoke a Tauri command (`plugin:log|log`) which is gated by capabilities. Without it, every TS log call throws "log.log not allowed" and any function that logs early (e.g. `persistTeacherEaseData`) bails. |
+| L2 | Custom JSON formatter preserving current line shape | ✅ Done | Closure passes `chrono::Utc::now()` + `record.target()` + `format_args!` into `serde_json::json!()` and writes via `out.finish(...)`. Same `{"@timestamp", "level", "logger", "message", "app"}` fields as legacy `json_log.rs:43-50`. |
+| L3 | Add `TPC_LOG_LEVEL` env var override | ✅ Done | `std::env::var("TPC_LOG_LEVEL").ok().and_then(\|s\| s.parse::<log::LevelFilter>().ok()).unwrap_or(default)`. Default falls back to dev=Debug / prod=Info. |
+| L4 | Configure rotation policy | ✅ Done | `.max_file_size(5 * 1024 * 1024)` + `.rotation_strategy(RotationStrategy::KeepSome(5))`. 25 MB worst-case. |
+| L5 | Delete `src-tauri/src/json_log.rs` | ✅ Done | File removed. `mod json_log;` line removed from `lib.rs:1`. |
+| L6 | Drop log commands from `log_commands.rs` + invoke handler | ✅ Done | `log_info` / `log_warn` / `log_error` Tauri commands deleted from `log_commands.rs`. Three entries removed from `lib.rs::generate_handler!`. `open_log_dir` retained — webview opens log folder via Settings → Advanced. |
+| L7 | Update `src/lib/ipc.ts` log wrappers to re-export plugin functions | ✅ Done | Imports `info` / `warn` / `error` from `@tauri-apps/plugin-log` (aliased as `pluginInfo` / `pluginWarn` / `pluginError`). Public TS API (`log` / `logWarning` / `logErr` / `initLogging`) unchanged. `openLogDir` keeps its `invoke("open_log_dir")` shape. |
+| L8 | Add `@tauri-apps/plugin-log` to `package.json` | ✅ Done | Already present at `^2.8.0` in `dependencies` — no install needed. |
+| L9 | Drop the `[webview]` prefix hack | ✅ Done | Plugin tags webview-source lines via `logger: "webview"` field natively (no manual string prefix). `.claude/rules/conventions.md` "Where to call the logger" table updated for the TS row. |
+| L10 | Manual smoke test | ✅ Done | Verified in dev: (a) Rust → file with `logger: "app_lib"` ✓. (b) TS → file with `logger: "webview:info"` ✓. (c) stdout in dev terminal ✓. (d) Fetch + notify pipeline end-to-end (both children, classes=8 details=8, homework=144 entries, OS + email digests dispatched) ✓. (e) Two prerequisite fixes surfaced and applied: added `log:default` to `src-tauri/capabilities/default.json` (plugin's webview IPC requires it); replaced 8 stale `invoke("log_info"/"log_error", ...)` call sites inside `ipc.ts` itself with `pluginInfo`/`pluginError` (initial plan only updated the public wrappers, missed internal call sites). Sub-steps (f) panic capture, (g) 5 MB rotation, (i) release build sanity skipped — well-trodden in plugin's userbase, low value to verify on this machine. |
+| L11 | `pnpm check` + Rust check | ✅ Done | `pnpm typecheck` clean. Vitest 303 passed / 25 skipped / 0 failed. `pnpm lint` 8 pre-existing warnings (none in modified files). `cargo fmt --check` clean. `cargo clippy --all-targets -- -D warnings` clean. `cargo test` 6 passed. |
+| L12 | Backlog status update + lessons entry | ✅ Done | D-21 → done in `docs/backlog.md`. Appended `2026-05-04` lesson to `docs/lessons.md` covering the "migrated public API but missed internal call sites" trap. |
+
+**End state (target):** Single sink at `<appDataDir>/logs/app.log` with the same JSON line shape as before. `json_log.rs` and `log_commands.rs` deleted. Rust panics, runtime-level override, rotation, and webview-console output all working without hand-rolled code. No user-facing settings change. The "Open log folder" button in Settings → Advanced still works.
+
 ---
 
 ## What's Working

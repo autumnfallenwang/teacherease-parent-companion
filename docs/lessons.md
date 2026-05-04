@@ -16,6 +16,16 @@ Corrections and patterns to avoid repeating. Append entries here whenever a user
 
 <!-- Entries below, newest first. -->
 
+## 2026-05-04 — When migrating an IPC API, grep the file you're "migrating" before declaring it done
+**Context:** Phase 28 / D-21 — replaced hand-rolled `JsonFileLogger` with `tauri-plugin-log`. Plan said "update `src/lib/ipc.ts` log wrappers to re-export plugin functions" and I did exactly that — the four public exports (`log` / `logWarning` / `logErr` / `initLogging`) at lines 1169-1187 now route through `pluginInfo` / `pluginWarn` / `pluginError`. All checks green: typecheck clean, 303 tests passed, `cargo clippy -D warnings` clean. Dev build started fine. Then user clicked "Fetch now" and **every** fetch failed with `Command log_info not found`.
+**Mistake:** I assumed `ipc.ts` only used the logging API through its own public wrappers. It didn't. Eight other functions inside the same file (`addChild`, `removeChild`, `updateChildIdentity`, `setHomeworkUrl`, `persistTeacherEaseData`, `homework persist`, `resetAllAppData`) called `await invoke("log_info", { message: ... })` *directly* — bypassing the public wrapper, talking straight to the now-deleted Tauri command. The grep would have caught it: `grep '"log_info"' src/lib/ipc.ts` showed 8 hits I never ran.
+**Correction:** Replaced all 8 internal sites with `pluginInfo(...)` / `pluginError(...)` (matching the public wrappers' new shape). Confirmed via `grep -nE '"log_info"|"log_warn"|"log_error"' src/` returning zero matches before re-testing. Fetch + notify pipeline then ran clean.
+**How to avoid next time:**
+1. When migrating any IPC command (`invoke("X", ...)` → something else), run `grep -rn '"X"' src/` BEFORE writing the plan, and again BEFORE running checks. The list of call sites is the plan's scope.
+2. "ipc.ts is the wrapper" is a convention, not a guarantee. Files with helper wrappers can still have direct `invoke()` calls scattered through individual command exports — they accumulate when someone writes "I need a log line right here" and reaches for `invoke()` instead of the public `log()`.
+3. `pnpm check` won't catch this class of bug. The deleted Tauri command is a *runtime* error, not a typecheck error — TS doesn't know the Rust side dropped it. Manual smoke test is the only catch. Always exercise the migrated path end-to-end in dev before marking the task done.
+4. If your migration plan says "delete the `X` command", the grep for the *string* `"X"` (with quotes) across the whole repo is non-negotiable. Not just imports — every literal-string call site.
+
 ## 2026-04-21 — `window.confirm` is silently suppressed in Tauri release webviews on macOS
 
 **Context:** Phase 27 shipped a simplified "Reset app" button using `window.confirm` for its destructive confirmation. Local release build on macOS 26 / M4: clicking the button produced *no* dialog, *no* action, *no* log entry — nothing at all. The handler runs, hits `if (!ok) return;` with `ok` falsy, and returns silently. The underlying `resetAllAppData` was wired correctly; the bug was just that the confirmation never happened.
