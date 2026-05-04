@@ -256,7 +256,7 @@ export function SettingsNotifications() {
       <SettingsSection
         title="Schedule"
         help={
-          "How many times per day — and anchored where — a digest fires. Each run reads whatever's already in the database; fetch runs on its own schedule."
+          "How many times per day — and anchored where — a digest fires. By default each run pulls grades and homework from TeacherEase right before sending so the digest reflects current portal state; turn off 'Fetch fresh data first' to skip the pull and use whatever data is already in the database (faster, but may be stale)."
         }
       >
         <div className="space-y-3">
@@ -338,22 +338,15 @@ export function SettingsNotifications() {
             <span className="text-[13px]">Skip weekends (Sat + Sun)</span>
           </div>
 
-          <div className="flex items-start gap-3 pt-1">
+          <div className="flex items-center gap-3 pt-1">
             <Switch
               checked={fetchBefore}
               onChange={(next) => {
                 void toggleFetchBefore(next);
               }}
-              aria-label="Fetch latest data before sending digest"
+              aria-label="Fetch fresh data first"
             />
-            <div className="space-y-0.5">
-              <span className="text-[13px]">Fetch latest data before sending digest</span>
-              <p className="text-[12px] text-muted-foreground">
-                When on, the app pulls grades and homework from TeacherEase right before each
-                scheduled digest, so the email reflects current portal state. Turn off to use
-                whatever data the last fetch left in the database (faster, but may be stale).
-              </p>
-            </div>
+            <span className="text-[13px]">Fetch fresh data first</span>
           </div>
 
           <p className="text-[12px] text-muted-foreground">
