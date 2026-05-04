@@ -1,19 +1,14 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-const SettingsView = dynamic(
-  () => import("@/components/settings-view").then((m) => m.SettingsView),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    ),
-  },
-);
-
-export default function SettingsPage() {
-  return <SettingsView />;
+// Bare /settings redirects to the first tab (children). Settings tabs
+// live as dynamic [tab] routes per Phase 30 / D-23.
+export default function SettingsIndex() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/settings/children");
+  }, [router]);
+  return null;
 }
