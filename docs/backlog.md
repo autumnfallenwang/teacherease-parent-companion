@@ -26,7 +26,7 @@ Findings discovered via the walkthrough skill. One row per finding, grouped by t
 **Where:** `src/components/shell/schedulers.tsx:47-52` — `runNotifyCycle()`.
 **Observed:** The notify cycle calls `buildDigestFromDb()` directly, with no fetch step in front. The dispatched digest reflects whatever the *last fetch* persisted, which can be hours stale depending on how fetch slots align with notify slots. User-visible: "the email said no homework today, but my kid does have homework today." Affects both the scheduled notify tick (`schedulers.tsx:123`) and the manual `SEND_DIGEST_NOW_EVENT` path (`schedulers.tsx:148`) — same function, both stale. Independent of the cold-start fetch path (`schedulers.tsx:159-166`) and the dashboard Refresh button (`FETCH_NOW_EVENT`); those are unaffected.
 **Proposed:** Insert `await runFetchCycle(children)` between `getChildren()` and `buildDigestFromDb()` in `runNotifyCycle`. `runFetchCycle` is already imported and used by the fetch loop — same persistence path. Failed children continue to surface correctly per Q27 (top strip leads with failure, excluded from hero counts) — no special handling needed. Add an INFO log line at the top of the function so the log shows fetch-then-notify ordering. Worst-case overlap (fetch slot = notify slot) costs one extra HTTP roundtrip per child, ~3-5 seconds; acceptable, optimize later if needed.
-**Status:** open
+**Status:** done — superseded Q29 point 5 with new Q35 ("Notify tick fetches before dispatch"). `runNotifyCycle` now fetches before dispatch in both scheduled and "Send digest now" paths. Comment in `cycle.ts` updated to reflect the new contract.
 
 ---
 

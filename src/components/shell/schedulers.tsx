@@ -47,6 +47,11 @@ function asMsg(err: unknown): string {
 async function runNotifyCycle(): Promise<void> {
   const children = await getChildren();
   if (children.length === 0) return;
+  // Q35 — notify dispatch always reflects current portal state. The fetch
+  // path itself stays decoupled (separate ScheduleLoop, own next-run keys);
+  // only the notify *action* coordinates fetch-then-dispatch.
+  await log("notify-cycle: fetching before dispatch");
+  await runFetchCycle(children);
   const digest = await buildDigestFromDb(children, new Date());
   await buildNotifyRouter().dispatch(digest);
 }

@@ -885,6 +885,35 @@ The delta vs. keychain is narrow: keychain additionally protects against the two
 
 **Promoted to:** Phase 26 in `docs/progress.md`.
 
+### Q35 — Notify tick fetches before dispatch (supersedes Q29 point 5's "notify reads DB, may be silently stale")
+
+**Problem.** Q29 modeled fetch and notify as independent triggers and explicitly accepted that a notify tick could fire against stale DB data ("If the 06:00 fetch failed for any reason, they get 07:00 notifications against yesterday's data — silently stale, no failure badge. This is intentional"). The reasoning was: parents see stale state on the Today tab if they open the app. In practice the email/OS notification is exactly the surface a parent leans on so they *don't* have to open the app, and "silently stale" became a real-world bug — a parent received an email saying "no homework today" while their kid had homework that the portal already showed but no fetch had pulled yet.
+
+Q31 made this worse by extending notify to N×/day: a notify schedule can fire two stale digests in a row if no fetch runs between them.
+
+**Decision.**
+
+1. **Schedulers stay decoupled at the code level.** Two `ScheduleLoop` instances, separate `fetch.*` / `notify.*` settings keys, separate next-run persistence. Q29 point 1 is unchanged.
+
+2. **Notify *action* now fetches first.** `runNotifyCycle()` calls `runFetchCycle(children)` before `buildDigestFromDb`. The notify dispatch always reflects current portal state. The fetch path itself remains independent — `runFetchCycle` is the same function the fetch loop already uses, and its in-flight guard (`cycle.ts:19-22`) prevents double-execution if a scheduled fetch happens to be running when notify ticks.
+
+3. **No new toggle.** This is the new default for both the scheduled notify path and the manual "Send digest now" button. Parents who want the old behavior have no way back — but the old behavior was the bug.
+
+**What stays locked.**
+- Q29 points 1–4 + 6 — two independent loops, manual buttons in Settings, cold-start fetch path, tray "Refresh" semantics.
+- Q27's unified `RefreshDigest` event shape.
+- Q31's notify-schedule N×/day model.
+
+**What this supersedes.**
+- **Q29 point 5** — "Notify cron reads DB, not fetch." Replaced by: notify cron triggers a fetch then reads DB. Decoupling claim narrowed from "code + action" to "code-level only."
+- The load-bearing comment in `src/lib/fetch/cycle.ts:5` ("NO digest fires — that's the whole point of Q29's decoupling") needs updating to reflect the new contract: `runFetchCycle` itself still fires no digest; the *caller* (`runNotifyCycle`) now coordinates.
+
+**Non-goals.**
+- No staleness threshold ("fetch only if last success >60s ago") — keeps the model simple. Adjacent fetch + notify slots produce one redundant fetch (~5-15s); acceptable.
+- No setting to disable. The new behavior is the contract.
+
+**Promoted to:** B-19 in `docs/backlog.md` (single-commit fix, no phase entry).
+
 ---
 
 ## Tech Stack
