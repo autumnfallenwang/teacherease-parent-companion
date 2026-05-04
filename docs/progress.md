@@ -311,6 +311,23 @@ Q33 carried two Danger-zone actions: Clear history (wipes fetch_runs + homework 
 
 **End state:** Settings → Advanced → Danger zone has one action: Reset app. User-facing docs no longer claim credentials live in the OS keychain.
 
+## Phase 29: Theme tokens swap to curated presets (per D-22)
+
+User feedback: "the theme parameters seem not tuned perfectly — overall not sharp and comfortable." Plumbing (`theme-provider.tsx`, `lib/core/theme.ts`) is fine — values are the issue. Per audit (`docs/audits/audit-2026-05-04.md`), this isn't a swap signal-firing component but a UX preference issue. User explicitly asked to "stop hand-tuning, find some fine-tuned pre-built stuff." Pure CSS values swap inside `src/app/globals.css`; no TS code changes.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T1 | Replace `:root` + `.dark` (default profile) with shadcn Stone | ✅ Done | Verbatim values from ui.shadcn.com/themes 2025 OKLCH. Custom semantic tokens (`--meeting`/`--attention`/`--ungraded`) use Stone-compatible chart hues. |
+| T2 | Replace `.theme-solarized{,.dark}` with canonical Schoonover values | ✅ Done | Authoritative hex from https://ethanschoonover.com/solarized/ — base03/base02/base01/base00/base0/base1/base2/base3 + 8 accent hues. Light: base3 bg + base00 text. Dark: base03 bg + base0 text. Primary = blue (#268bd2). Attention = yellow (#b58900). |
+| T3 | Replace `.theme-nord{,.dark}` with canonical Nord values | ✅ Done | Authoritative hex from https://www.nordtheme.com/ — Polar Night (nord0–3), Snow Storm (nord4–6), Frost (nord7–10), Aurora (nord11–15). Light: nord6 bg + nord0 text. Dark: nord0 bg + nord6 text. Primary = nord10/nord8 (Frost). |
+| T4 | Replace `.theme-dracula{,.dark}` with canonical Dracula values | ✅ Done | Authoritative hex from https://draculatheme.com/ — background #282a36, current_line #44475a, foreground #f8f8f2, comment #6272a4 + 8 accent hues. Light: community lavender derivation. Dark: spec-exact. Primary = purple (#bd93f9). |
+| T5 | Tune `.theme-contrast{,.dark}` against WCAG AAA verification | ✅ Done | Mostly preserved from previous values. Minor tightening: pure white/black surfaces (oklch(1) / oklch(0.05)), darker borders for contrast (0.35 light / 0.72 dark), semantic tokens at AAA-compatible chroma+lightness. |
+| T6 | Visual smoke test in dev across all 5 profiles × light/dark | ✅ Done | Maintainer walked through theme/profile combinations in dev; result acceptable. B-01 / B-02 / B-05 were already closed in earlier component-side work — Phase 29's value swap doesn't regress them. |
+| T7 | `pnpm check` + Rust check | ✅ Done | `pnpm typecheck` clean. Vitest 303 passed / 25 skipped / 0 failed. `pnpm lint` 8 pre-existing warnings (none in modified files). No Rust files touched. |
+| T8 | Backlog status update | ✅ Done | D-22 → done in `docs/backlog.md`. B-01 / B-02 / B-05 already done from prior component-side fixes; verified not regressed under new tokens. |
+
+**End state (target):** All 5 profiles × {light, dark} render with curated, well-known palettes (shadcn Stone / canonical Solarized / canonical Nord / canonical Dracula / WCAG AAA Neutral). No hand-tuned approximations of community palettes. Token surface (`@theme inline`, names, settings keys) unchanged — only values updated.
+
 ---
 
 ## What's Working
