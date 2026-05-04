@@ -2,9 +2,11 @@
 //   - Scheduler fetch tick (Phase 19 CF3)
 //   - Settings → Fetch "Fetch now" button
 //   - Tray "Refresh Now" menu item
-// NO digest fires — that's the whole point of Q29's decoupling. Dispatches
-// CHILD_DATA_REFRESHED_EVENT on completion so listeners (dashboard sidebar)
-// can reload.
+//   - runNotifyCycle (Q35 — notify action fetches before dispatch)
+// This function itself fires NO digest — schedulers stay decoupled at the
+// code level (Q29). The notify path coordinates fetch-then-dispatch
+// externally. Dispatches CHILD_DATA_REFRESHED_EVENT on completion so
+// listeners (dashboard sidebar) can reload.
 
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { buildFetchRunner } from "@/lib/fetch/default";

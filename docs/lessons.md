@@ -16,6 +16,12 @@ Corrections and patterns to avoid repeating. Append entries here whenever a user
 
 <!-- Entries below, newest first. -->
 
+## 2026-05-04 — "Decoupled" Q-decisions can mean code-level OR action-level — they're different
+**Context:** Planning B-19 (notify cycle reads stale DB). Q29 says "fetch and notify are decoupled" with point 5 explicitly stating "notify reads DB, may be silently stale, this is intentional." I read this as a hard contradiction with B-19's fix (fetch-then-notify) and surfaced it as a Q-decision conflict needing supersedence.
+**Mistake:** Treated "decoupled" as one indivisible claim. Assumed fixing B-19 required fully overturning Q29's decoupling.
+**Correction:** User clarified the framing — schedulers stay decoupled at the **code level** (two independent `ScheduleLoop` instances, separate persistence keys, separate Q31 N×/day knobs), but the notify *action* can still coordinate fetch-then-dispatch. These are different layers; only point 5 (the action-level "silently stale OK" claim) needed superseding. Q35 was written to make this distinction explicit.
+**How to avoid next time:** When a Q-decision uses words like "decoupled," "independent," "separate," "isolated" — break the claim apart by layer (code structure / data flow / runtime ordering / user-facing model) before treating it as a single unit. A Q can be locked at one layer and revisable at another. Ask the user which layer they meant before proposing a full supersedence.
+
 ## 2026-04-21 — `window.confirm` is silently suppressed in Tauri release webviews on macOS
 
 **Context:** Phase 27 shipped a simplified "Reset app" button using `window.confirm` for its destructive confirmation. Local release build on macOS 26 / M4: clicking the button produced *no* dialog, *no* action, *no* log entry — nothing at all. The handler runs, hits `if (!ok) return;` with `ok` falsy, and returns silently. The underlying `resetAllAppData` was wired correctly; the bug was just that the confirmation never happened.

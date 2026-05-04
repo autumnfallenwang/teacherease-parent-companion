@@ -47,6 +47,19 @@ function asMsg(err: unknown): string {
 async function runNotifyCycle(): Promise<void> {
   const children = await getChildren();
   if (children.length === 0) return;
+  // Q35 — notify dispatch defaults to fetch-then-dispatch so the digest
+  // always reflects current portal state. Schedulers stay decoupled at the
+  // code level; only the notify *action* coordinates. The escape-hatch
+  // setting `notify.fetchBeforeDispatch` (default true) lets a parent
+  // restore the legacy Q29 "read DB only, may be stale" behavior — useful
+  // if double-fetches at adjacent slots ever become a concern.
+  const fetchBefore = await getSettingBool("notify.fetchBeforeDispatch", true);
+  if (fetchBefore) {
+    await log("notify-cycle: fetching before dispatch");
+    await runFetchCycle(children);
+  } else {
+    await log("notify-cycle: fetch-before-dispatch disabled, reading DB only");
+  }
   const digest = await buildDigestFromDb(children, new Date());
   await buildNotifyRouter().dispatch(digest);
 }
