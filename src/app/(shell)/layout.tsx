@@ -1,7 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { SettingsSidebar } from "@/components/shell/settings-sidebar";
 import { Sidebar } from "@/components/shell/sidebar";
 
 const ThemeProvider = dynamic(
@@ -20,13 +22,18 @@ const DisclaimerGate = dynamic(
 );
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
+  // Phase 30 / D-23 — settings routes get a settings-specific sidebar
+  // (Back row + tab list). Everything else gets the main nav sidebar.
+  const pathname = usePathname() ?? "";
+  const inSettings = pathname.startsWith("/settings");
+
   return (
     <>
       <ThemeProvider />
       <DisclaimerGate />
       <Schedulers />
       <div className="flex h-screen">
-        <Sidebar />
+        {inSettings ? <SettingsSidebar /> : <Sidebar />}
         <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
           <main className="flex flex-1 flex-col overflow-x-hidden">{children}</main>
         </div>

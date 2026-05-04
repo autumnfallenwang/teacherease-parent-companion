@@ -349,6 +349,23 @@ User feedback: "the theme parameters seem not tuned perfectly — overall not sh
 
 **End state (target):** All 5 profiles × {light, dark} render with curated, well-known palettes (shadcn Stone / canonical Solarized / canonical Nord / canonical Dracula / WCAG AAA Neutral). No hand-tuned approximations of community palettes. Token surface (`@theme inline`, names, settings keys) unchanged — only values updated.
 
+## Phase 30: Settings shell rework — replace-sidebar pattern (per D-23)
+
+The 6 settings sub-tabs (Children / Appearance / Attention / Fetch / Notifications / Advanced) lived as horizontal pill tabs in the page header — visually noisy and not the desktop-app convention parents recognize from System Settings or VS Code. This phase ports Keystream's `settings-sidebar.tsx` pattern: when on `/settings/*`, the main sidebar is replaced by a settings-specific sidebar (Back row + tab list). Pure shell refactor — no library, no domain code, no Q-decision affected. Tab state moves from component-local `useState` to the URL via dynamic `[tab]` route.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T1 | Create `src/components/shell/settings-sidebar.tsx` | ✅ Done | New ~130-line component. Mirrors main sidebar's collapse mechanics + shared `ui.sidebarCollapsed` setting. Back button always navigates to `/` (Today) — `router.back()` was tried first but rewinds tab-by-tab through settings history, which felt like a bug. Active tab derived from `usePathname()` so the layout doesn't have to thread state. Exports `SettingsTab` type + `isSettingsTab` type-guard. |
+| T2 | Update `src/app/(shell)/layout.tsx` to swap sidebars | ✅ Done | Reads `usePathname()`. Renders `<SettingsSidebar>` when `pathname.startsWith("/settings")`, `<Sidebar>` otherwise. `Schedulers`, `DisclaimerGate`, `ThemeProvider` unchanged. |
+| T3 | Create dynamic route `src/app/(shell)/settings/[tab]/page.tsx` | ✅ Done | `useParams<{tab: string}>()` + `isSettingsTab()` validation. Calls `notFound()` for invalid tab strings. Mirrors the existing `dynamic({ ssr: false })` pattern used by other shell routes. |
+| T4 | Convert bare `/settings/page.tsx` to redirect | ✅ Done | `useRouter().replace("/settings/children")` in a `useEffect`. Returns null. Bookmarks to `/settings` work; entry from main sidebar lands cleanly on the first tab. |
+| T5 | Refactor `SettingsView` to accept `tab` prop, drop `<PageHeader>` | ✅ Done | Drops the `<PageHeader title="Settings" subTabs={...}>` block — settings sidebar's "Settings" eyebrow replaces it. `SettingsView` now ~22 lines (down from 60). Stateless render based on the `tab` prop. |
+| T6 | `pnpm check` + Rust check | ✅ Done | `pnpm typecheck` clean. Vitest 303 passed / 25 skipped / 0 failed. `pnpm lint` 8 pre-existing warnings (none in modified files). No Rust files touched. |
+| T7 | Manual smoke test | ✅ Done | Maintainer walked through the sidebar paths in dev. Two prerequisite fixes surfaced and applied during the test: (1) Next's static-export mode (`output: "export"` in `next.config.mjs`) requires `generateStaticParams()` for any `[tab]` dynamic route — `"use client"` and `generateStaticParams` can't coexist in the same file, so the route was split into `page.tsx` (server, owns `generateStaticParams`) + `client.tsx` (client component with the actual rendering). (2) Back button initial impl used `router.back()` with a length fallback, but every settings tab click pushes a history entry, so "back" rewinds tab-by-tab — felt like a bug. Replaced with a simple `router.push("/")` (always exits to Today). |
+| T8 | Backlog status update | ✅ Done | D-23 → done in `docs/backlog.md`. |
+
+**End state (target):** Settings has its own sidebar with Back-row navigation. Tab state lives in the URL (`/settings/<tab>`), refresh-safe, deep-linkable. Main sidebar untouched for non-settings routes. No new library, no Q-decision contradicted, no DB migration.
+
 ---
 
 ## What's Working

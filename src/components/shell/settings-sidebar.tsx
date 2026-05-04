@@ -1,0 +1,142 @@
+"use client";
+
+// Settings-specific sidebar (Phase 30 / D-23). Replaces the main sidebar
+// when pathname starts with /settings — Back row + "Settings" eyebrow +
+// 6 tab rows. Derives activeTab from the URL itself so the layout
+// doesn't have to thread state through.
+
+import {
+  ArrowLeft,
+  Bell,
+  BookUser,
+  Download,
+  Eye,
+  FlagTriangleRight,
+  type LucideIcon,
+  PanelLeft,
+  Settings as SettingsIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { getSettingBool, setSettingBool } from "@/lib/ipc";
+
+export type SettingsTab =
+  | "children"
+  | "appearance"
+  | "attention"
+  | "fetch"
+  | "notifications"
+  | "advanced";
+
+interface SettingsTabItem {
+  readonly key: SettingsTab;
+  readonly label: string;
+  readonly icon: LucideIcon;
+}
+
+const TABS: readonly SettingsTabItem[] = [
+  { key: "children", label: "Children", icon: BookUser },
+  { key: "appearance", label: "Appearance", icon: Eye },
+  { key: "attention", label: "Attention", icon: FlagTriangleRight },
+  { key: "fetch", label: "Fetch", icon: Download },
+  { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "advanced", label: "Advanced", icon: SettingsIcon },
+];
+
+export function isSettingsTab(value: unknown): value is SettingsTab {
+  return typeof value === "string" && TABS.some((t) => t.key === value);
+}
+
+function tabFromPathname(pathname: string): SettingsTab {
+  const m = pathname.match(/^\/settings\/([^/]+)/);
+  return m && isSettingsTab(m[1]) ? m[1] : "children";
+}
+
+export function SettingsSidebar() {
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const activeTab = tabFromPathname(pathname);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    void getSettingBool("ui.sidebarCollapsed", false).then(setCollapsed);
+  }, []);
+
+  // Always exits settings to Today (/). `router.back()` walks browser
+  // history one step, but each tab click in the settings sidebar pushes
+  // a history entry, so "back" rewinds tab-by-tab instead of exiting
+  // settings — surprising. Going home is predictable.
+  const handleBack = () => {
+    router.push("/");
+  };
+
+  return (
+    <aside
+      className={`flex shrink-0 flex-col border-r bg-card/60 backdrop-blur-sm transition-[width] duration-200 ${
+        collapsed ? "w-14" : "w-48"
+      }`}
+    >
+      <div className="flex items-center justify-between px-2.5 py-3">
+        {!collapsed && (
+          <span
+            className="pl-1 text-[13px] font-semibold tracking-tight"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Settings
+          </span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            setCollapsed((c) => {
+              const next = !c;
+              void setSettingBool("ui.sidebarCollapsed", next);
+              return next;
+            })
+          }
+          className="h-7 w-7 shrink-0"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <PanelLeft className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <nav className="flex flex-col gap-0.5 px-2 py-1">
+        <button
+          type="button"
+          onClick={handleBack}
+          title={collapsed ? "Back" : undefined}
+          className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Back</span>}
+        </button>
+      </nav>
+
+      <nav className="flex flex-col gap-0.5 px-2 py-1">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = t.key === activeTab;
+          return (
+            <Link
+              key={t.key}
+              href={`/settings/${t.key}`}
+              title={collapsed ? t.label : undefined}
+              className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
+                active
+                  ? "bg-secondary font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>{t.label}</span>}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
