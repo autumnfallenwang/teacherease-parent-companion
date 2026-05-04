@@ -40,6 +40,8 @@ const OS_DEFAULT_ENABLED = true;
 const NOTIFY_RUNS_PER_DAY_KEY = "notify.runsPerDay";
 const NOTIFY_FIRST_SLOT_KEY = "notify.firstSlotAt";
 const NOTIFY_WEEKDAYS_ONLY_KEY = "notify.weekdaysOnly";
+const NOTIFY_FETCH_BEFORE_KEY = "notify.fetchBeforeDispatch";
+const NOTIFY_FETCH_BEFORE_DEFAULT = true;
 const NOTIFY_NEXT_RUN_KEY = "notify.nextRunAt";
 
 function formatLocal(iso: string | null): string {
@@ -70,6 +72,7 @@ export function SettingsNotifications() {
   const [firstSlotAt, setFirstSlotAt] = useState<string>(NOTIFY_FIRST_SLOT_DEFAULT);
   const [firstSlotDraft, setFirstSlotDraft] = useState<string>(NOTIFY_FIRST_SLOT_DEFAULT);
   const [weekdaysOnly, setWeekdaysOnly] = useState<boolean>(false);
+  const [fetchBefore, setFetchBefore] = useState<boolean>(NOTIFY_FETCH_BEFORE_DEFAULT);
   const [notifyNextRunAt, setNotifyNextRunAt] = useState<string | null>(null);
 
   const [sendingDigest, setSendingDigest] = useState(false);
@@ -84,11 +87,12 @@ export function SettingsNotifications() {
 
   useEffect(() => {
     void (async () => {
-      const [os, rawRuns, rawSlot, wd] = await Promise.all([
+      const [os, rawRuns, rawSlot, wd, fb] = await Promise.all([
         getSettingBool(OS_KEY, OS_DEFAULT_ENABLED),
         getSettingString(NOTIFY_RUNS_PER_DAY_KEY, String(NOTIFY_RUNS_PER_DAY_DEFAULT)),
         getSettingString(NOTIFY_FIRST_SLOT_KEY, NOTIFY_FIRST_SLOT_DEFAULT),
         getSettingBool(NOTIFY_WEEKDAYS_ONLY_KEY, false),
+        getSettingBool(NOTIFY_FETCH_BEFORE_KEY, NOTIFY_FETCH_BEFORE_DEFAULT),
       ]);
       setOsEnabled(os);
       const parsedRuns = parseNotifyRunsPerDay(rawRuns);
@@ -98,6 +102,7 @@ export function SettingsNotifications() {
       setFirstSlotAt(parsedSlot);
       setFirstSlotDraft(parsedSlot);
       setWeekdaysOnly(wd);
+      setFetchBefore(fb);
       await reloadNextRun();
     })();
   }, [reloadNextRun]);
@@ -156,6 +161,18 @@ export function SettingsNotifications() {
     } catch (e) {
       await logErr(
         `settings: notify.weekdaysOnly save failed — ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
+  };
+
+  const toggleFetchBefore = async (next: boolean) => {
+    setFetchBefore(next);
+    try {
+      await setSettingBool(NOTIFY_FETCH_BEFORE_KEY, next);
+      await log(`settings: ${NOTIFY_FETCH_BEFORE_KEY}=${next ? 1 : 0}`);
+    } catch (e) {
+      await logErr(
+        `settings: notify.fetchBeforeDispatch save failed — ${e instanceof Error ? e.message : "unknown"}`,
       );
     }
   };
@@ -319,6 +336,24 @@ export function SettingsNotifications() {
               aria-label="Skip weekends"
             />
             <span className="text-[13px]">Skip weekends (Sat + Sun)</span>
+          </div>
+
+          <div className="flex items-start gap-3 pt-1">
+            <Switch
+              checked={fetchBefore}
+              onChange={(next) => {
+                void toggleFetchBefore(next);
+              }}
+              aria-label="Fetch latest data before sending digest"
+            />
+            <div className="space-y-0.5">
+              <span className="text-[13px]">Fetch latest data before sending digest</span>
+              <p className="text-[12px] text-muted-foreground">
+                When on, the app pulls grades and homework from TeacherEase right before each
+                scheduled digest, so the email reflects current portal state. Turn off to use
+                whatever data the last fetch left in the database (faster, but may be stale).
+              </p>
+            </div>
           </div>
 
           <p className="text-[12px] text-muted-foreground">

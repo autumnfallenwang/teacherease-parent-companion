@@ -897,7 +897,7 @@ Q31 made this worse by extending notify to N×/day: a notify schedule can fire t
 
 2. **Notify *action* now fetches first.** `runNotifyCycle()` calls `runFetchCycle(children)` before `buildDigestFromDb`. The notify dispatch always reflects current portal state. The fetch path itself remains independent — `runFetchCycle` is the same function the fetch loop already uses, and its in-flight guard (`cycle.ts:19-22`) prevents double-execution if a scheduled fetch happens to be running when notify ticks.
 
-3. **No new toggle.** This is the new default for both the scheduled notify path and the manual "Send digest now" button. Parents who want the old behavior have no way back — but the old behavior was the bug.
+3. **Default on, with an escape-hatch toggle.** Settings → Notifications → Schedule has a "Fetch latest data before sending digest" Switch backed by `notify.fetchBeforeDispatch` (default `true`). New default behavior is fetch-then-dispatch for both the scheduled notify path and the manual "Send digest now" button. Disabling the toggle restores the legacy Q29 "read DB only, may be stale" behavior — useful if double-fetches at adjacent slots ever become a concern (e.g. a parent who keeps fetch + notify slots separated by minutes intentionally and wants to avoid the back-to-back HTTP roundtrip). Most parents leave the default; the toggle exists so the supersedence isn't a one-way door.
 
 **What stays locked.**
 - Q29 points 1–4 + 6 — two independent loops, manual buttons in Settings, cold-start fetch path, tray "Refresh" semantics.
@@ -909,8 +909,7 @@ Q31 made this worse by extending notify to N×/day: a notify schedule can fire t
 - The load-bearing comment in `src/lib/fetch/cycle.ts:5` ("NO digest fires — that's the whole point of Q29's decoupling") needs updating to reflect the new contract: `runFetchCycle` itself still fires no digest; the *caller* (`runNotifyCycle`) now coordinates.
 
 **Non-goals.**
-- No staleness threshold ("fetch only if last success >60s ago") — keeps the model simple. Adjacent fetch + notify slots produce one redundant fetch (~5-15s); acceptable.
-- No setting to disable. The new behavior is the contract.
+- No staleness threshold ("fetch only if last success >60s ago") — keeps the model simple. Adjacent fetch + notify slots produce one redundant fetch (~5-15s); acceptable. Power users who want this behavior can flip the `notify.fetchBeforeDispatch` toggle off and rely on their fetch schedule alone.
 
 **Promoted to:** B-19 in `docs/backlog.md` (single-commit fix, no phase entry).
 
