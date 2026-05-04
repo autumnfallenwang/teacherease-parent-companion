@@ -144,20 +144,16 @@ export async function addChild(params: AddChildParams): Promise<number> {
     await setChildPasswordInDb(childId, params.password);
   } catch (e) {
     await d.execute("DELETE FROM children WHERE id = $1", [childId]);
-    await invoke("log_error", {
-      message: `addChild: password write failed, rolled back childId=${childId}`,
-    });
+    await pluginError(`addChild: password write failed, rolled back childId=${childId}`);
     throw new Error("Failed to store credentials", { cause: e });
   }
 
-  await invoke("log_info", {
-    message: `addChild: id=${childId} name=${params.displayName}`,
-  });
+  await pluginInfo(`addChild: id=${childId} name=${params.displayName}`);
   return childId;
 }
 
 export async function removeChild(childId: number): Promise<void> {
-  await invoke("log_info", { message: `removeChild: id=${childId}` });
+  await pluginInfo(`removeChild: id=${childId}`);
   // DELETE FROM children drops the row (and its portal_password column).
   // Any leftover keychain entry from a v0.1.2-era install is harmless and
   // swept by resetAllAppData; not worth re-triggering a prompt here.
@@ -179,17 +175,13 @@ export async function updateChildIdentity(
     params.username,
     childId,
   ]);
-  await invoke("log_info", {
-    message: `updateChildIdentity: id=${childId} name=${params.displayName}`,
-  });
+  await pluginInfo(`updateChildIdentity: id=${childId} name=${params.displayName}`);
 }
 
 export async function setHomeworkUrl(childId: number, url: string | null): Promise<void> {
   const d = await getDb();
   await d.execute("UPDATE children SET homework_url = $1 WHERE id = $2", [url, childId]);
-  await invoke("log_info", {
-    message: `setHomeworkUrl: childId=${childId} configured=${url ? "true" : "false"}`,
-  });
+  await pluginInfo(`setHomeworkUrl: childId=${childId} configured=${url ? "true" : "false"}`);
 }
 
 export async function getChildPassword(childId: number): Promise<string | null> {
@@ -357,9 +349,9 @@ export async function persistTeacherEaseData(
     );
   }
 
-  await invoke("log_info", {
-    message: `persistTeacherEaseData: fetchRunId=${fetchRunId} childId=${childId} classes=${overview.classes.length} details=${classDetails.length}`,
-  });
+  await pluginInfo(
+    `persistTeacherEaseData: fetchRunId=${fetchRunId} childId=${childId} classes=${overview.classes.length} details=${classDetails.length}`,
+  );
 }
 
 async function upsertClasses(
@@ -900,9 +892,9 @@ export async function persistHomework(
     }
   }
 
-  await invoke("log_info", {
-    message: `homework: persisted childId=${childId} rows=${persisted} entries=${entries.length} inferredDueDates=${inferredCount}`,
-  });
+  await pluginInfo(
+    `homework: persisted childId=${childId} rows=${persisted} entries=${entries.length} inferredDueDates=${inferredCount}`,
+  );
   return persisted;
 }
 
@@ -1131,7 +1123,7 @@ export async function resetAllAppData(): Promise<void> {
     // Best-effort.
   }
 
-  await invoke("log_info", { message: "settings: resetAllAppData executed" });
+  await pluginInfo("settings: resetAllAppData executed");
 }
 
 /** Quit the app immediately (used after resetAllAppData so the next
@@ -1162,24 +1154,34 @@ export async function checkAutostartEnabled(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Logging (Q14) — routes to Rust JSON logger via custom commands.
+// Logging (Q14, Phase 28) — routes to tauri-plugin-log. The plugin's built-in
+// IPC carries webview-source lines into the same single sink the Rust side
+// writes to (<appDataDir>/logs/app.log). Public wrappers keep their original
+// names so component call sites don't change. Plugin tags webview lines with
+// logger="webview" natively (replaces the old [webview] string prefix).
 // Never log PII or secrets (see CLAUDE.md).
 // ---------------------------------------------------------------------------
 
+import {
+  error as pluginError,
+  info as pluginInfo,
+  warn as pluginWarn,
+} from "@tauri-apps/plugin-log";
+
 export async function initLogging(): Promise<void> {
-  await invoke("log_info", { message: "frontend logging initialized" });
+  await pluginInfo("frontend logging initialized");
 }
 
 export async function log(message: string): Promise<void> {
-  await invoke("log_info", { message });
+  await pluginInfo(message);
 }
 
 export async function logWarning(message: string): Promise<void> {
-  await invoke("log_warn", { message });
+  await pluginWarn(message);
 }
 
 export async function logErr(message: string): Promise<void> {
-  await invoke("log_error", { message });
+  await pluginError(message);
 }
 
 export async function openLogDir(): Promise<void> {

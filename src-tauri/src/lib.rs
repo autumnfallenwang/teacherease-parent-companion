@@ -1,4 +1,3 @@
-mod json_log;
 mod keychain;
 mod log_commands;
 mod migrations;
@@ -22,31 +21,62 @@ pub(crate) fn default_log_dir() -> PathBuf {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let is_debug = cfg!(debug_assertions);
-    let log_level = if is_debug {
-        log::LevelFilter::Debug
-    } else {
-        log::LevelFilter::Info
+
+    // Phase 28 / D-21 — logging via tauri-plugin-log. Single sink at
+    // <appDataDir>/logs/app.log via TargetKind::Folder, JSON line shape
+    // preserved from the legacy json_log.rs ({"@timestamp", "level",
+    // "logger", "message", "app"}). TPC_LOG_LEVEL env var overrides the
+    // dev=Debug / prod=Info default for power-user debugging.
+    let log_level = std::env::var("TPC_LOG_LEVEL")
+        .ok()
+        .and_then(|s| s.parse::<log::LevelFilter>().ok())
+        .unwrap_or(if is_debug {
+            log::LevelFilter::Debug
+        } else {
+            log::LevelFilter::Info
+        });
+
+    let log_dir = default_log_dir();
+
+    let json_format = |out: tauri_plugin_log::fern::FormatCallback,
+                       message: &std::fmt::Arguments,
+                       record: &log::Record| {
+        let ts = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let line = serde_json::json!({
+            "@timestamp": ts,
+            "level": record.level().to_string(),
+            "logger": record.target(),
+            "message": format!("{}", message),
+            "app": "teacherease-parent-companion",
+        });
+        out.finish(format_args!("{}", line));
     };
 
-    // Initialize JSON file logger BEFORE Tauri builder — so all plugin
-    // initialization is captured. File at appDataDir/logs/app.log.
-    let log_path = default_log_dir().join("app.log");
-    json_log::JsonFileLogger::new(
-        log_path.clone(),
-        if is_debug {
-            log::Level::Debug
-        } else {
-            log::Level::Info
-        },
-        is_debug,
-    )
-    .init(log_level);
+    let mut log_builder = tauri_plugin_log::Builder::new()
+        .clear_targets()
+        .target(tauri_plugin_log::Target::new(
+            tauri_plugin_log::TargetKind::Folder {
+                path: log_dir.clone(),
+                file_name: Some("app".to_string()),
+            },
+        ))
+        .max_file_size(5 * 1024 * 1024)
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+        .level(log_level)
+        .format(json_format);
 
-    log::info!("app_version={}", env!("CARGO_PKG_VERSION"));
-    log::info!("log_file={}", log_path.display());
-    log::info!("build={}", if is_debug { "debug" } else { "release" });
+    if is_debug {
+        log_builder = log_builder
+            .target(tauri_plugin_log::Target::new(
+                tauri_plugin_log::TargetKind::Stdout,
+            ))
+            .target(tauri_plugin_log::Target::new(
+                tauri_plugin_log::TargetKind::Webview,
+            ));
+    }
 
     tauri::Builder::default()
+        .plugin(log_builder.build())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:app.db", migrations::initial())
@@ -66,13 +96,15 @@ pub fn run() {
             keychain::keychain_set,
             keychain::keychain_get,
             keychain::keychain_delete,
-            log_commands::log_info,
-            log_commands::log_warn,
-            log_commands::log_error,
             log_commands::open_log_dir,
             smtp::send_email,
         ])
         .setup(move |app| {
+            // Now that the logger is wired (registered as the first plugin
+            // above), emit the startup INFO lines.
+            log::info!("app_version={}", env!("CARGO_PKG_VERSION"));
+            log::info!("log_file={}", log_dir.join("app.log").display());
+            log::info!("build={}", if is_debug { "debug" } else { "release" });
             let app_data = app
                 .path()
                 .app_data_dir()

@@ -1,21 +1,6 @@
 use crate::default_log_dir;
 
 #[tauri::command]
-pub fn log_info(message: String) {
-    log::info!("[webview] {}", message);
-}
-
-#[tauri::command]
-pub fn log_warn(message: String) {
-    log::warn!("[webview] {}", message);
-}
-
-#[tauri::command]
-pub fn log_error(message: String) {
-    log::error!("[webview] {}", message);
-}
-
-#[tauri::command]
 pub fn open_log_dir() -> Result<(), String> {
     let dir = default_log_dir();
     log::info!("open_log_dir: path={}", dir.display());
