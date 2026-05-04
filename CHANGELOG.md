@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-05-04
+
+### Changed
+- **"Fetch fresh data first" toggle copy tightened.** The Settings → Notifications → Schedule toggle that controls whether each digest fetches before sending (`notify.fetchBeforeDispatch`, default on) was a two-line label + paragraph that overflowed the row. Now reads as a single short label `Fetch fresh data first`. The on/off explainer moved into the Schedule section's existing `help` tooltip — hover the Info icon next to "Schedule" to read it. No behavior change.
+- **Reverted the curated theme-tokens swap from v0.1.6 (D-22 / Phase 29).** The shadcn Stone default + canonical Solarized/Nord/Dracula hex palettes shipped in v0.1.6 didn't land — user preferred the prior hand-tuned values. Reverted via `git revert -m 1` of the merge commit; all 5 profiles are back to their pre-v0.1.6 OKLCH values. Plumbing (`theme-provider.tsx`, `lib/core/theme.ts`) was never changed by Phase 29, so nothing else needs touching.
+
 ## [0.1.6] — 2026-05-04
 
 ### Added
