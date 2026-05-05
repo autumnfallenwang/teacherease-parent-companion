@@ -1,4 +1,7 @@
+"use client";
+
 import { CheckCircle2, CircleAlert } from "lucide-react";
+import { useT } from "@/components/shell/locale-provider";
 import type { ChildStatus } from "@/lib/hero-statuses";
 
 export type { ChildStatus };
@@ -17,12 +20,16 @@ function ChildRow({
   showName: boolean;
   onSelect?: () => void;
 }) {
+  const t = useT();
   const isOk = status.attentionCount === 0;
   const attentionBody = isOk
-    ? "All caught up"
-    : `${status.attentionCount} class${status.attentionCount > 1 ? "es" : ""} need${
-        status.attentionCount === 1 ? "s" : ""
-      } attention`;
+    ? t("today.hero.allCaughtUp")
+    : t(
+        status.attentionCount === 1
+          ? "today.hero.classesNeedAttention.one"
+          : "today.hero.classesNeedAttention.other",
+        { count: status.attentionCount },
+      );
 
   return (
     <div className={`rounded-lg px-4 py-3 ${isOk ? "bg-meeting/6" : "bg-attention/6"}`}>
@@ -40,14 +47,16 @@ function ChildRow({
             {showName ? `${status.name}: ` : ""}
             {attentionBody}
           </p>
-          <p className="mt-1 text-[12px] text-muted-foreground">{status.meetingCount} meeting</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            {t("today.hero.meetingCount", { count: status.meetingCount })}
+          </p>
           {status.homeworkConfigured && (
             <>
               <p className="text-[12px] text-muted-foreground">
-                {status.homeworkForTodayCount} homework for today
+                {t("today.hero.homeworkForToday", { count: status.homeworkForTodayCount })}
               </p>
               <p className="text-[12px] text-muted-foreground">
-                {status.homeworkDueTodayCount} homework due today
+                {t("today.hero.homeworkDueToday", { count: status.homeworkDueTodayCount })}
               </p>
             </>
           )}

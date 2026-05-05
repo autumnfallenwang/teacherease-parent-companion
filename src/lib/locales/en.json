@@ -13,5 +13,63 @@
   "settings.tabs.attention": "Attention",
   "settings.tabs.fetch": "Fetch",
   "settings.tabs.notifications": "Notifications",
-  "settings.tabs.advanced": "Advanced"
+  "settings.tabs.advanced": "Advanced",
+
+  "today.title": "Today",
+  "today.checked": "Checked {time}",
+  "today.viewAllClasses": "View all classes →",
+
+  "today.attention.heading": "Attention",
+  "today.attention.recent": "Recent",
+  "today.attention.older": "Older ({count})",
+  "today.attention.assignmentMissing": "Missing",
+
+  "today.hero.allCaughtUp": "All caught up",
+  "today.hero.classesNeedAttention.one": "{count} class needs attention",
+  "today.hero.classesNeedAttention.other": "{count} classes need attention",
+  "today.hero.meetingCount": "{count} meeting",
+  "today.hero.homeworkForToday": "{count} homework for today",
+  "today.hero.homeworkDueToday": "{count} homework due today",
+
+  "today.activity.heading": "Since last check",
+  "today.activity.improved": "{className} improved {scoreFrom} → {scoreTo}",
+  "today.activity.declined": "{className} declined {scoreFrom} → {scoreTo}",
+  "today.activity.newScores.one": "{count} new score in {className}",
+  "today.activity.newScores.other": "{count} new scores in {className}",
+  "today.activity.showLess": "Show less",
+  "today.activity.showMore": "Show {count} more",
+
+  "today.homework.forTodayHeading": "Homework for today",
+  "today.homework.forTodayEmpty": "No homework for today.",
+  "today.homework.dueTodayHeading": "Homework due today",
+  "today.homework.dueTodayEmpty": "Nothing due today.",
+  "today.homework.dueDateInferredTitle": "Due date not posted — estimated to be the next school day",
+
+  "classes.title": "Classes",
+  "classes.empty": "No grade data yet. Tap Refresh to check.",
+  "classes.totalCount": "{count} total",
+  "classes.statusBadge.needsAttention": "Needs Attention",
+  "classes.statusBadge.meeting": "Meeting",
+  "classes.statusBadge.notAssessed": "Not Assessed",
+  "classes.statusDots.ariaLabel": "Status history",
+
+  "classes.standardsLoading": "Loading details...",
+  "classes.standardsEmpty": "No standards data available.",
+  "classes.standardEmpty": "(no assignments yet)",
+  "classes.assignment.missing": "Missing",
+  "classes.assignment.notGraded": "Not graded",
+  "classes.iconTitle.allClear": "All clear",
+  "classes.iconTitle.needsAttention": "Needs attention",
+  "classes.iconTitle.olderResolved": "Older items (resolved)",
+
+  "history.title": "History",
+  "history.monthLabel": "Month",
+  "history.empty.noUrl": "To track homework for this child, add a Google Sites URL under Settings → Children.",
+  "history.empty.noDataForMonth": "No homework recorded for {monthLabel}.",
+  "history.empty.noDataAtAll": "No homework recorded yet for this child.",
+
+  "common.welcomeHeading": "Welcome to Parent Companion",
+  "common.welcomeBody": "No children are set up yet. Add your first child and we'll keep track of grades and missing assignments — right here on your computer.",
+  "common.addFirstChild": "Add your first child",
+  "common.readQuickStart": "New here? Read the quick start →"
 }

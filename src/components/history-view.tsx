@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatHomeworkDate, HomeworkRow } from "@/components/homework-card";
-import { useLocale } from "@/components/shell/locale-provider";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { PageHeader } from "@/components/shell/page-header";
 import { useSelectedChild } from "@/hooks/use-selected-child";
 import { formatDate, type Locale } from "@/lib/i18n";
 import type { HomeworkRecord } from "@/lib/ipc";
 import { getChildren, getHomeworkByMonth, getHomeworkMonths } from "@/lib/ipc";
 import type { ChildRecord } from "@/lib/scraper/types";
+
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
 interface MonthOption {
   readonly yearMonth: string;
@@ -44,20 +46,22 @@ function HomeworkSection({
   childHomeworkUrl,
   monthLabel,
   locale,
+  t,
 }: {
   rows: HomeworkRecord[];
   childHomeworkUrl: string | null;
   monthLabel: string | null;
   locale: Locale;
+  t: TFn;
 }) {
   if (rows.length === 0) {
     let text: string;
     if (!childHomeworkUrl) {
-      text = "To track homework for this child, add a Google Sites URL under Settings → Children.";
+      text = t("history.empty.noUrl");
     } else if (monthLabel) {
-      text = `No homework recorded for ${monthLabel}.`;
+      text = t("history.empty.noDataForMonth", { monthLabel });
     } else {
-      text = "No homework recorded yet for this child.";
+      text = t("history.empty.noDataAtAll");
     }
     return <EmptyRow text={text} />;
   }
@@ -89,6 +93,7 @@ function HomeworkSection({
 
 export function HistoryView() {
   const locale = useLocale();
+  const t = useT();
   const { selectedChildId: childId } = useSelectedChild();
 
   const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
@@ -146,12 +151,12 @@ export function HistoryView() {
 
   return (
     <>
-      <PageHeader title="History" />
+      <PageHeader title={t("history.title")} />
       <div className="mx-auto w-full max-w-2xl space-y-5 px-5 py-5">
         {months.length > 0 && (
           <div className="flex items-center gap-3">
             <label htmlFor="history-month" className="text-[13px] font-medium">
-              Month
+              {t("history.monthLabel")}
             </label>
             <select
               id="history-month"
@@ -172,6 +177,7 @@ export function HistoryView() {
           childHomeworkUrl={currentChildHomeworkUrl}
           monthLabel={monthLabel}
           locale={locale}
+          t={t}
         />
       </div>
     </>

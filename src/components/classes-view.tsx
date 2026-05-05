@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GradesTable } from "@/components/grades-table";
+import { useT } from "@/components/shell/locale-provider";
 import { PageHeader } from "@/components/shell/page-header";
 import { StandardsTree } from "@/components/standards-tree";
 import { useSelectedChild } from "@/hooks/use-selected-child";
@@ -27,6 +28,7 @@ const EMPTY_DETAIL_CACHE = new Map<string, ClassDetails | null>();
 const EMPTY_INSTRUCTORS = new Map<number, string>();
 
 export function ClassesView() {
+  const t = useT();
   const { selectedChildId: childId } = useSelectedChild();
 
   const [lastFetchRun, setLastFetchRun] = useState<FetchRunRecord | null>(null);
@@ -108,7 +110,7 @@ export function ClassesView() {
 
   return (
     <>
-      <PageHeader title="Classes" />
+      <PageHeader title={t("classes.title")} />
       <div className="mx-auto w-full max-w-2xl space-y-5 px-5 py-5">
         <GradesTable
           grades={grades}

@@ -13,5 +13,63 @@
   "settings.tabs.attention": "Atención",
   "settings.tabs.fetch": "Sincronización",
   "settings.tabs.notifications": "Notificaciones",
-  "settings.tabs.advanced": "Avanzado"
+  "settings.tabs.advanced": "Avanzado",
+
+  "today.title": "Hoy",
+  "today.checked": "Verificado {time}",
+  "today.viewAllClasses": "Ver todas las clases →",
+
+  "today.attention.heading": "Atención",
+  "today.attention.recent": "Recientes",
+  "today.attention.older": "Antiguos ({count})",
+  "today.attention.assignmentMissing": "Faltante",
+
+  "today.hero.allCaughtUp": "Todo al día",
+  "today.hero.classesNeedAttention.one": "{count} clase necesita atención",
+  "today.hero.classesNeedAttention.other": "{count} clases necesitan atención",
+  "today.hero.meetingCount": "{count} cumpliendo",
+  "today.hero.homeworkForToday": "{count} tareas para hoy",
+  "today.hero.homeworkDueToday": "{count} tareas entregables hoy",
+
+  "today.activity.heading": "Desde la última verificación",
+  "today.activity.improved": "{className} mejoró {scoreFrom} → {scoreTo}",
+  "today.activity.declined": "{className} bajó {scoreFrom} → {scoreTo}",
+  "today.activity.newScores.one": "{count} nueva calificación en {className}",
+  "today.activity.newScores.other": "{count} nuevas calificaciones en {className}",
+  "today.activity.showLess": "Mostrar menos",
+  "today.activity.showMore": "Mostrar {count} más",
+
+  "today.homework.forTodayHeading": "Tarea para hoy",
+  "today.homework.forTodayEmpty": "No hay tarea para hoy.",
+  "today.homework.dueTodayHeading": "Tarea entregable hoy",
+  "today.homework.dueTodayEmpty": "Nada que entregar hoy.",
+  "today.homework.dueDateInferredTitle": "Fecha de entrega no publicada — se estima para el próximo día escolar",
+
+  "classes.title": "Clases",
+  "classes.empty": "Aún no hay datos de calificaciones. Pulsa Actualizar para consultar.",
+  "classes.totalCount": "{count} en total",
+  "classes.statusBadge.needsAttention": "Necesita atención",
+  "classes.statusBadge.meeting": "Cumple",
+  "classes.statusBadge.notAssessed": "Sin evaluar",
+  "classes.statusDots.ariaLabel": "Historial de estado",
+
+  "classes.standardsLoading": "Cargando detalles...",
+  "classes.standardsEmpty": "No hay datos de estándares disponibles.",
+  "classes.standardEmpty": "(sin tareas aún)",
+  "classes.assignment.missing": "Faltante",
+  "classes.assignment.notGraded": "Sin calificar",
+  "classes.iconTitle.allClear": "Todo bien",
+  "classes.iconTitle.needsAttention": "Necesita atención",
+  "classes.iconTitle.olderResolved": "Elementos antiguos (resueltos)",
+
+  "history.title": "Historial",
+  "history.monthLabel": "Mes",
+  "history.empty.noUrl": "Para registrar la tarea de este hijo, añade una URL de Google Sites en Ajustes → Hijos.",
+  "history.empty.noDataForMonth": "No hay tareas registradas para {monthLabel}.",
+  "history.empty.noDataAtAll": "No hay tareas registradas aún para este hijo.",
+
+  "common.welcomeHeading": "Bienvenido a Parent Companion",
+  "common.welcomeBody": "Aún no hay hijos configurados. Añade a tu primer hijo y llevaremos un seguimiento de las calificaciones y las tareas faltantes — todo en tu propio ordenador.",
+  "common.addFirstChild": "Añadir tu primer hijo",
+  "common.readQuickStart": "¿Es tu primera vez? Lee la guía rápida →"
 }

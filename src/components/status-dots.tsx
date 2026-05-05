@@ -1,3 +1,6 @@
+"use client";
+
+import { useT } from "@/components/shell/locale-provider";
 import type { StatusHistoryEntry } from "@/lib/ipc";
 
 interface StatusDotsProps {
@@ -21,6 +24,7 @@ function dotColor(status: string | null): string {
  * Oldest on the left, newest on the right. Unfilled slots render as rings.
  */
 export function StatusDots({ history, maxDots = 5 }: StatusDotsProps) {
+  const t = useT();
   // history is newest-first from DB — reverse for left-to-right chronological
   const chronological = [...history].reverse();
 
@@ -36,7 +40,11 @@ export function StatusDots({ history, maxDots = 5 }: StatusDotsProps) {
   }
 
   return (
-    <div className="flex items-center gap-1" role="img" aria-label="Status history">
+    <div
+      className="flex items-center gap-1"
+      role="img"
+      aria-label={t("classes.statusDots.ariaLabel")}
+    >
       {dots.map((dot) => (
         <span
           key={dot.key}

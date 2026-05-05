@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, Clock, Target } from "lucide-react";
-import { useLocale } from "@/components/shell/locale-provider";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { formatDate, type Locale } from "@/lib/i18n";
 import type { HomeworkRecord } from "@/lib/ipc";
 
@@ -35,6 +35,7 @@ export function isEmptyContent(content: string): boolean {
 
 export function HomeworkRow({ entry }: { entry: HomeworkRecord }) {
   const locale = useLocale();
+  const t = useT();
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-start gap-2">
@@ -51,11 +52,7 @@ export function HomeworkRow({ entry }: { entry: HomeworkRecord }) {
             className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] ${
               entry.dueDateInferred ? "italic text-muted-foreground/70" : "text-muted-foreground"
             }`}
-            title={
-              entry.dueDateInferred
-                ? "Due date not posted — estimated to be the next school day"
-                : undefined
-            }
+            title={entry.dueDateInferred ? t("today.homework.dueDateInferredTitle") : undefined}
           >
             <Clock className="h-3 w-3" />
             {formatDueChip(entry.dueDate, entry.dueDateInferred, locale)}
@@ -104,16 +101,17 @@ interface HomeworkTodaySectionsProps {
 }
 
 export function HomeworkTodaySections({ forToday, dueToday }: HomeworkTodaySectionsProps) {
+  const t = useT();
   return (
     <div className="space-y-5">
       <section className="space-y-3">
         <SectionHeading
           icon={<BookOpen className="h-4 w-4 text-primary" />}
-          title="Homework for today"
+          title={t("today.homework.forTodayHeading")}
           count={forToday.length}
         />
         {forToday.length === 0 ? (
-          <SectionEmpty text="No homework for today." />
+          <SectionEmpty text={t("today.homework.forTodayEmpty")} />
         ) : (
           <div className="space-y-1.5">
             {forToday.map((entry) => (
@@ -126,11 +124,11 @@ export function HomeworkTodaySections({ forToday, dueToday }: HomeworkTodaySecti
       <section className="space-y-3">
         <SectionHeading
           icon={<Target className="h-4 w-4 text-primary" />}
-          title="Homework due today"
+          title={t("today.homework.dueTodayHeading")}
           count={dueToday.length}
         />
         {dueToday.length === 0 ? (
-          <SectionEmpty text="Nothing due today." />
+          <SectionEmpty text={t("today.homework.dueTodayEmpty")} />
         ) : (
           <div className="space-y-1.5">
             {dueToday.map((entry) => (

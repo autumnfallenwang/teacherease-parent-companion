@@ -13,5 +13,63 @@
   "settings.tabs.attention": "关注事项",
   "settings.tabs.fetch": "数据同步",
   "settings.tabs.notifications": "通知",
-  "settings.tabs.advanced": "高级"
+  "settings.tabs.advanced": "高级",
+
+  "today.title": "今日",
+  "today.checked": "已检查 {time}",
+  "today.viewAllClasses": "查看全部班级 →",
+
+  "today.attention.heading": "需要关注",
+  "today.attention.recent": "近期",
+  "today.attention.older": "较早 ({count})",
+  "today.attention.assignmentMissing": "缺失",
+
+  "today.hero.allCaughtUp": "全部完成",
+  "today.hero.classesNeedAttention.one": "有 {count} 个班级需要关注",
+  "today.hero.classesNeedAttention.other": "有 {count} 个班级需要关注",
+  "today.hero.meetingCount": "{count} 项达标",
+  "today.hero.homeworkForToday": "今日作业 {count} 项",
+  "today.hero.homeworkDueToday": "今日待交 {count} 项",
+
+  "today.activity.heading": "上次检查以来",
+  "today.activity.improved": "{className} 提升 {scoreFrom} → {scoreTo}",
+  "today.activity.declined": "{className} 下降 {scoreFrom} → {scoreTo}",
+  "today.activity.newScores.one": "{className} 新增 {count} 项成绩",
+  "today.activity.newScores.other": "{className} 新增 {count} 项成绩",
+  "today.activity.showLess": "收起",
+  "today.activity.showMore": "再显示 {count} 项",
+
+  "today.homework.forTodayHeading": "今日作业",
+  "today.homework.forTodayEmpty": "今天没有作业。",
+  "today.homework.dueTodayHeading": "今日待交",
+  "today.homework.dueTodayEmpty": "今天没有需要提交的作业。",
+  "today.homework.dueDateInferredTitle": "未公布交付日期 — 预计为下一个上学日",
+
+  "classes.title": "班级",
+  "classes.empty": "暂无成绩数据。请点击刷新查看。",
+  "classes.totalCount": "共 {count} 项",
+  "classes.statusBadge.needsAttention": "需要关注",
+  "classes.statusBadge.meeting": "达标",
+  "classes.statusBadge.notAssessed": "未评估",
+  "classes.statusDots.ariaLabel": "状态历史",
+
+  "classes.standardsLoading": "正在加载详情...",
+  "classes.standardsEmpty": "暂无标准数据。",
+  "classes.standardEmpty": "(尚无作业)",
+  "classes.assignment.missing": "缺失",
+  "classes.assignment.notGraded": "未评分",
+  "classes.iconTitle.allClear": "一切正常",
+  "classes.iconTitle.needsAttention": "需要关注",
+  "classes.iconTitle.olderResolved": "较早的项目 (已解决)",
+
+  "history.title": "历史",
+  "history.monthLabel": "月份",
+  "history.empty.noUrl": "若要记录此孩子的作业,请在 设置 → 孩子 中添加 Google Sites 网址。",
+  "history.empty.noDataForMonth": "{monthLabel} 没有作业记录。",
+  "history.empty.noDataAtAll": "此孩子暂无作业记录。",
+
+  "common.welcomeHeading": "欢迎使用 Parent Companion",
+  "common.welcomeBody": "尚未添加孩子。添加第一个孩子,我们将为您跟踪成绩和缺交的作业 — 全部数据都保留在您的电脑上。",
+  "common.addFirstChild": "添加第一个孩子",
+  "common.readQuickStart": "新用户?查看快速入门 →"
 }
