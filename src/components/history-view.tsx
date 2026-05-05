@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatHomeworkDate, HomeworkRow } from "@/components/homework-card";
+import { useLocale } from "@/components/shell/locale-provider";
 import { PageHeader } from "@/components/shell/page-header";
 import { useSelectedChild } from "@/hooks/use-selected-child";
+import { formatDate, type Locale } from "@/lib/i18n";
 import type { HomeworkRecord } from "@/lib/ipc";
 import { getChildren, getHomeworkByMonth, getHomeworkMonths } from "@/lib/ipc";
 import type { ChildRecord } from "@/lib/scraper/types";
@@ -13,14 +15,14 @@ interface MonthOption {
   readonly count: number;
 }
 
-/** "2026-04" → "April 2026". */
-function formatMonthLabel(yearMonth: string): string {
+/** "2026-04" → "April 2026" (or locale equivalent). */
+function formatMonthLabel(yearMonth: string, locale: Locale): string {
   const parts = yearMonth.split("-");
   const y = Number.parseInt(parts[0] ?? "", 10);
   const m = Number.parseInt(parts[1] ?? "", 10);
   if (!Number.isFinite(y) || !Number.isFinite(m)) return yearMonth;
   const d = new Date(y, m - 1, 1);
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "long" });
+  return formatDate(locale, d, { year: "numeric", month: "long" });
 }
 
 function currentYearMonth(now: Date = new Date()): string {
@@ -41,10 +43,12 @@ function HomeworkSection({
   rows,
   childHomeworkUrl,
   monthLabel,
+  locale,
 }: {
   rows: HomeworkRecord[];
   childHomeworkUrl: string | null;
   monthLabel: string | null;
+  locale: Locale;
 }) {
   if (rows.length === 0) {
     let text: string;
@@ -70,7 +74,7 @@ function HomeworkSection({
       {Array.from(groups.entries()).map(([date, entries]) => (
         <div key={date} className="space-y-2">
           <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-            {formatHomeworkDate(date)}
+            {formatHomeworkDate(date, locale)}
           </p>
           <div className="space-y-1.5">
             {entries.map((entry) => (
@@ -84,6 +88,7 @@ function HomeworkSection({
 }
 
 export function HistoryView() {
+  const locale = useLocale();
   const { selectedChildId: childId } = useSelectedChild();
 
   const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
@@ -137,7 +142,7 @@ export function HistoryView() {
     [allChildren, childId],
   );
 
-  const monthLabel = selectedMonth ? formatMonthLabel(selectedMonth) : null;
+  const monthLabel = selectedMonth ? formatMonthLabel(selectedMonth, locale) : null;
 
   return (
     <>
@@ -156,7 +161,7 @@ export function HistoryView() {
             >
               {months.map((m) => (
                 <option key={m.yearMonth} value={m.yearMonth}>
-                  {formatMonthLabel(m.yearMonth)} ({m.count})
+                  {formatMonthLabel(m.yearMonth, locale)} ({m.count})
                 </option>
               ))}
             </select>
@@ -166,6 +171,7 @@ export function HistoryView() {
           rows={homeworkRows}
           childHomeworkUrl={currentChildHomeworkUrl}
           monthLabel={monthLabel}
+          locale={locale}
         />
       </div>
     </>

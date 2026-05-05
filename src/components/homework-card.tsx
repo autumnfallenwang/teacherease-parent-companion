@@ -1,6 +1,8 @@
 "use client";
 
 import { BookOpen, Clock, Target } from "lucide-react";
+import { useLocale } from "@/components/shell/locale-provider";
+import { formatDate, type Locale } from "@/lib/i18n";
 import type { HomeworkRecord } from "@/lib/ipc";
 
 function parseIsoDay(iso: string): Date | null {
@@ -8,22 +10,18 @@ function parseIsoDay(iso: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function formatHomeworkDate(iso: string): string {
+export function formatHomeworkDate(iso: string, locale: Locale): string {
   const d = parseIsoDay(iso);
   if (!d) return iso;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "long", timeZone: "UTC" });
-  const month = d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  const weekday = formatDate(locale, d, { weekday: "long", timeZone: "UTC" });
+  const month = formatDate(locale, d, { month: "short", day: "numeric", timeZone: "UTC" });
   return `${weekday} · ${month}`;
 }
 
-export function formatDueChip(iso: string, inferred: boolean): string {
+export function formatDueChip(iso: string, inferred: boolean, locale: Locale): string {
   const d = parseIsoDay(iso);
   if (!d) return iso;
-  const weekday = d.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
+  const weekday = formatDate(locale, d, { weekday: "short", timeZone: "UTC" });
   const mm = d.getUTCMonth() + 1;
   const dd = d.getUTCDate();
   const label = `${weekday} ${mm}/${dd}`;
@@ -36,6 +34,7 @@ export function isEmptyContent(content: string): boolean {
 }
 
 export function HomeworkRow({ entry }: { entry: HomeworkRecord }) {
+  const locale = useLocale();
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-start gap-2">
@@ -59,7 +58,7 @@ export function HomeworkRow({ entry }: { entry: HomeworkRecord }) {
             }
           >
             <Clock className="h-3 w-3" />
-            {formatDueChip(entry.dueDate, entry.dueDateInferred)}
+            {formatDueChip(entry.dueDate, entry.dueDateInferred, locale)}
           </span>
         )}
       </div>

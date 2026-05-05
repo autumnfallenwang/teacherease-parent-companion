@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { LocaleProvider } from "@/components/shell/locale-provider";
 import { SettingsSidebar } from "@/components/shell/settings-sidebar";
 import { Sidebar } from "@/components/shell/sidebar";
 
@@ -28,7 +29,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
   const inSettings = pathname.startsWith("/settings");
 
   return (
-    <>
+    <LocaleProvider initialSetting="system">
       <ThemeProvider />
       <DisclaimerGate />
       <Schedulers />
@@ -38,6 +39,6 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           <main className="flex flex-1 flex-col overflow-x-hidden">{children}</main>
         </div>
       </div>
-    </>
+    </LocaleProvider>
   );
 }

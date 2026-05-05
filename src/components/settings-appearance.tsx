@@ -4,6 +4,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
+import { emitLanguageChanged } from "@/components/shell/locale-provider";
 import {
   FONT_SIZE_DEFAULT,
   FONT_SIZE_MAX,
@@ -17,12 +18,28 @@ import {
   type ThemePreference,
   type ThemeProfile,
 } from "@/lib/core/theme";
+import { LANGUAGE_SETTING_DEFAULT, LANGUAGE_SETTING_KEY, type LanguageSetting } from "@/lib/i18n";
 import { getSettingString, log, logErr, setSettingString } from "@/lib/ipc";
 
 const THEME_KEY = "appearance.theme";
 const PROFILE_KEY = "appearance.profile";
 const FONT_SIZE_KEY = "appearance.fontSize";
 const EVENT_NAME = "theme-preference-change";
+
+// Phase 32 / D-24 / Q37 — Language picker. Labels render literally as the
+// language's own name (System / English / Español / 中文) — standard
+// convention so users can recognize their language even when the rest of
+// the UI is in a different one.
+const LANGUAGE_OPTIONS: Array<{ value: LanguageSetting; label: string }> = [
+  { value: "system", label: "System" },
+  { value: "en", label: "English" },
+  { value: "es", label: "Español" },
+  { value: "zh", label: "中文" },
+];
+
+function isLanguageSetting(value: string): value is LanguageSetting {
+  return value === "system" || value === "en" || value === "es" || value === "zh";
+}
 
 const MODE_OPTIONS: Array<{ value: ThemePreference; label: string; icon: ReactNode }> = [
   { value: "light", label: "Light", icon: <Sun className="h-3.5 w-3.5" /> },
@@ -48,6 +65,7 @@ export function SettingsAppearance() {
   const [mode, setMode] = useState<ThemePreference>("system");
   const [profile, setProfile] = useState<ThemeProfile>("default");
   const [scale, setScale] = useState<number>(FONT_SIZE_DEFAULT);
+  const [language, setLanguage] = useState<LanguageSetting>(LANGUAGE_SETTING_DEFAULT);
   // Separate draft state so intermediate typing in the custom input doesn't
   // trigger saves (per Q24: text inputs commit on Enter or blur).
   const [percentInput, setPercentInput] = useState<string>(
@@ -59,12 +77,14 @@ export function SettingsAppearance() {
       getSettingString(THEME_KEY, "system"),
       getSettingString(PROFILE_KEY, "default"),
       getSettingString(FONT_SIZE_KEY, String(FONT_SIZE_DEFAULT)),
-    ]).then(([rawTheme, rawProfile, rawSize]) => {
+      getSettingString(LANGUAGE_SETTING_KEY, LANGUAGE_SETTING_DEFAULT),
+    ]).then(([rawTheme, rawProfile, rawSize, rawLang]) => {
       setMode(isThemePreference(rawTheme) ? rawTheme : "system");
       setProfile(isThemeProfile(rawProfile) ? rawProfile : "default");
       const parsed = parseFontSize(rawSize);
       setScale(parsed);
       setPercentInput(String(scaleToPercent(parsed)));
+      setLanguage(isLanguageSetting(rawLang) ? rawLang : LANGUAGE_SETTING_DEFAULT);
     });
   }, []);
 
@@ -129,8 +149,52 @@ export function SettingsAppearance() {
     void applyScale(next);
   };
 
+  const handleLanguage = async (value: LanguageSetting) => {
+    if (value === language) return;
+    setLanguage(value);
+    try {
+      await setSettingString(LANGUAGE_SETTING_KEY, value);
+      emitLanguageChanged(value);
+      await log(`settings: ui.language=${value}`);
+    } catch (e) {
+      await logErr(
+        `settings: ui.language save failed — ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
+  };
+
   return (
     <div className="space-y-5">
+      <SettingsSection
+        title="Language"
+        help="Pick the app's display language. System follows your operating system's language; otherwise the app stays in the language you choose."
+        card={false}
+      >
+        <div className="inline-flex rounded-lg border border-border bg-card p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          {LANGUAGE_OPTIONS.map((opt) => {
+            const active = language === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={active}
+                aria-label={opt.label}
+                onClick={() => {
+                  void handleLanguage(opt.value);
+                }}
+                className={`inline-flex items-center rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+                  active
+                    ? "bg-secondary font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </SettingsSection>
+
       <SettingsSection
         title="Profile"
         help="Five curated palettes with light + dark variants. Pick the one that matches your eye; descriptions below preview each."

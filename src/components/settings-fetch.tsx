@@ -3,12 +3,14 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
+import { useLocale } from "@/components/shell/locale-provider";
 import { FETCH_NOW_EVENT, SCHEDULES_CHANGED_EVENT } from "@/components/shell/schedulers";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { formatDateTime, type Locale } from "@/lib/i18n";
 import {
   type FetchRunRecord,
   getChildren,
@@ -44,11 +46,11 @@ interface ChildLastRun {
   readonly latest: FetchRunRecord | null;
 }
 
-function formatLocal(iso: string | null): string {
+function formatLocal(iso: string | null, locale: Locale): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
+  return formatDateTime(locale, d);
 }
 
 function formatRelative(iso: string | null): string {
@@ -65,6 +67,7 @@ function formatRelative(iso: string | null): string {
 }
 
 export function SettingsFetch() {
+  const locale = useLocale();
   const [runsPerDay, setRunsPerDay] = useState<number>(FETCH_RUNS_PER_DAY_DEFAULT);
   const [runsDraft, setRunsDraft] = useState<string>(String(FETCH_RUNS_PER_DAY_DEFAULT));
   const [firstSlotAt, setFirstSlotAt] = useState<string>(FETCH_FIRST_SLOT_DEFAULT);
@@ -299,7 +302,8 @@ export function SettingsFetch() {
         </div>
 
         <p className="text-[12px] text-muted-foreground">
-          Next run: <span className="font-medium text-foreground">{formatLocal(nextRunAt)}</span>
+          Next run:{" "}
+          <span className="font-medium text-foreground">{formatLocal(nextRunAt, locale)}</span>
           {nextRunAt && formatRelative(nextRunAt) && (
             <span className="ml-1.5">({formatRelative(nextRunAt)})</span>
           )}
@@ -336,7 +340,7 @@ export function SettingsFetch() {
                   {child.displayName}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  {latest ? formatLocal(latest.runAt) : "Never"}
+                  {latest ? formatLocal(latest.runAt, locale) : "Never"}
                 </p>
               </div>
             ))}
