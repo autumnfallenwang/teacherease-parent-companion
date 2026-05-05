@@ -1,3 +1,13 @@
+# TeacherEase Parent Companion
+
+A free desktop app that monitors your child's TeacherEase portal for you. Every few hours it logs in, pulls the latest grades and homework, and emails you a daily summary of what needs your attention — missing assignments, low scores, today's homework. Runs entirely on your computer; no servers, no accounts, no data sharing — your portal credentials never leave your laptop.
+
+Works on macOS (Apple Silicon + Intel) and Windows. Open source under the MIT license.
+
+> **Heads up:** the app needs your computer **on** and the app **open** (it can sit in the background — no need to keep it focused) for fetches and email digests to fire. Closing the app or shutting down the laptop pauses everything until it's open again. Turning on **Start on login** (Settings → Advanced) handles this for you automatically.
+
+---
+
 # Quick start
 
 From "I just downloaded this" to "I'm getting daily emails about my kid's grades" in about 10 minutes.
