@@ -2,6 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useT } from "@/components/shell/locale-provider";
 
 const APP_PASSWORDS_URL = "https://myaccount.google.com/apppasswords";
 const TWO_STEP_URL = "https://myaccount.google.com/signinoptions/two-step-verification";
@@ -20,6 +21,23 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   );
 }
 
+/**
+ * Splits a translated template like "Visit {link} to..." into a JSX fragment,
+ * substituting the {link} placeholder with the provided React node. Used for
+ * the Gmail guide's step bodies which interpolate clickable URLs.
+ */
+function templateWithLink(template: string, link: React.ReactNode): React.ReactNode {
+  const parts = template.split("{link}");
+  if (parts.length === 1) return parts[0];
+  return (
+    <>
+      {parts[0]}
+      {link}
+      {parts.slice(1).join("{link}")}
+    </>
+  );
+}
+
 function Step({
   number,
   title,
@@ -29,17 +47,18 @@ function Step({
   title: string;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div className="space-y-2">
-      <h2 className="text-[14px] font-medium">
-        Step {number} — {title}
-      </h2>
+      <h2 className="text-[14px] font-medium">{t("gmail.step.prefix", { num: number, title })}</h2>
       <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">{children}</div>
     </div>
   );
 }
 
 export function GmailAppPasswordPage() {
+  const t = useT();
+  const APP_NAME = "TeacherEase Parent Companion";
   return (
     <div className="mx-auto max-w-lg px-5 py-6">
       <Link
@@ -47,124 +66,83 @@ export function GmailAppPasswordPage() {
         className="mb-4 inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3 w-3" />
-        Back to Settings
+        {t("gmail.back")}
       </Link>
 
       <h1
         className="mb-2 text-xl font-medium tracking-tight"
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        Gmail App Password setup
+        {t("gmail.heading")}
       </h1>
-      <p className="mb-8 text-[13px] leading-relaxed text-muted-foreground">
-        Gmail requires an <em>App Password</em> for third-party SMTP clients like this one. It's a
-        16-character credential you generate once and paste into the Email settings. This guide
-        walks through creating one.
-      </p>
+      <p className="mb-8 text-[13px] leading-relaxed text-muted-foreground">{t("gmail.intro")}</p>
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-[14px] font-medium">Why you need this</h2>
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
-            As of May 2022, Google blocks plain-password SMTP authentication ("less secure app
-            access"). App Passwords are the supported replacement — they act as limited-scope
-            credentials that can be revoked independently of your main password.
-          </p>
+          <h2 className="text-[14px] font-medium">{t("gmail.why.title")}</h2>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">{t("gmail.why.body")}</p>
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-[14px] font-medium">Before you start</h2>
+          <h2 className="text-[14px] font-medium">{t("gmail.before.title")}</h2>
           <ul className="list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-muted-foreground">
-            <li>
-              You need 2-Step Verification turned on. App Passwords aren't available without it.
-            </li>
-            <li>
-              Personal Gmail accounts work out of the box. Google Workspace (school/work) accounts
-              may have App Passwords disabled by an admin — if so, ask your admin or use a personal
-              account.
-            </li>
+            <li>{t("gmail.before.bullet1")}</li>
+            <li>{t("gmail.before.bullet2")}</li>
           </ul>
         </div>
 
-        <Step number={1} title="Turn on 2-Step Verification">
+        <Step number={1} title={t("gmail.step1.title")}>
           <p>
-            Skip if you already have it on. Visit{" "}
-            <ExternalLink href={TWO_STEP_URL}>
-              myaccount.google.com/signinoptions/two-step-verification
-            </ExternalLink>{" "}
-            and follow the prompts. You'll need a phone number to receive codes.
+            {templateWithLink(
+              t("gmail.step1.body"),
+              <ExternalLink href={TWO_STEP_URL}>
+                myaccount.google.com/signinoptions/two-step-verification
+              </ExternalLink>,
+            )}
           </p>
         </Step>
 
-        <Step number={2} title="Open the App Passwords page">
+        <Step number={2} title={t("gmail.step2.title")}>
           <p>
-            Visit{" "}
-            <ExternalLink href={APP_PASSWORDS_URL}>myaccount.google.com/apppasswords</ExternalLink>.
-            If the page redirects to the 2-Step Verification setup, go back to Step 1 — App
-            Passwords only appear after 2SV is active.
+            {templateWithLink(
+              t("gmail.step2.body"),
+              <ExternalLink href={APP_PASSWORDS_URL}>
+                myaccount.google.com/apppasswords
+              </ExternalLink>,
+            )}
           </p>
         </Step>
 
-        <Step number={3} title="Create a new app password">
-          <p>
-            Enter a name (e.g.{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-[12px]">
-              TeacherEase Parent Companion
-            </code>
-            ) in the text box and click <strong>Create</strong>. Google shows the new password in a
-            yellow box.
-          </p>
+        <Step number={3} title={t("gmail.step3.title")}>
+          <p>{t("gmail.step3.body", { appName: APP_NAME })}</p>
         </Step>
 
-        <Step number={4} title="Copy the 16-character password">
-          <p>
-            Copy the 16-character string (spaces are optional — Gmail accepts either format). Paste
-            it into this app at <strong>Settings → Email → Password</strong>, then click{" "}
-            <strong>Save</strong>.
-          </p>
-          <p>
-            <strong>Important:</strong> Google only shows the password once. If you close the window
-            without saving it, you'll need to revoke and re-create.
-          </p>
+        <Step number={4} title={t("gmail.step4.title")}>
+          <p>{t("gmail.step4.body1")}</p>
+          <p>{t("gmail.step4.body2")}</p>
         </Step>
 
-        <Step number={5} title="Send a test email">
-          <p>
-            Back in <strong>Settings → Email</strong>, click <strong>Send test email</strong>. If
-            you see "Test email sent" and the email arrives, you're done. Flip on the event toggles
-            above to start receiving real notifications.
-          </p>
+        <Step number={5} title={t("gmail.step5.title")}>
+          <p>{t("gmail.step5.body")}</p>
         </Step>
 
         <div className="space-y-2">
-          <h2 className="text-[14px] font-medium">Troubleshooting</h2>
+          <h2 className="text-[14px] font-medium">{t("gmail.troubleshoot.title")}</h2>
           <ul className="list-disc space-y-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">
-            <li>
-              <strong>"App passwords aren't available for your account"</strong> — your Workspace
-              admin has disabled them. Use a personal Gmail account instead, or ask IT.
-            </li>
-            <li>
-              <strong>The apppasswords URL redirects back to 2SV setup</strong> — 2-Step
-              Verification isn't fully enabled yet. Complete Step 1.
-            </li>
-            <li>
-              <strong>Test email fails with "535 5.7.8 Username and Password not accepted"</strong>{" "}
-              — the 16-character password was mistyped or copied with a stray character. Re-generate
-              a fresh one and paste carefully.
-            </li>
-            <li>
-              <strong>Lost the password</strong> — Google never shows it again. Revoke the old entry
-              on the App Passwords page and create a new one.
-            </li>
+            <li>{t("gmail.troubleshoot.bullet1")}</li>
+            <li>{t("gmail.troubleshoot.bullet2")}</li>
+            <li>{t("gmail.troubleshoot.bullet3")}</li>
+            <li>{t("gmail.troubleshoot.bullet4")}</li>
           </ul>
         </div>
 
         <div className="space-y-2 border-t pt-6">
-          <h2 className="text-[14px] font-medium">Official Google documentation</h2>
+          <h2 className="text-[14px] font-medium">{t("gmail.docs.title")}</h2>
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            For the canonical, always-current version of this guide (including any UI changes Google
-            makes), see{" "}
-            <ExternalLink href={GOOGLE_DOCS_URL}>Google's App Passwords help article</ExternalLink>.
+            {templateWithLink(
+              t("gmail.docs.body"),
+              <ExternalLink href={GOOGLE_DOCS_URL}>{t("gmail.docs.linkText")}</ExternalLink>,
+            )}
           </p>
         </div>
       </div>

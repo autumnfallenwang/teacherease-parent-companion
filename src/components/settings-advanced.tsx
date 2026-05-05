@@ -3,6 +3,7 @@
 import { CheckCircle2, Download, Loader2, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
+import { useT } from "@/components/shell/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { shouldCheckNow } from "@/lib/core/update-banner";
@@ -47,6 +48,7 @@ type CheckState =
   | { kind: "error"; message: string };
 
 export function SettingsAdvanced() {
+  const t = useT();
   const [autostartOn, setAutostartOn] = useState<boolean | null>(null);
   const [appVersion, setAppVersion] = useState<string>("…");
   const [checkState, setCheckState] = useState<CheckState>({ kind: "idle" });
@@ -117,7 +119,10 @@ export function SettingsAdvanced() {
     } catch (e) {
       const msg = describeError(e);
       await logErr(`updater: install failed: ${msg}`);
-      setCheckState({ kind: "error", message: `Install failed: ${msg}` });
+      setCheckState({
+        kind: "error",
+        message: t("settings.advanced.updates.installFailed", { msg }),
+      });
       setInstalling(false);
     }
   };
@@ -142,13 +147,15 @@ export function SettingsAdvanced() {
   return (
     <div className="space-y-5">
       <SettingsSection
-        title="Updates"
-        help="Installed version. The app quietly checks GitHub Releases at most once every 24 hours when you open this tab. When an update is available, clicking Install downloads + verifies the signature + replaces the app + relaunches automatically. First-install users get installers from GitHub Releases; after that, updates flow here."
+        title={t("settings.advanced.updates.title")}
+        help={t("settings.advanced.updates.help")}
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Current version</p>
+              <p className="text-[13px] font-medium">
+                {t("settings.advanced.updates.currentVersion")}
+              </p>
               <p className="text-[12px] text-muted-foreground">v{appVersion}</p>
             </div>
             <Button
@@ -166,7 +173,9 @@ export function SettingsAdvanced() {
               ) : (
                 <RotateCcw className="h-3.5 w-3.5" />
               )}
-              {checkState.kind === "checking" ? "Checking…" : "Check now"}
+              {checkState.kind === "checking"
+                ? t("settings.advanced.updates.checking")
+                : t("settings.advanced.updates.checkNow")}
             </Button>
           </div>
 
@@ -176,7 +185,9 @@ export function SettingsAdvanced() {
                 <Download className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-medium">
-                    Version {checkState.update.version} available
+                    {t("settings.advanced.updates.available", {
+                      version: checkState.update.version,
+                    })}
                   </p>
                   <a
                     href={`${REPO_URL}/releases/tag/v${checkState.update.version}`}
@@ -184,7 +195,7 @@ export function SettingsAdvanced() {
                     rel="noreferrer noopener"
                     className="mt-1 inline-block text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                   >
-                    Release notes →
+                    {t("settings.advanced.updates.releaseNotes")}
                   </a>
                 </div>
                 <Button
@@ -199,10 +210,10 @@ export function SettingsAdvanced() {
                   {installing ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Installing…
+                      {t("settings.advanced.updates.installing")}
                     </>
                   ) : (
-                    "Install"
+                    t("settings.advanced.updates.install")
                   )}
                 </Button>
               </div>
@@ -211,23 +222,31 @@ export function SettingsAdvanced() {
 
           {checkState.kind === "up-to-date" && (
             <p className="flex items-center gap-1.5 text-[12px] text-meeting">
-              <CheckCircle2 className="h-3.5 w-3.5" /> You're on the latest version.
+              <CheckCircle2 className="h-3.5 w-3.5" /> {t("settings.advanced.updates.upToDate")}
             </p>
           )}
 
           {checkState.kind === "error" && (
-            <p className="text-[12px] text-destructive">Check failed: {checkState.message}</p>
+            <p className="text-[12px] text-destructive">
+              {t("settings.advanced.updates.checkFailed", { msg: checkState.message })}
+            </p>
           )}
         </div>
       </SettingsSection>
 
-      <SettingsSection title="General" help="Background behavior for the app." card={false}>
+      <SettingsSection
+        title={t("settings.advanced.general.title")}
+        help={t("settings.advanced.general.help")}
+        card={false}
+      >
         <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-4 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Start on login</p>
+              <p className="text-[13px] font-medium">
+                {t("settings.advanced.general.startOnLoginTitle")}
+              </p>
               <p className="text-[12px] text-muted-foreground">
-                Launch the app automatically when you sign in.
+                {t("settings.advanced.general.startOnLoginDesc")}
               </p>
             </div>
             <Switch
@@ -235,24 +254,26 @@ export function SettingsAdvanced() {
               onChange={(next) => {
                 void toggleAutostart(next);
               }}
-              aria-label="Start on login"
+              aria-label={t("settings.advanced.general.startOnLoginAria")}
             />
           </div>
         </div>
       </SettingsSection>
 
       <SettingsSection
-        title="Danger zone"
-        help="One-way deletion. Back up your data if in doubt."
+        title={t("settings.advanced.danger.title")}
+        help={t("settings.advanced.danger.help")}
         danger
       >
         {confirmingReset ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium">Reset the app to first-install state?</p>
+                <p className="text-[13px] font-medium">
+                  {t("settings.advanced.danger.confirmTitle")}
+                </p>
                 <p className="text-[12px] text-muted-foreground">
-                  Wipes all local data. Cannot be undone. The app will quit.
+                  {t("settings.advanced.danger.confirmBody")}
                 </p>
               </div>
               <Button
@@ -264,7 +285,11 @@ export function SettingsAdvanced() {
                   void handleReset();
                 }}
               >
-                {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reset"}
+                {resetting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  t("settings.advanced.danger.confirmReset")
+                )}
               </Button>
               <Button
                 variant="ghost"
@@ -273,16 +298,16 @@ export function SettingsAdvanced() {
                 onClick={() => setConfirmingReset(false)}
                 disabled={resetting}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex items-start gap-4">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">Reset app</p>
+              <p className="text-[13px] font-medium">{t("settings.advanced.danger.idleTitle")}</p>
               <p className="text-[12px] text-muted-foreground">
-                Wipes all app data and returns to first-install state.
+                {t("settings.advanced.danger.idleBody")}
               </p>
             </div>
             <Button
@@ -291,7 +316,7 @@ export function SettingsAdvanced() {
               onClick={() => setConfirmingReset(true)}
               className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
             >
-              Reset app
+              {t("settings.advanced.danger.idleButton")}
             </Button>
           </div>
         )}

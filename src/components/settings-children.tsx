@@ -3,6 +3,7 @@
 import { Loader2, Lock, Pencil, Plus, Trash2, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
+import { useT } from "@/components/shell/locale-provider";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ async function persistChanges(child: ChildRecord, c: EditChildChanges): Promise<
 }
 
 export function SettingsChildren() {
+  const t = useT();
   const [children, setChildren] = useState<ChildRecord[]>([]);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -96,13 +98,13 @@ export function SettingsChildren() {
   return (
     <div className="space-y-5">
       <SettingsSection
-        title="Children"
-        help="The kids this app tracks. Each row edits name, TeacherEase login, and optional homework URL."
+        title={t("settings.children.title")}
+        help={t("settings.children.help")}
         card={false}
       >
         {children.length === 0 && !showAdd ? (
           <div className="rounded-lg border border-dashed py-8 text-center">
-            <p className="text-[13px] text-muted-foreground">No children added yet.</p>
+            <p className="text-[13px] text-muted-foreground">{t("settings.children.empty")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -114,8 +116,8 @@ export function SettingsChildren() {
       </SettingsSection>
 
       <SettingsSection
-        title="Add a child"
-        help="Validates the TeacherEase login before saving so a bad password doesn't silently land. Homework URL is optional."
+        title={t("settings.children.addTitle")}
+        help={t("settings.children.addHelp")}
         card={false}
       >
         {showAdd ? (
@@ -130,7 +132,7 @@ export function SettingsChildren() {
         ) : (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowAdd(true)}>
             <Plus className="h-3.5 w-3.5" />
-            Add another child
+            {t("settings.children.addButton")}
           </Button>
         )}
       </SettingsSection>
@@ -147,6 +149,7 @@ function ChildRow({
   onRemove: (id: number) => Promise<void>;
   onChanged: () => Promise<void>;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -169,9 +172,11 @@ function ChildRow({
             <User className="h-4 w-4 text-destructive" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-medium">Remove {child.displayName}?</p>
+            <p className="truncate text-[14px] font-medium">
+              {t("settings.children.confirmRemove.title", { name: child.displayName })}
+            </p>
             <p className="text-[12px] text-muted-foreground">
-              Deletes all local grade and homework history. TeacherEase is not affected.
+              {t("settings.children.confirmRemove.body")}
             </p>
           </div>
           <Button
@@ -181,7 +186,11 @@ function ChildRow({
             onClick={handleConfirmDelete}
             disabled={deleting}
           >
-            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Remove"}
+            {deleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              t("settings.children.confirmRemove.button")
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -190,7 +199,7 @@ function ChildRow({
             onClick={() => setConfirmingDelete(false)}
             disabled={deleting}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
         </div>
       </div>
@@ -228,13 +237,13 @@ function ChildRow({
           onClick={() => setEditing(true)}
         >
           <Pencil className="h-3 w-3" />
-          Edit
+          {t("settings.children.button.edit")}
         </Button>
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          title="Remove child"
+          title={t("settings.children.button.removeTooltip")}
           onClick={() => setConfirmingDelete(true)}
         >
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -242,7 +251,9 @@ function ChildRow({
       </div>
 
       <div className="mt-2 pl-11 text-[11px] text-muted-foreground">
-        {child.homeworkUrl ? `Homework: ${child.homeworkUrl}` : "Homework: not set"}
+        {child.homeworkUrl
+          ? t("settings.children.homeworkLine", { url: child.homeworkUrl })
+          : t("settings.children.homeworkNotSet")}
       </div>
     </div>
   );
@@ -257,6 +268,7 @@ function EditChildForm({
   onDone: () => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [displayName, setDisplayName] = useState(child.displayName);
   const [username, setUsername] = useState(child.username);
   const [password, setPassword] = useState("");
@@ -281,7 +293,7 @@ function EditChildForm({
       await onDone();
     } catch (err) {
       await logErr(`settings: edit child failed ${err instanceof Error ? err.message : "unknown"}`);
-      setError(err instanceof Error ? err.message : "Couldn't save changes.");
+      setError(err instanceof Error ? err.message : t("settings.children.error.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -294,12 +306,12 @@ function EditChildForm({
     >
       <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
         <Lock className="h-3 w-3" />
-        Credentials stored securely on this computer
+        {t("settings.children.credentialsNote")}
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor={`edit-name-${child.id}`} className="text-[13px]">
-          Child&apos;s name
+          {t("settings.children.field.name")}
         </Label>
         <Input
           id={`edit-name-${child.id}`}
@@ -310,7 +322,7 @@ function EditChildForm({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`edit-email-${child.id}`} className="text-[13px]">
-          TeacherEase email
+          {t("settings.children.field.email")}
         </Label>
         <Input
           id={`edit-email-${child.id}`}
@@ -323,12 +335,12 @@ function EditChildForm({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`edit-pass-${child.id}`} className="text-[13px]">
-          Password
+          {t("settings.children.field.password")}
         </Label>
         <Input
           id={`edit-pass-${child.id}`}
           type="password"
-          placeholder="Leave blank to keep current password"
+          placeholder={t("settings.children.placeholder.passwordKeep")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="h-9 rounded-lg"
@@ -337,17 +349,17 @@ function EditChildForm({
 
       <div className="space-y-1.5">
         <Label htmlFor={`edit-homework-${child.id}`} className="text-[13px]">
-          Homework page URL
+          {t("settings.children.field.homeworkUrl")}
         </Label>
         <Input
           id={`edit-homework-${child.id}`}
           type="url"
-          placeholder="https://sites.google.com/..."
+          placeholder={t("settings.children.placeholder.homeworkUrl")}
           value={homeworkUrl}
           onChange={(e) => setHomeworkUrlInput(e.target.value)}
           className="h-9 rounded-lg"
         />
-        <p className="text-[11px] text-muted-foreground">Optional — leave blank to skip.</p>
+        <p className="text-[11px] text-muted-foreground">{t("settings.children.optionalHint")}</p>
       </div>
 
       {error && (
@@ -359,10 +371,12 @@ function EditChildForm({
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={isSaving}>
           {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-          {isSaving ? "Saving..." : "Save changes"}
+          {isSaving
+            ? t("settings.children.button.saving")
+            : t("settings.children.button.saveChanges")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={isSaving}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>
@@ -370,6 +384,7 @@ function EditChildForm({
 }
 
 function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCancel: () => void }) {
+  const t = useT();
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -403,7 +418,7 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
       await onDone();
     } catch (err) {
       await logErr(`settings: add child failed ${err instanceof Error ? err.message : "unknown"}`);
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : t("settings.children.error.loginFailed"));
     } finally {
       setIsValidating(false);
     }
@@ -416,16 +431,16 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
     >
       <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
         <Lock className="h-3 w-3" />
-        Credentials stored securely on this computer
+        {t("settings.children.credentialsNote")}
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="add-name" className="text-[13px]">
-          Child&apos;s name
+          {t("settings.children.field.name")}
         </Label>
         <Input
           id="add-name"
-          placeholder="e.g. Alex"
+          placeholder={t("settings.children.placeholder.name")}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           className="h-9 rounded-lg"
@@ -433,7 +448,7 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="add-email" className="text-[13px]">
-          TeacherEase email
+          {t("settings.children.field.email")}
         </Label>
         <Input
           id="add-email"
@@ -446,7 +461,7 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="add-pass" className="text-[13px]">
-          Password
+          {t("settings.children.field.password")}
         </Label>
         <Input
           id="add-pass"
@@ -460,17 +475,17 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
 
       <div className="space-y-1.5">
         <Label htmlFor="add-homework" className="text-[13px]">
-          Homework page URL
+          {t("settings.children.field.homeworkUrl")}
         </Label>
         <Input
           id="add-homework"
           type="url"
-          placeholder="https://sites.google.com/..."
+          placeholder={t("settings.children.placeholder.homeworkUrl")}
           value={homeworkUrl}
           onChange={(e) => setHomeworkUrlInput(e.target.value)}
           className="h-9 rounded-lg"
         />
-        <p className="text-[11px] text-muted-foreground">Optional — leave blank to skip.</p>
+        <p className="text-[11px] text-muted-foreground">{t("settings.children.optionalHint")}</p>
       </div>
 
       {error && (
@@ -482,10 +497,12 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={isValidating}>
           {isValidating && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-          {isValidating ? "Verifying..." : "Add child"}
+          {isValidating
+            ? t("settings.children.button.verifying")
+            : t("settings.children.button.addChild")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>

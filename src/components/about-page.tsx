@@ -2,10 +2,11 @@
 
 import { FolderOpen } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useT } from "@/components/shell/locale-provider";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { getAppVersion, openLogDir } from "@/lib/ipc";
-import { APP_NAME, DISCLAIMER_FULL, PRIVACY_NOTICE, REPO_URL, RESPONSIBLE_USE } from "@/lib/legal";
+import { APP_NAME, REPO_URL } from "@/lib/legal";
 
 function Section({ title, content }: { title: string; content: string }) {
   return (
@@ -24,6 +25,7 @@ function Section({ title, content }: { title: string; content: string }) {
 }
 
 export function AboutPage() {
+  const t = useT();
   const [appVersion, setAppVersion] = useState<string>("…");
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function AboutPage() {
 
   return (
     <>
-      <PageHeader title="About" />
+      <PageHeader title={t("about.title")} />
       <div className="mx-auto max-w-lg px-5 py-6">
         <div className="space-y-6">
           <div className="flex items-center gap-3 rounded-lg bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -48,13 +50,18 @@ export function AboutPage() {
             </div>
             <div>
               <p className="text-[14px] font-medium">{APP_NAME}</p>
-              <p className="text-[12px] text-muted-foreground">Version {appVersion}</p>
+              <p className="text-[12px] text-muted-foreground">
+                {t("about.version", { version: appVersion })}
+              </p>
             </div>
           </div>
 
-          <Section title="Disclaimer" content={DISCLAIMER_FULL} />
-          <Section title="Privacy & data handling" content={PRIVACY_NOTICE} />
-          <Section title="Responsible use" content={RESPONSIBLE_USE} />
+          <Section title={t("about.disclaimerHeading")} content={t("wizard.disclaimer.full")} />
+          <Section title={t("about.privacyHeading")} content={t("wizard.disclaimer.privacy")} />
+          <Section
+            title={t("about.responsibleHeading")}
+            content={t("wizard.disclaimer.responsibleUse")}
+          />
 
           <div className="flex items-center gap-4 border-t pt-4">
             <a
@@ -63,7 +70,7 @@ export function AboutPage() {
               rel="noopener noreferrer"
               className="text-[12px] text-primary underline-offset-4 hover:underline"
             >
-              View source code on GitHub
+              {t("about.viewSource")}
             </a>
             <Button
               variant="ghost"
@@ -72,7 +79,7 @@ export function AboutPage() {
               onClick={() => openLogDir()}
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              View logs
+              {t("about.viewLogs")}
             </Button>
           </div>
         </div>

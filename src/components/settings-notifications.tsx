@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
 import { SettingsEmailSection } from "@/components/settings-email-section";
-import { useLocale } from "@/components/shell/locale-provider";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { SCHEDULES_CHANGED_EVENT, SEND_DIGEST_NOW_EVENT } from "@/components/shell/schedulers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,7 @@ function formatRelative(iso: string | null): string {
 
 export function SettingsNotifications() {
   const locale = useLocale();
+  const t = useT();
   const [osEnabled, setOsEnabled] = useState<boolean>(OS_DEFAULT_ENABLED);
 
   const [runsPerDay, setRunsPerDay] = useState<number>(NOTIFY_RUNS_PER_DAY_DEFAULT);
@@ -188,7 +189,7 @@ export function SettingsNotifications() {
       setSendingDigest(false);
       setDigestResult({
         kind: "ok",
-        message: "Dispatched via your enabled channels — check them now.",
+        message: t("settings.notifications.send.dispatched"),
       });
       setTimeout(() => setDigestResult(null), 5000);
     }, 1500);
@@ -214,8 +215,10 @@ export function SettingsNotifications() {
 
   const rolloverLabel = useMemo(() => {
     const now = new Date();
-    return weekdaysOnly && isWeekend(now) ? "(Mon)" : "(tomorrow)";
-  }, [weekdaysOnly]);
+    return weekdaysOnly && isWeekend(now)
+      ? t("settings.fetch.schedule.mondayShort")
+      : t("settings.fetch.schedule.tomorrow");
+  }, [weekdaysOnly, t]);
 
   const nextSlotMins = useMemo(() => {
     const d = computeNotifyNextRun(new Date(), runsPerDay, firstSlotAt, weekdaysOnly);
@@ -225,16 +228,18 @@ export function SettingsNotifications() {
   return (
     <div className="space-y-5">
       <SettingsSection
-        title="Desktop"
-        help="A hero-level system notification at each scheduled slot — what needs attention, today's homework counts."
+        title={t("settings.notifications.desktop.title")}
+        help={t("settings.notifications.desktop.help")}
         card={false}
       >
         <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-4 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium">OS digest</p>
+              <p className="text-[13px] font-medium">
+                {t("settings.notifications.desktop.osDigestTitle")}
+              </p>
               <p className="text-[12px] text-muted-foreground">
-                Toggle system notifications on or off.
+                {t("settings.notifications.desktop.osDigestDesc")}
               </p>
             </div>
             <Switch
@@ -242,31 +247,32 @@ export function SettingsNotifications() {
               onChange={(next) => {
                 void toggleOs(next);
               }}
-              aria-label="Refresh digest desktop notifications"
+              aria-label={t("settings.notifications.desktop.osDigestAria")}
             />
           </div>
         </div>
       </SettingsSection>
 
       <SettingsSection
-        title="Email"
-        help="SMTP-based daily digest with per-child detail. You bring the SMTP credentials; nothing relays through our servers. Click Update to change config and fire a test email."
+        title={t("settings.notifications.email.title")}
+        help={t("settings.notifications.email.help")}
         card={false}
       >
         <SettingsEmailSection />
       </SettingsSection>
 
       <SettingsSection
-        title="Schedule"
-        help={
-          "How many times per day — and anchored where — a digest fires. By default each run pulls grades and homework from TeacherEase right before sending so the digest reflects current portal state; turn off 'Fetch fresh data first' to skip the pull and use whatever data is already in the database (faster, but may be stale)."
-        }
+        title={t("settings.notifications.schedule.title")}
+        help={t("settings.notifications.schedule.help")}
       >
         <div className="space-y-3">
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="notify-runs-per-day" className="text-[13px]">
-                Notifications per day ({NOTIFY_RUNS_PER_DAY_MIN}–{NOTIFY_RUNS_PER_DAY_MAX})
+                {t("settings.notifications.schedule.runsPerDay", {
+                  min: NOTIFY_RUNS_PER_DAY_MIN,
+                  max: NOTIFY_RUNS_PER_DAY_MAX,
+                })}
               </Label>
               <Input
                 id="notify-runs-per-day"
@@ -287,7 +293,7 @@ export function SettingsNotifications() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="notify-first-slot" className="text-[13px]">
-                First slot at
+                {t("settings.notifications.schedule.firstSlot")}
               </Label>
               <Input
                 id="notify-first-slot"
@@ -307,7 +313,9 @@ export function SettingsNotifications() {
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Time slots</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              {t("settings.notifications.schedule.timeSlots")}
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {slotView.map(({ mins, rollover }) => {
                 const isNext = !rollover && mins === nextSlotMins;
@@ -336,9 +344,9 @@ export function SettingsNotifications() {
               onChange={(next) => {
                 void toggleWeekdays(next);
               }}
-              aria-label="Skip weekends"
+              aria-label={t("settings.notifications.schedule.skipWeekendsAria")}
             />
-            <span className="text-[13px]">Skip weekends (Sat + Sun)</span>
+            <span className="text-[13px]">{t("settings.notifications.schedule.skipWeekends")}</span>
           </div>
 
           <div className="flex items-center gap-3 pt-1">
@@ -347,13 +355,13 @@ export function SettingsNotifications() {
               onChange={(next) => {
                 void toggleFetchBefore(next);
               }}
-              aria-label="Fetch fresh data first"
+              aria-label={t("settings.notifications.schedule.fetchFreshAria")}
             />
-            <span className="text-[13px]">Fetch fresh data first</span>
+            <span className="text-[13px]">{t("settings.notifications.schedule.fetchFresh")}</span>
           </div>
 
           <p className="text-[12px] text-muted-foreground">
-            Next run:{" "}
+            {t("settings.notifications.schedule.nextRun")}{" "}
             <span className="font-medium text-foreground">
               {formatLocal(notifyNextRunAt, locale)}
             </span>
@@ -365,8 +373,8 @@ export function SettingsNotifications() {
       </SettingsSection>
 
       <SettingsSection
-        title="Send digest now"
-        help="Builds a digest from current data and dispatches through your enabled channels (respects the toggles above). Useful to preview what the next scheduled notification will look like."
+        title={t("settings.notifications.send.title")}
+        help={t("settings.notifications.send.help")}
       >
         <div className="flex items-center gap-3">
           <Button
@@ -378,7 +386,9 @@ export function SettingsNotifications() {
             className="gap-1.5"
           >
             {sendingDigest && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {sendingDigest ? "Sending…" : "Send digest now"}
+            {sendingDigest
+              ? t("settings.notifications.send.sending")
+              : t("settings.notifications.send.button")}
           </Button>
           {digestResult && (
             <p
