@@ -3,7 +3,7 @@ import Link from "next/link";
 import { REPO_URL } from "@/lib/legal";
 import { Button } from "./ui/button";
 
-const USER_GUIDE_URL = `${REPO_URL}/blob/main/docs/user-guide.md`;
+const QUICKSTART_URL = `${REPO_URL}#quick-start`;
 
 export function EmptyState() {
   return (
@@ -33,12 +33,12 @@ export function EmptyState() {
           <Link href="/settings">Add your first child</Link>
         </Button>
         <a
-          href={USER_GUIDE_URL}
+          href={QUICKSTART_URL}
           target="_blank"
           rel="noreferrer noopener"
           className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
-          New here? Read the user guide →
+          New here? Read the quick start →
         </a>
       </div>
     </div>

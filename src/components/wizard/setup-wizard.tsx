@@ -3,7 +3,7 @@
 // First-run disclaimer gate (Phase 25 / Q33). Single screen; acknowledging
 // writes `wizard.disclaimerAcknowledgedAt` to settings and navigates to the
 // dashboard. Quitting calls `quitApp()`. No skip. Add-child + notifications
-// guidance moved to docs/user-guide.md (linked below).
+// guidance lives in the README quickstart (linked below).
 
 import { Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { log, logErr, quitApp, setSettingString } from "@/lib/ipc";
 import { APP_NAME, DISCLAIMER_FULL, PRIVACY_NOTICE, REPO_URL, RESPONSIBLE_USE } from "@/lib/legal";
 
-const USER_GUIDE_URL = `${REPO_URL}/blob/main/docs/user-guide.md`;
+const QUICKSTART_URL = `${REPO_URL}#quick-start`;
 const ACK_KEY = "wizard.disclaimerAcknowledgedAt";
 
 export function SetupWizard() {
@@ -70,12 +70,12 @@ export function SetupWizard() {
         <p className="text-[12px] text-muted-foreground">
           New here?{" "}
           <a
-            href={USER_GUIDE_URL}
+            href={QUICKSTART_URL}
             target="_blank"
             rel="noreferrer noopener"
             className="text-primary underline-offset-4 hover:underline"
           >
-            Read the user guide →
+            Read the quick start →
           </a>
         </p>
 
