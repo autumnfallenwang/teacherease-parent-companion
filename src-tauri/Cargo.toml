@@ -34,6 +34,11 @@ tauri-plugin-http = "2"
 chrono = "0.4.44"
 dirs = "6.0.0"
 open = "5"
+# Used by scheduler.rs (Phase 31 / B-20 / Q36) for sleep_until + Notify.
+# tauri::async_runtime re-exports tokio's Mutex/RwLock but not Notify or
+# time::sleep_until, so we depend directly. Tauri pins its own tokio
+# transitively; using compatible feature flags only (no version override).
+tokio = { version = "1", features = ["sync", "time", "rt"] }
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder", "hostname"] }
 
 [dev-dependencies]

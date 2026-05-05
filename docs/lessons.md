@@ -16,6 +16,44 @@ Corrections and patterns to avoid repeating. Append entries here whenever a user
 
 <!-- Entries below, newest first. -->
 
+## 2026-05-05 — Async `listenTauriEvent` inside `useEffect` needs a `cancelled` re-check after the await (StrictMode safety)
+**Context:** Phase 31 / B-20 — `Schedulers` component registers Tauri event listeners (`scheduler:fetch-tick`, `scheduler:notify-tick`, `tray-refresh`) inside its top-level `useEffect`. Initial impl awaited `listenTauriEvent(...)` and stored the unlisten function in a closure variable, returning that variable's call from the cleanup function. Looked correct, type-checks fine.
+**Mistake:** In dev (Next.js defaults to React StrictMode), `useEffect` runs twice: mount → cleanup → re-mount. Because `listenTauriEvent` is async, the first mount's `await` resolves *after* its cleanup function has already run. The `unlisten` variable assignment happens too late — cleanup saw `null` and did nothing. Result: two live listeners after StrictMode settles. Smoke test caught it: scheduled notify fired once on the Rust side but the cycle ran twice (two emails). Production wasn't affected (StrictMode is dev-only) but the dev experience was broken.
+**Correction:** Pattern for async listeners inside `useEffect`:
+```ts
+useEffect(() => {
+  let unlisten: (() => void) | null = null;
+  let cancelled = false;
+  void (async () => {
+    const fn = await listenTauriEvent(event, handler);
+    if (cancelled) fn();      // cleanup already ran — unlisten immediately
+    else unlisten = fn;       // safe to store
+  })();
+  return () => {
+    cancelled = true;
+    if (unlisten) unlisten();
+  };
+}, []);
+```
+The `if (cancelled) fn()` after each `await` is the load-bearing line.
+**How to avoid next time:**
+1. Any async resource registration inside `useEffect` (not just Tauri events — also `addEventListener`, observers, sockets, anything that returns an unsubscribe handle from a Promise) needs the `cancelled` re-check pattern.
+2. If smoke testing reveals a "fires twice" bug in dev that isn't reproducible in production, suspect StrictMode + async first.
+3. Don't disable StrictMode to "fix" the symptom — the real bug would still exist in any environment that mounts→unmounts→re-mounts (which can also happen with route changes, hot reload, suspense, etc.).
+
+---
+
+## 2026-05-05 — `tauri-plugin-sql` (v2.4.0) doesn't expose its sqlx pool to native Rust code
+**Context:** Phase 31 planning — wanted the Rust scheduler worker to read cadence settings (`fetch.runsPerDay`, `notify.firstSlotAt`, etc.) directly from the SQLite DB so it could compute next-fire times without involving the webview.
+**Mistake:** Assumed `tauri-plugin-sql`'s `DbInstances` (which is `pub`) exposed a usable handle to the underlying `Pool<Sqlite>`.
+**Correction:** It doesn't. The accessor methods on `DbPool` (`sqlite()`, `mysql()`, `postgres()`) are commented-out in v2.4.0 source — only the JS-side `select` / `execute` commands can speak to the pool. From Rust, the pool is opaque.
+**How to avoid next time:**
+1. When deciding "should this Rust code read from the DB directly?", first check whether the plugin's pool accessor is actually public. Comment-blocks at the source level look like real API in `cargo doc` but won't compile.
+2. Architectural workaround when it's not exposed: keep the data flow webview → invoke command → Rust (don't reverse it). For Phase 31, this meant TS computes next-fire via existing cadence math and passes Rust just a wall-clock timestamp — much simpler than a DB read on the Rust side.
+3. Alternative if Rust really needs DB access: open a second `sqlx`/`rusqlite` connection to the same SQLite file (works fine with WAL mode, which `tauri-plugin-sql` uses). Costs duplicate connection management and you'd need to coordinate with the plugin's migrations runner, but it's a valid escape hatch when the architecture demands native DB access.
+
+---
+
 ## 2026-05-04 — "Curated" tokens aren't automatically better than hand-tuned ones — taste is the variable
 **Context:** D-22 / Phase 29 swapped 5 theme profiles' hand-tuned OKLCH values for "curated" sources: shadcn/ui Stone (default), canonical Solarized/Nord/Dracula hex (named profiles), WCAG-AAA neutral (contrast). Pitch was "stop hand-tuning, adopt presets verbatim — they're tuned by people who do this for a living, less work, more coherent." Shipped in v0.1.6, user reviewed in prod, reported "looks bad" → reverted in full before v0.1.7.
 **Mistake:** Treated "curated by an established palette author" as a proxy for "the user will like it." The user's complaint that motivated D-22 ("not sharp and comfortable") was assumed to mean "your hex values are off, fix them with better hex values." It actually meant "I don't currently know what I want, but I'd like to try alternatives." Those are different requests. Curated presets answer the first; the second needs a tuning loop with the user in front of the running app.

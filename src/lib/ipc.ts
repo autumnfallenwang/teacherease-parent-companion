@@ -85,6 +85,19 @@ export async function listenTauriEvent(event: string, handler: () => void): Prom
   return await listen(event, handler);
 }
 
+// ---------------------------------------------------------------------------
+// Scheduler timer (Phase 31 / B-20 / Q36). The wall-clock timer for fetch +
+// notify cadences lives in Rust (`src-tauri/src/scheduler.rs`) so it isn't
+// throttled by macOS when the webview loses focus. The webview owns the
+// cadence math; it computes the next fire time and arms the Rust worker via
+// this command. After each tick fires (event "scheduler:fetch-tick" or
+// "scheduler:notify-tick"), the webview re-arms.
+// ---------------------------------------------------------------------------
+
+export async function scheduleNextTick(kind: "fetch" | "notify", fireAtMs: number): Promise<void> {
+  await invoke("schedule_next_tick", { args: { kind, fireAtMs } });
+}
+
 // biome-ignore lint/correctness/noUnusedVariables: dormant rollback path (Q34)
 function childKeychainKey(childId: number): string {
   return `child-${childId}`;

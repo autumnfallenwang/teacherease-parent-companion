@@ -1,8 +1,15 @@
 "use client";
 
-// Shell-level scheduler mount (Phase 19 CF3). Two independent ScheduleLoop
-// instances — fetch (N×/day) + notify (1×/day at HH:MM) — live for the
-// app's lifetime. Side-effect only; renders nothing. Q29 details.
+// Shell-level scheduler mount. Q29's two-cadence separation (fetch + notify)
+// is preserved, but per Q36 / Phase 31 the wall-clock timer lives in Rust
+// (src-tauri/src/scheduler.rs). This component:
+//   - listens for "scheduler:fetch-tick" + "scheduler:notify-tick" events
+//     emitted by the Rust worker tasks;
+//   - on each tick, runs the existing cycle handler then re-arms by
+//     computing the next fire time (TS owns the cadence math) and calling
+//     scheduleNextTick();
+//   - on settings-changed / boot, also arms both schedulers.
+// Side-effect only; renders nothing.
 
 import { useEffect } from "react";
 import { runFetchCycle } from "@/lib/fetch/cycle";
@@ -14,6 +21,7 @@ import {
   listenTauriEvent,
   log,
   logErr,
+  scheduleNextTick,
   setSettingString,
 } from "@/lib/ipc";
 import { buildDigestFromDb } from "@/lib/notify/build-from-db";
@@ -25,7 +33,6 @@ import {
   parseFetchFirstSlot,
   parseFetchRunsPerDay,
 } from "@/lib/schedule/fetch-schedule";
-import { ScheduleLoop } from "@/lib/schedule/loop";
 import {
   computeNotifyNextRun,
   NOTIFY_FIRST_SLOT_DEFAULT,
@@ -40,8 +47,57 @@ export const FETCH_NOW_EVENT = "fetch-now";
 
 const STALE_MS = 6 * 60 * 60 * 1000;
 
+interface FetchCadence {
+  runsPerDay: number;
+  firstSlotAt: string;
+  weekdaysOnly: boolean;
+}
+interface NotifyCadence {
+  runsPerDay: number;
+  firstSlotAt: string;
+  weekdaysOnly: boolean;
+}
+
 function asMsg(err: unknown): string {
   return err instanceof Error ? err.message : "Unknown error";
+}
+
+async function loadFetchCadence(): Promise<FetchCadence> {
+  return {
+    runsPerDay: parseFetchRunsPerDay(
+      await getSettingString("fetch.runsPerDay", String(FETCH_RUNS_PER_DAY_DEFAULT)),
+    ),
+    firstSlotAt: parseFetchFirstSlot(
+      await getSettingString("fetch.firstSlotAt", FETCH_FIRST_SLOT_DEFAULT),
+    ),
+    weekdaysOnly: await getSettingBool("fetch.weekdaysOnly", false),
+  };
+}
+
+async function loadNotifyCadence(): Promise<NotifyCadence> {
+  return {
+    runsPerDay: parseNotifyRunsPerDay(
+      await getSettingString("notify.runsPerDay", String(NOTIFY_RUNS_PER_DAY_DEFAULT)),
+    ),
+    firstSlotAt: parseNotifyFirstSlot(
+      await getSettingString("notify.firstSlotAt", NOTIFY_FIRST_SLOT_DEFAULT),
+    ),
+    weekdaysOnly: await getSettingBool("notify.weekdaysOnly", false),
+  };
+}
+
+async function armFetch(): Promise<void> {
+  const c = await loadFetchCadence();
+  const next = computeFetchNextRun(new Date(), c.runsPerDay, c.firstSlotAt, c.weekdaysOnly);
+  void setSettingString("fetch.nextRunAt", next.toISOString());
+  await scheduleNextTick("fetch", next.getTime());
+}
+
+async function armNotify(): Promise<void> {
+  const c = await loadNotifyCadence();
+  const next = computeNotifyNextRun(new Date(), c.runsPerDay, c.firstSlotAt, c.weekdaysOnly);
+  void setSettingString("notify.nextRunAt", next.toISOString());
+  await scheduleNextTick("notify", next.getTime());
 }
 
 async function runNotifyCycle(): Promise<void> {
@@ -79,73 +135,55 @@ async function shouldColdStartFetch(): Promise<boolean> {
 
 export function Schedulers() {
   useEffect(() => {
-    let fetchLoop: ScheduleLoop | null = null;
-    let notifyLoop: ScheduleLoop | null = null;
+    let unlistenFetchTick: (() => void) | null = null;
+    let unlistenNotifyTick: (() => void) | null = null;
     let unlistenTray: (() => void) | null = null;
     let cancelled = false;
 
-    const tearDown = (): void => {
-      fetchLoop?.stop();
-      notifyLoop?.stop();
-      fetchLoop = null;
-      notifyLoop = null;
-    };
-
-    const bootstrap = async (): Promise<void> => {
-      if (cancelled) return;
-      const runsPerDay = parseFetchRunsPerDay(
-        await getSettingString("fetch.runsPerDay", String(FETCH_RUNS_PER_DAY_DEFAULT)),
-      );
-      const firstSlotAt = parseFetchFirstSlot(
-        await getSettingString("fetch.firstSlotAt", FETCH_FIRST_SLOT_DEFAULT),
-      );
-      const fetchWeekdaysOnly = await getSettingBool("fetch.weekdaysOnly", false);
-      const notifyRunsPerDay = parseNotifyRunsPerDay(
-        await getSettingString("notify.runsPerDay", String(NOTIFY_RUNS_PER_DAY_DEFAULT)),
-      );
-      const notifyFirstSlotAt = parseNotifyFirstSlot(
-        await getSettingString("notify.firstSlotAt", NOTIFY_FIRST_SLOT_DEFAULT),
-      );
-      const notifyWeekdaysOnly = await getSettingBool("notify.weekdaysOnly", false);
-
-      fetchLoop = new ScheduleLoop({
-        nextRunAt: (n) => {
-          const next = computeFetchNextRun(n, runsPerDay, firstSlotAt, fetchWeekdaysOnly);
-          void setSettingString("fetch.nextRunAt", next.toISOString());
-          return next;
-        },
-        tick: async () => {
+    const handleFetchTick = (): void => {
+      void (async () => {
+        try {
           const children = await getChildren();
           await runFetchCycle(children);
-        },
-        onError: (e) => void logErr(`scheduler: fetch tick error — ${asMsg(e)}`),
-      });
-      fetchLoop.start();
+        } catch (e) {
+          await logErr(`scheduler: fetch tick error — ${asMsg(e)}`);
+        } finally {
+          // Re-arm even if the cycle failed so a transient error doesn't
+          // permanently break the loop.
+          try {
+            await armFetch();
+          } catch (e) {
+            await logErr(`scheduler: fetch re-arm failed — ${asMsg(e)}`);
+          }
+        }
+      })();
+    };
 
-      notifyLoop = new ScheduleLoop({
-        nextRunAt: (n) => {
-          const next = computeNotifyNextRun(
-            n,
-            notifyRunsPerDay,
-            notifyFirstSlotAt,
-            notifyWeekdaysOnly,
-          );
-          void setSettingString("notify.nextRunAt", next.toISOString());
-          return next;
-        },
-        tick: runNotifyCycle,
-        onError: (e) => void logErr(`scheduler: notify tick error — ${asMsg(e)}`),
-      });
-      notifyLoop.start();
-
-      await log(
-        `scheduler: started fetch(n=${runsPerDay} anchor=${firstSlotAt} weekdays=${fetchWeekdaysOnly}) notify(n=${notifyRunsPerDay} anchor=${notifyFirstSlotAt} weekdays=${notifyWeekdaysOnly})`,
-      );
+    const handleNotifyTick = (): void => {
+      void (async () => {
+        try {
+          await runNotifyCycle();
+        } catch (e) {
+          await logErr(`scheduler: notify tick error — ${asMsg(e)}`);
+        } finally {
+          try {
+            await armNotify();
+          } catch (e) {
+            await logErr(`scheduler: notify re-arm failed — ${asMsg(e)}`);
+          }
+        }
+      })();
     };
 
     const handleSchedulesChanged = (): void => {
-      tearDown();
-      void bootstrap();
+      void (async () => {
+        try {
+          await armFetch();
+          await armNotify();
+        } catch (e) {
+          await logErr(`scheduler: re-arm on settings change failed — ${asMsg(e)}`);
+        }
+      })();
     };
 
     const handleFetchNow = (): void => {
@@ -181,16 +219,47 @@ export function Schedulers() {
         await logErr(`scheduler: cold-start check failed — ${asMsg(e)}`);
       }
 
-      await bootstrap();
-
-      // Wire tray "Refresh Now" — previously a no-op listener target.
+      // Wire tick listeners BEFORE arming so we don't miss the first tick
+      // if the Rust worker happens to fire instantly (unlikely but cheap).
+      // Guard against React StrictMode in dev: the effect mounts → cleans
+      // up → re-mounts, but `listenTauriEvent` is async, so the first
+      // mount's listener can register *after* its cleanup ran. Re-check
+      // `cancelled` after each await and unlisten immediately if so.
       try {
-        unlistenTray = await listenTauriEvent("tray-refresh", () => {
+        const fetchUnlisten = await listenTauriEvent("scheduler:fetch-tick", handleFetchTick);
+        if (cancelled) fetchUnlisten();
+        else unlistenFetchTick = fetchUnlisten;
+        const notifyUnlisten = await listenTauriEvent("scheduler:notify-tick", handleNotifyTick);
+        if (cancelled) notifyUnlisten();
+        else unlistenNotifyTick = notifyUnlisten;
+      } catch (e) {
+        await logErr(`scheduler: tick listen failed — ${asMsg(e)}`);
+      }
+
+      if (!cancelled) {
+        try {
+          await armFetch();
+          await armNotify();
+        } catch (e) {
+          await logErr(`scheduler: initial arm failed — ${asMsg(e)}`);
+        }
+        const fc = await loadFetchCadence();
+        const nc = await loadNotifyCadence();
+        await log(
+          `scheduler: started fetch(n=${fc.runsPerDay} anchor=${fc.firstSlotAt} weekdays=${fc.weekdaysOnly}) notify(n=${nc.runsPerDay} anchor=${nc.firstSlotAt} weekdays=${nc.weekdaysOnly})`,
+        );
+      }
+
+      // Wire tray "Refresh Now" — separate from the periodic fetch path.
+      try {
+        const trayUnlisten = await listenTauriEvent("tray-refresh", () => {
           void (async () => {
             const children = await getChildren();
             await runFetchCycle(children);
           })();
         });
+        if (cancelled) trayUnlisten();
+        else unlistenTray = trayUnlisten;
       } catch (e) {
         await logErr(`scheduler: tray listen failed — ${asMsg(e)}`);
       }
@@ -198,10 +267,11 @@ export function Schedulers() {
 
     return () => {
       cancelled = true;
-      tearDown();
       window.removeEventListener(SCHEDULES_CHANGED_EVENT, handleSchedulesChanged);
       window.removeEventListener(FETCH_NOW_EVENT, handleFetchNow);
       window.removeEventListener(SEND_DIGEST_NOW_EVENT, handleSendDigestNow);
+      if (unlistenFetchTick) unlistenFetchTick();
+      if (unlistenNotifyTick) unlistenNotifyTick();
       if (unlistenTray) unlistenTray();
     };
   }, []);

@@ -1,6 +1,7 @@
 mod keychain;
 mod log_commands;
 mod migrations;
+mod scheduler;
 mod smtp;
 
 use std::path::PathBuf;
@@ -97,6 +98,7 @@ pub fn run() {
             keychain::keychain_get,
             keychain::keychain_delete,
             log_commands::open_log_dir,
+            scheduler::schedule_next_tick,
             smtp::send_email,
         ])
         .setup(move |app| {
@@ -111,6 +113,13 @@ pub fn run() {
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| "unknown".to_string());
             log::info!("data_dir={}", app_data);
+
+            // Phase 31 / B-20 / Q36 — start the Rust scheduler workers (one
+            // per cadence). The workers idle until the webview arms each
+            // slot via the schedule_next_tick command. See scheduler.rs.
+            let scheduler_state = scheduler::SchedulerState::new();
+            scheduler::spawn_workers(app.handle().clone(), &scheduler_state);
+            app.manage(scheduler_state);
 
             // System tray: Open / Refresh / Quit
             let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
