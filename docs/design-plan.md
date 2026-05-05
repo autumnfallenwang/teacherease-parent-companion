@@ -915,6 +915,45 @@ Q31 made this worse by extending notify to N×/day: a notify schedule can fire t
 
 ---
 
+### Q37 — Localized UI: hand-rolled i18n, OS-default with manual override, English fallback (new — no prior decision)
+
+**Problem.** A user opened the app on a Chinese-locale Windows desktop. Static UI strings ("Today", "Attention", "Missing assignment") all rendered in English — they're hardcoded literals across ~39 component files. But date headers in the homework card and "last fetch" timestamps in Settings rendered in Chinese. The mismatch traces to `toLocaleDateString(undefined, ...)` calls passing `undefined` as the locale — JS interprets that as "follow the OS," so dates silently localized while static text stayed English. The visible result is half-translated UI, which reads as broken.
+
+Three plausible audiences justify going beyond English-only: (a) Chinese-language parents (the tested locale), (b) Spanish-language parents (large overlap with TeacherEase districts in the US), (c) English defaults for everyone else (unchanged experience). The fix is a real i18n layer, not a "force English" patch.
+
+**Decision.**
+
+1. **Hand-rolled `t(key)` helper, no library.** One ~50-line `src/lib/i18n.ts` plus three flat-JSON catalogs at `src/lib/locales/{en,es,zh}.json`. Total bundle add ~25 KB on a 1.5 MB JS payload (≈1.5%). Skipping `i18next`/`react-i18next` (~30 KB+ plus runtime config) — for an app with ~200 strings and 3 locales the library overhead isn't worth it.
+
+2. **Three locales: English (default), Español, 中文.** Initial set is opinionated: "the languages a TeacherEase parent might realistically read." Adding more later means adding a JSON file + a row in the picker — no architectural change.
+
+3. **System-default with manual override.** Settings → Appearance → **Language: System / English / Español / 中文**. "System" reads `navigator.language` and maps to the closest catalog (`zh-CN` / `zh-TW` / etc. → `zh`; `es-MX` / `es-ES` → `es`; anything else → `en`). Manual override persists to `settings` key `ui.language` with one of `system | en | es | zh`.
+
+4. **English fallback for missing keys.** `t(key)` does `catalog[key] ?? en[key] ?? key`. A missing translation never breaks the UI; it falls back to English. A missing-everywhere key renders the raw key string in dev (visibly broken, easy to spot during review). This is the load-bearing design choice — it lets us ship Spanish + Chinese covering only high-traffic strings (tab labels, "Missing"/"Low score", "Add child", common toasts) and translate the long tail incrementally as real demand surfaces. Shipping a "complete" zh.json on day one would block the feature for weeks; partial-with-fallback unblocks it.
+
+5. **Date locale follows the same setting.** All `toLocaleDateString` / `toLocaleString` callers pass an explicit locale string derived from `ui.language` (resolving "system" via `navigator.language`). The bug that motivated this Q is gone — dates and UI text always agree on language.
+
+6. **Catalog organization is flat-namespaced strings, not nested objects.** Keys like `"today.attention.heading"`, `"wizard.disclaimer.title"`, `"settings.appearance.language.label"`. Easy to grep, easy to diff, easy for translators to scan top-to-bottom. No nested object dot-walking at runtime.
+
+**What stays locked.**
+- All Q-decisions about UX shape, navigation, data model. i18n is a presentation-layer concern.
+- Q33's first-run disclaimer flow — its strings just become catalog entries.
+- Q15's single-source `legal.ts` — disclaimer text moves into the catalogs (one entry per paragraph), `legal.ts` becomes the loader. Format already supports this since Phase 25.
+
+**What this supersedes.**
+- Nothing — there's no prior i18n decision. This is a new locked decision.
+
+**Non-goals.**
+- RTL languages (Arabic, Hebrew). Not on the roadmap; would require Tailwind RTL plugin + extensive layout testing. Defer until a user actually asks.
+- Translating the README, CHANGELOG, or any docs/. Markdown stays English; translation is for the running app only.
+- Translating SMTP-server-rejection messages, Tauri runtime errors, or other strings the app surfaces verbatim from a non-localized source. They render in their source language; we don't paper over technical-error provenance.
+- Pluralization rules beyond simple `{n}` interpolation. If a string needs "1 missing assignment / 2 missing assignments", the catalog gets two keys (singular/plural) and the caller picks one. No `Intl.PluralRules` until needed.
+- ICU MessageFormat. Same reason — catalog is flat, interpolation is `{name}`-style. Library-grade formatting is overkill for an app with no plural-heavy strings today.
+
+**Promoted to:** D-24 in `docs/backlog.md` and Phase 32 in `docs/progress.md`.
+
+---
+
 ## Tech Stack
 
 | Layer | Tech | Rationale link |

@@ -357,6 +357,30 @@ The 6 settings sub-tabs (Children / Appearance / Attention / Fetch / Notificatio
 
 ---
 
+## Phase 32: Localized UI — language picker, OS-default, English fallback (per D-24, new Q37)
+
+A user opened the app on a Chinese-locale Windows desktop. Static strings rendered English (hardcoded literals across ~39 component files), but date headers + "last fetch" timestamps rendered Chinese (`toLocaleDateString(undefined, ...)` follows the OS for free). The mixed-language UI looked broken. This phase introduces a real i18n layer: hand-rolled `t(key)` helper, three flat-JSON catalogs (en/es/zh), Settings → Appearance → Language picker (System default + manual override), explicit locale passed to all date formatters so dates and UI agree.
+
+Q37 locks the architecture: hand-rolled (no library), system-default with manual override, English fallback for missing keys, flat-namespaced catalog keys. Initial Spanish + Chinese coverage is **high-traffic strings only** (tab labels, "Missing"/"Low score", "Add child", common toasts); long-tail strings stay English-only and translate later if real users surface gaps. Bundle add ~25 KB on a 1.5 MB JS payload (≈1.5%).
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T1 | Q37 in `docs/design-plan.md` | ⏳ Pending | New Locked Decision: hand-rolled i18n, OS-default, English fallback, flat-namespaced keys. No prior i18n decision to supersede. |
+| T2 | Create `src/lib/i18n.ts` | ⏳ Pending | ~50 lines. `t(key, vars?)` helper. `resolveLocale(setting: "system"\|"en"\|"es"\|"zh")` → returns one of `"en"\|"es"\|"zh"` after consulting `navigator.language` for "system". Reactive: a `useLocale()` hook subscribes to `ui.language` setting changes so components re-render on language switch. Exports a `LocaleProvider` (React Context) for the active resolved locale + a `formatDate(date, opts)` wrapper that passes the resolved locale to `toLocaleDateString`. |
+| T3 | Catalog scaffolding: `src/lib/locales/en.json` | ⏳ Pending | Master catalog. Flat keys: `today.attention.heading`, `today.homework.heading`, `classes.empty`, `wizard.disclaimer.title`, etc. Initial coverage = every string the extraction pass in T5 finds. Fully populated. |
+| T4 | Stub catalogs: `src/lib/locales/es.json` + `zh.json` | ⏳ Pending | High-traffic strings only — tab labels (Today/Classes/History/Settings/About), AttentionSection labels ("Missing recent"/"Missing older"/"Low score recent"/"Low score older"/"Meeting"), "Add another child", "Fetch now", "Send digest now", common error toasts (~30-50 keys per language). Other keys absent → fall through to English at runtime. |
+| T5 | Extract English literals across ~39 components → `t("...")` calls | ⏳ Pending | The bulk of the work. Mechanical pass through `src/components/**/*.tsx` + `src/app/**/*.tsx` + selected `src/lib/**/*.ts` (error messages that surface in toasts). Each unique English string becomes a catalog key + a `t()` call site. Non-user-visible strings (log messages, type names, IPC keys) stay literal. Mixed-content interpolations use `{var}` placeholders with `t("key", { var: value })`. **Discipline:** every literal removed must have a key created in `en.json`; checks-time grep enforces no orphan keys and no untranslated literals in JSX text nodes. |
+| T6 | Settings → Appearance → Language picker | ⏳ Pending | New row in the Appearance sub-tab (sibling of Theme / Mode / Size). Select with options "System" / "English" / "Español" / "中文" backed by `ui.language`. Saving rerenders the entire app via the LocaleProvider. |
+| T7 | Replace `toLocaleDateString(undefined, ...)` callers with explicit locale | ⏳ Pending | `homework-card.tsx`, `history-view.tsx`, `settings-fetch.tsx`, `settings-notifications.tsx`. Use `formatDate()` from `lib/i18n.ts` so dates always match the active UI language. The "Chinese dates with English UI" symptom is resolved here. |
+| T8 | First-launch disclaimer + wizard text moves into catalogs | ⏳ Pending | `src/lib/legal.ts` (Q15 single-source) currently holds disclaimer + privacy + responsible-use blocks. They become entries in the catalogs (one key per paragraph). `legal.ts` becomes a loader that returns catalog-resolved strings. README / DISCLAIMER.md still reference `legal.ts` text but rendered from English-only at build time (that's fine — repo docs stay English per Q37 non-goals). |
+| T9 | `pnpm check` (typecheck + lint + tests) | ⏳ Pending | All green. New i18n module gets unit tests for `resolveLocale` (system → en/es/zh mapping for various `navigator.language` values) and `t()` (hit / miss / interpolation / missing-key fallback). |
+| T10 | Smoke test in dev — three locales | ⏳ Pending | Run dev with `navigator.language` faked to en / es / zh-CN (devtools or query-string override). Confirm: (a) "System" mode picks the right catalog, (b) manual override sticks across reloads, (c) dates and static text agree, (d) un-translated strings fall back to English visibly (not blank, not key-name). |
+| T11 | Backlog flip + CHANGELOG | ⏳ Pending | D-24 → done in `docs/backlog.md`. CHANGELOG entry under v0.1.8: "App now follows your system language (English / Spanish / Chinese) with a manual override in Settings → Appearance." |
+
+**End state (target):** Language consistent across the app on first launch (no more half-Chinese, half-English). Settings → Appearance → Language picker lets parents override the OS-detected default. Spanish + Chinese coverage on high-traffic strings; long tail falls back to English. Future locales = drop in a JSON file + add a row to the picker; no architectural change.
+
+---
+
 ## What's Working
 
 - **Scraper** — login, grades overview (embedded JSON), class detail (cheerio) all tested against real fixtures and live portal.
