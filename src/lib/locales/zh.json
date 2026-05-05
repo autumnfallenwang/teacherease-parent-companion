@@ -1,0 +1,17 @@
+{
+  "shell.brand.companion": "Companion",
+  "shell.sidebar.today": "今日",
+  "shell.sidebar.classes": "班级",
+  "shell.sidebar.history": "历史",
+  "shell.sidebar.settings": "设置",
+  "shell.sidebar.about": "关于",
+  "shell.sidebar.back": "返回",
+  "shell.sidebar.expand": "展开侧栏",
+  "shell.sidebar.collapse": "收起侧栏",
+  "settings.tabs.children": "孩子",
+  "settings.tabs.appearance": "外观",
+  "settings.tabs.attention": "关注事项",
+  "settings.tabs.fetch": "数据同步",
+  "settings.tabs.notifications": "通知",
+  "settings.tabs.advanced": "高级"
+}

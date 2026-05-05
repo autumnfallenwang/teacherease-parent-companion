@@ -1,0 +1,17 @@
+{
+  "shell.brand.companion": "Companion",
+  "shell.sidebar.today": "Hoy",
+  "shell.sidebar.classes": "Clases",
+  "shell.sidebar.history": "Historial",
+  "shell.sidebar.settings": "Ajustes",
+  "shell.sidebar.about": "Acerca de",
+  "shell.sidebar.back": "Atrás",
+  "shell.sidebar.expand": "Expandir barra lateral",
+  "shell.sidebar.collapse": "Contraer barra lateral",
+  "settings.tabs.children": "Hijos",
+  "settings.tabs.appearance": "Apariencia",
+  "settings.tabs.attention": "Atención",
+  "settings.tabs.fetch": "Sincronización",
+  "settings.tabs.notifications": "Notificaciones",
+  "settings.tabs.advanced": "Avanzado"
+}
