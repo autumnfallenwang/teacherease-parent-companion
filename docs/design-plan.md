@@ -935,6 +935,8 @@ Three plausible audiences justify going beyond English-only: (a) Chinese-languag
 
 6. **Catalog organization is flat-namespaced strings, not nested objects.** Keys like `"today.attention.heading"`, `"wizard.disclaimer.title"`, `"settings.appearance.language.label"`. Easy to grep, easy to diff, easy for translators to scan top-to-bottom. No nested object dot-walking at runtime.
 
+7. **App-generated strings translate; portal-fetched content stays verbatim** (amendment 2026-05-05). The split: anything the app wrote (labels, headings, buttons, tooltips, help text, empty-state messages, error toasts, email digest section headers, OS notification body, date format strings) goes through `t()`. Anything fetched from TeacherEase or a school's homework page (class names, assignment names, teacher names, standards/learning-target names, grade values like "87%" / "A−" / "Meeting" / "Not Meeting", homework subject/content prose) renders verbatim regardless of UI locale — those are what the school authored, and translating would misrepresent the source. The user's Spanish-locale OS still sees "Math 7" because that's what the school typed on the report card.
+
 **What stays locked.**
 - All Q-decisions about UX shape, navigation, data model. i18n is a presentation-layer concern.
 - Q33's first-run disclaimer flow — its strings just become catalog entries.
