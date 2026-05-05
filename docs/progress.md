@@ -357,6 +357,29 @@ The 6 settings sub-tabs (Children / Appearance / Attention / Fetch / Notificatio
 
 ---
 
+## Phase 31: Move scheduler timer to Rust (per B-20, new Q36)
+
+Real fix for B-20: webview `setTimeout` is paused/throttled by macOS when the Tauri window loses focus, so scheduled fetch + notify ticks fire late (or only on re-focus). Confirmed live: a 15:15 notify dispatched at 15:55 the moment the window came back to foreground. Triage sweep ([webview-throttling audit](#)) confirmed this is the *only* critical wall-clock-sensitive path in the webview — every other `setTimeout` call is UI-only (toast dismissal, "next run" display refresh) and degrades harmlessly. Cold-start stale-fetch already handles the >6h-offline case. SMTP send is already in Rust. So the change is narrowly scoped: move just the *timer* to Rust; keep the *work* (cycle handlers, scraper, IPC) in TS.
+
+New Q36 supersedes Q29's "two-loop architecture" location detail: there are still two loops (fetch + notify), they just live in Rust now. Settings-changed reactivity, manual `Fetch now` / `Send digest now` buttons, and tray "Refresh Now" all keep their existing webview entry points — they just emit / invoke into the new Rust task.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T1 | Q36 in `docs/design-plan.md` | ⏳ Pending | New Locked Decision: scheduler timer in Rust + emit-event-to-webview model. Supersedes Q29's "two ScheduleLoops in webview" location detail. The two-loop *separation* (independent fetch + notify cadences) is preserved. |
+| T2 | New `src-tauri/src/scheduler.rs` | ⏳ Pending | `tokio::spawn` task per loop. Reads cadence settings via the existing `tauri-plugin-sql` connection (or via a `Settings` getter wrapper). Computes next-fire using a Rust port of `computeFetchNextRun` / `computeNotifyNextRun` — or, simpler first, exposes a `compute_next_run` Tauri command the Rust side calls into TS for. Decision during impl: pick the path with smaller blast radius. `tokio::time::sleep_until(next)` then `app_handle.emit("scheduler:fetch-tick", ())` (or notify-tick). Cancellation via `tokio::sync::Notify` so settings-changed can interrupt the sleep. |
+| T3 | `setup()` wiring in `src-tauri/src/lib.rs` | ⏳ Pending | Spawn the two scheduler tasks at app boot. Persist `tx` handles in Tauri-managed state so `reload_scheduler` and shutdown can signal them. |
+| T4 | `reload_scheduler` Tauri command | ⏳ Pending | Invoked from webview `SCHEDULES_CHANGED_EVENT` handler when the user changes runs-per-day / first-slot / weekdays-only. Re-reads settings, signals the cancellation channel, the task wakes, recomputes next-fire, sleeps again. |
+| T5 | Webview event listeners in `schedulers.tsx` | ⏳ Pending | Replace the two `ScheduleLoop` instances with `listenTauriEvent("scheduler:fetch-tick", runFetchHandler)` + `listenTauriEvent("scheduler:notify-tick", runNotifyCycle)`. Keep the existing `FETCH_NOW_EVENT` / `SEND_DIGEST_NOW_EVENT` window-event paths untouched (they're synchronous user actions, not scheduled). Cold-start stale-fetch logic stays where it is. `SCHEDULES_CHANGED_EVENT` handler now invokes the new `reload_scheduler` command. |
+| T6 | Delete `src/lib/schedule/loop.ts` + tests | ⏳ Pending | Pure TS module no longer needed. The `tests/lib/schedule/loop.test.ts` (if any) goes too. Cadence math (`fetch-schedule.ts`, `notify-schedule.ts`) stays — Rust either calls into it via IPC or has its own port (T2 decision). |
+| T7 | `pnpm check` + `cargo check` + `cargo clippy -D warnings` + `cargo test` | ⏳ Pending | All green before smoke. Existing Vitest tests unaffected (cadence math untouched; `loop.test.ts` deleted with the module). Rust gets new unit tests for next-fire computation if the port path is chosen. |
+| T8 | Manual smoke test (the whole point of this phase) | ⏳ Pending | Set notify schedule to fire 2 minutes from now. Minimize the app window. Wait. Confirm log shows the tick fired on time (not delayed until refocus). Repeat for fetch. Repeat with the window completely hidden (Cmd-H). If macOS still throttles emitted events to a hidden webview, fall back: have Rust call `runFetchCycle` / `runNotifyCycle` directly via Tauri commands rather than emitting events, so the webview doesn't have to process anything for the tick to complete (the scrape + persistence already runs in Rust IPC handlers anyway). |
+| T9 | README "heads up" note correction | ⏳ Pending | Drop / soften the "must keep the app running" claim — once T8 confirms unfocused fires correctly, the only requirement is the app process being alive (which `Start on login` handles). Specific wording depends on T8 outcome (closed app vs minimized vs Cmd-H). |
+| T10 | Backlog flip + CHANGELOG | ⏳ Pending | B-20 → done. CHANGELOG entry under v0.1.8 (or whatever the next release tag is): "Schedulers no longer pause when the app is unfocused." |
+
+**End state (target):** Fetch and notify ticks fire on time regardless of window focus state. The webview's only role in scheduling is reacting to ticks and surfacing user-driven manual triggers. Q29's two-loop architecture is preserved in spirit (independent cadences); the loops just live one layer down. No new external library — just `tokio::time` (already pulled in transitively by Tauri).
+
+---
+
 ## What's Working
 
 - **Scraper** — login, grades overview (embedded JSON), class detail (cheerio) all tested against real fixtures and live portal.
