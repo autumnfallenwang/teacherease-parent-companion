@@ -3,12 +3,14 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { FETCH_NOW_EVENT, SCHEDULES_CHANGED_EVENT } from "@/components/shell/schedulers";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { formatDateTime, formatRelative, type Locale } from "@/lib/i18n";
 import {
   type FetchRunRecord,
   getChildren,
@@ -44,27 +46,16 @@ interface ChildLastRun {
   readonly latest: FetchRunRecord | null;
 }
 
-function formatLocal(iso: string | null): string {
+function formatLocal(iso: string | null, locale: Locale): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
-}
-
-function formatRelative(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const ms = d.getTime() - Date.now();
-  if (ms <= 0) return "due now";
-  const mins = Math.round(ms / 60_000);
-  if (mins < 60) return `in ${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m === 0 ? `in ${h}h` : `in ${h}h ${m}m`;
+  return formatDateTime(locale, d);
 }
 
 export function SettingsFetch() {
+  const locale = useLocale();
+  const t = useT();
   const [runsPerDay, setRunsPerDay] = useState<number>(FETCH_RUNS_PER_DAY_DEFAULT);
   const [runsDraft, setRunsDraft] = useState<string>(String(FETCH_RUNS_PER_DAY_DEFAULT));
   const [firstSlotAt, setFirstSlotAt] = useState<string>(FETCH_FIRST_SLOT_DEFAULT);
@@ -136,8 +127,10 @@ export function SettingsFetch() {
 
   const rolloverLabel = useMemo(() => {
     const now = new Date();
-    return weekdaysOnly && isWeekend(now) ? "(Mon)" : "(tomorrow)";
-  }, [weekdaysOnly]);
+    return weekdaysOnly && isWeekend(now)
+      ? t("settings.fetch.schedule.mondayShort")
+      : t("settings.fetch.schedule.tomorrow");
+  }, [weekdaysOnly, t]);
 
   const commitRunsPerDay = () => {
     const parsed = parseFetchRunsPerDay(runsDraft);
@@ -217,15 +210,16 @@ export function SettingsFetch() {
   return (
     <div className="space-y-5">
       <SettingsSection
-        title="Schedule"
-        help={
-          "How often — and anchored where — the app pulls fresh data from the portal. Slots are evenly spaced from “First slot at” around the 24h cycle. Only fires while the app is open; autostart keeps it ticking."
-        }
+        title={t("settings.fetch.schedule.title")}
+        help={t("settings.fetch.schedule.help")}
       >
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="fetch-runs-per-day" className="text-[13px]">
-              Fetches per day ({FETCH_RUNS_PER_DAY_MIN}–{FETCH_RUNS_PER_DAY_MAX})
+              {t("settings.fetch.schedule.runsPerDay", {
+                min: FETCH_RUNS_PER_DAY_MIN,
+                max: FETCH_RUNS_PER_DAY_MAX,
+              })}
             </Label>
             <Input
               id="fetch-runs-per-day"
@@ -246,7 +240,7 @@ export function SettingsFetch() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="fetch-first-slot" className="text-[13px]">
-              First slot at
+              {t("settings.fetch.schedule.firstSlot")}
             </Label>
             <Input
               id="fetch-first-slot"
@@ -266,7 +260,9 @@ export function SettingsFetch() {
         </div>
 
         <div className="space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Time slots</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            {t("settings.fetch.schedule.timeSlots")}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {slotView.map(({ mins, rollover }) => {
               const isNext = !rollover && mins === nextSlotMins;
@@ -293,23 +289,21 @@ export function SettingsFetch() {
             onChange={(next) => {
               void toggleWeekdays(next);
             }}
-            aria-label="Skip weekends"
+            aria-label={t("settings.fetch.schedule.skipWeekendsAria")}
           />
-          <span className="text-[13px]">Skip weekends (Sat + Sun)</span>
+          <span className="text-[13px]">{t("settings.fetch.schedule.skipWeekends")}</span>
         </div>
 
         <p className="text-[12px] text-muted-foreground">
-          Next run: <span className="font-medium text-foreground">{formatLocal(nextRunAt)}</span>
-          {nextRunAt && formatRelative(nextRunAt) && (
-            <span className="ml-1.5">({formatRelative(nextRunAt)})</span>
+          {t("settings.fetch.schedule.nextRun")}{" "}
+          <span className="font-medium text-foreground">{formatLocal(nextRunAt, locale)}</span>
+          {nextRunAt && formatRelative(locale, nextRunAt) && (
+            <span className="ml-1.5">({formatRelative(locale, nextRunAt)})</span>
           )}
         </p>
       </SettingsSection>
 
-      <SettingsSection
-        title="Fetch now"
-        help="Pulls the latest data for every child immediately. No notification fires — only the database updates. Use this when you want to see current data without waiting for the next scheduled run."
-      >
+      <SettingsSection title={t("settings.fetch.now.title")} help={t("settings.fetch.now.help")}>
         <Button
           type="button"
           size="sm"
@@ -319,14 +313,14 @@ export function SettingsFetch() {
           className="gap-1.5"
         >
           {fetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {fetching ? "Fetching…" : "Fetch now"}
+          {fetching ? t("settings.fetch.now.fetching") : t("settings.fetch.now.button")}
         </Button>
       </SettingsSection>
 
       {childLastRuns.length > 0 && (
         <SettingsSection
-          title="Last successful fetch"
-          help="When each child was last pulled via the TeacherEase source. Empty when a child has never successfully scraped."
+          title={t("settings.fetch.lastSuccess.title")}
+          help={t("settings.fetch.lastSuccess.help")}
           card={false}
         >
           <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -336,7 +330,9 @@ export function SettingsFetch() {
                   {child.displayName}
                 </p>
                 <p className="text-[12px] text-muted-foreground">
-                  {latest ? formatLocal(latest.runAt) : "Never"}
+                  {latest
+                    ? formatLocal(latest.runAt, locale)
+                    : t("settings.fetch.lastSuccess.never")}
                 </p>
               </div>
             ))}

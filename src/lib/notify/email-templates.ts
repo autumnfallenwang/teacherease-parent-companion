@@ -5,6 +5,7 @@
 // Inline CSS only — Gmail mobile strips <style> blocks but keeps style
 // attrs. No CSS custom properties (`var(--x)`) in email output; hex only.
 
+import { formatDate, type Locale, translate } from "@/lib/i18n";
 import type { HomeworkRecord } from "@/lib/ipc";
 import { buildHeroLine } from "./os-channel";
 import type { ChildDigest, RefreshDigest } from "./types";
@@ -15,7 +16,6 @@ export interface RenderedEmail {
   htmlBody: string;
 }
 
-const TITLE_PREFIX = "TeacherEase Parent Companion";
 const MAX_ATTENTION_ITEMS = 10;
 
 function escapeHtml(s: string): string {
@@ -27,20 +27,24 @@ function escapeHtml(s: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function formatHHmm(d: Date): string {
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+/** HH:MM via the active locale's date formatter — replaces hand-rolled
+ *  zero-pad so the output reads e.g. "10:30" / "10:30 PM" depending on the
+ *  user's chosen locale. */
+function formatHHmm(locale: Locale, d: Date): string {
+  return formatDate(locale, d, { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Render ISO `YYYY-MM-DD` as `M/D` (matches the Today tab's formatDueChip). */
-function formatIsoShort(iso: string): string {
+/** Render ISO `YYYY-MM-DD` as a short locale date. Replaces the hand-rolled
+ *  M/D formatter — Spanish renders "4 mar" / Chinese renders "3月4日". */
+function formatIsoShort(locale: Locale, iso: string): string {
   const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return iso;
+  const year = Number.parseInt(match[1] ?? "0", 10);
   const month = Number.parseInt(match[2] ?? "0", 10);
   const day = Number.parseInt(match[3] ?? "0", 10);
-  if (!month || !day) return iso;
-  return `${month}/${day}`;
+  if (!year || !month || !day) return iso;
+  // Note: month is 1-indexed in ISO, 0-indexed in Date.
+  return formatDate(locale, new Date(year, month - 1, day), { month: "short", day: "numeric" });
 }
 
 /** 1:1 mapping with Today-tab Lucide icons — emoji portable across
@@ -74,18 +78,31 @@ const HERO_STYLE: Record<"ok" | "attention", HeroStyle> = {
   attention: { bg: "#fffbeb", icon: "⚠", iconColor: "#b45309", titleColor: "#111827" },
 };
 
-function renderChildHeroRowHtml(c: ChildDigest): string {
+function renderChildHeroRowHtml(c: ChildDigest, locale: Locale): string {
   const isOk = c.hero.attentionCount === 0;
   const { bg, icon, iconColor, titleColor } = isOk ? HERO_STYLE.ok : HERO_STYLE.attention;
 
   const titleBody = isOk
-    ? "All caught up"
-    : `${c.hero.attentionCount} class${c.hero.attentionCount === 1 ? "" : "es"} need attention`;
+    ? // biome-ignore lint/security/noSecrets: catalog key, not a secret
+      translate(locale, "notify.email.heroAllCaughtUp")
+    : translate(
+        locale,
+        c.hero.attentionCount === 1
+          ? "notify.email.heroAttention.one"
+          : "notify.email.heroAttention.other",
+        { count: c.hero.attentionCount },
+      );
 
-  const meta: string[] = [`${c.hero.meetingCount} meeting`];
+  const meta: string[] = [
+    translate(locale, "notify.email.heroMeeting", { count: c.hero.meetingCount }),
+  ];
   if (c.homeworkConfigured) {
-    meta.push(`${c.homeworkForToday.length} homework for today`);
-    meta.push(`${c.homeworkDueToday.length} homework due today`);
+    meta.push(
+      translate(locale, "notify.email.heroHomeworkForToday", { count: c.homeworkForToday.length }),
+    );
+    meta.push(
+      translate(locale, "notify.email.heroHomeworkDueToday", { count: c.homeworkDueToday.length }),
+    );
   }
   const metaLines = meta
     .map(
@@ -106,10 +123,10 @@ function renderChildHeroRowHtml(c: ChildDigest): string {
  *  Rendered BELOW the stacked hero rows — the Today tab shows both areas
  *  in sequence for the selected child; the email shows them per child
  *  after all heroes so the parent can scan the summary first. */
-function renderChildDetailHtml(c: ChildDigest): string {
+function renderChildDetailHtml(c: ChildDigest, locale: Locale): string {
   const header = `<h2 style="margin: 0 0 10px; font-size: 15px; color: #111827;">${escapeHtml(c.childName)}</h2>`;
-  const attentionBlock = renderAttentionBlockHtml(c);
-  const homeworkBlocks = c.homeworkConfigured ? renderHomeworkBlocksHtml(c) : "";
+  const attentionBlock = renderAttentionBlockHtml(c, locale);
+  const homeworkBlocks = c.homeworkConfigured ? renderHomeworkBlocksHtml(c, locale) : "";
   return `<section style="margin: 0 0 20px; padding: 12px 0 0; border-top: 1px solid #e5e7eb;">
       ${header}
       ${attentionBlock}
@@ -117,7 +134,7 @@ function renderChildDetailHtml(c: ChildDigest): string {
     </section>`;
 }
 
-function renderAttentionRowHtml(item: ChildDigest["attention"][number]): string {
+function renderAttentionRowHtml(item: ChildDigest["attention"][number], locale: Locale): string {
   const icon = item.reason === "missing" ? ICON_MISSING : ICON_LOW_SCORE;
   const iconColor = item.reason === "missing" ? "#b45309" : "#9a3412";
   // One line per item: icon · name · class · [grade] · [🕐 due]. Date always
@@ -137,29 +154,41 @@ function renderAttentionRowHtml(item: ChildDigest["attention"][number]): string 
     trailParts.length > 0
       ? `<span style="color: #9ca3af;"> · </span>${trailParts.join('<span style="color: #9ca3af;"> · </span>')}`
       : "";
+  // The locale parameter is currently unused inside the row but reserved
+  // for future per-row prose if needed.
+  void locale;
   return `<li style="margin: 0 0 6px; list-style: none; font-size: 13px; color: #111827; line-height: 1.5;">
         <span style="color: ${iconColor};">${icon}</span> <strong>${escapeHtml(item.assignment.name)}</strong><span style="color: #9ca3af;"> · </span><span style="color: #6b7280;">${escapeHtml(item.className)}</span>${trail}
       </li>`;
 }
 
-function renderAttentionBlockHtml(c: ChildDigest): string {
-  const heading = `<h3 style="margin: 4px 0 8px; font-size: 13px; color: #374151; text-transform: uppercase; letter-spacing: 0.04em;"><span style="color: #b45309;">${ICON_ATTENTION_HEADING}</span> Attention</h3>`;
+function renderAttentionBlockHtml(c: ChildDigest, locale: Locale): string {
+  const attentionHeadingText = translate(locale, "notify.email.attentionHeading");
+  const heading = `<h3 style="margin: 4px 0 8px; font-size: 13px; color: #374151; text-transform: uppercase; letter-spacing: 0.04em;"><span style="color: #b45309;">${ICON_ATTENTION_HEADING}</span> ${escapeHtml(attentionHeadingText)}</h3>`;
   if (c.attention.length === 0) {
-    return `${heading}<p style="margin: 0 0 8px; color: #9ca3af; font-size: 13px;">Nothing needs attention for ${escapeHtml(c.childName)}.</p>`;
+    const emptyText = translate(locale, "notify.email.attentionEmpty", {
+      childName: c.childName,
+    });
+    return `${heading}<p style="margin: 0 0 8px; color: #9ca3af; font-size: 13px;">${escapeHtml(emptyText)}</p>`;
   }
   const shown = c.attention.slice(0, MAX_ATTENTION_ITEMS);
-  const items = shown.map(renderAttentionRowHtml).join("\n        ");
-  const more =
+  const items = shown.map((item) => renderAttentionRowHtml(item, locale)).join("\n        ");
+  const moreText =
     c.attention.length > MAX_ATTENTION_ITEMS
-      ? `<li style="color: #9ca3af; font-size: 12px; list-style: none; margin-top: 4px;">+${c.attention.length - MAX_ATTENTION_ITEMS} more</li>`
+      ? translate(locale, "notify.email.attentionMore", {
+          count: c.attention.length - MAX_ATTENTION_ITEMS,
+        })
       : "";
+  const more = moreText
+    ? `<li style="color: #9ca3af; font-size: 12px; list-style: none; margin-top: 4px;">${escapeHtml(moreText)}</li>`
+    : "";
   return `${heading}<ul style="margin: 0 0 12px; padding: 0;">
         ${items}
         ${more}
       </ul>`;
 }
 
-function renderHomeworkItemsHtml(rows: readonly HomeworkRecord[]): string {
+function renderHomeworkItemsHtml(rows: readonly HomeworkRecord[], locale: Locale): string {
   return rows
     .map((hw) => {
       // Order: subject · content · 🕐 due — date always last (B-15).
@@ -171,7 +200,7 @@ function renderHomeworkItemsHtml(rows: readonly HomeworkRecord[]): string {
       }
       if (hw.dueDate) {
         parts.push(
-          `<span style="color: #6b7280; font-size: 12px;">${ICON_DUE} ${escapeHtml(formatIsoShort(hw.dueDate))}${hw.dueDateInferred ? "*" : ""}</span>`,
+          `<span style="color: #6b7280; font-size: 12px;">${ICON_DUE} ${escapeHtml(formatIsoShort(locale, hw.dueDate))}${hw.dueDateInferred ? "*" : ""}</span>`,
         );
       }
       const inline = parts.join('<span style="color: #9ca3af;"> · </span>');
@@ -187,38 +216,45 @@ function renderHomeworkSectionHtml(
   rows: readonly HomeworkRecord[],
   emptyText: string,
   icon: string,
+  locale: Locale,
 ): string {
-  const heading = `<h3 style="margin: 4px 0 8px; font-size: 13px; color: #374151; text-transform: uppercase; letter-spacing: 0.04em;"><span style="color: #1d4ed8;">${icon}</span> ${title}</h3>`;
+  const heading = `<h3 style="margin: 4px 0 8px; font-size: 13px; color: #374151; text-transform: uppercase; letter-spacing: 0.04em;"><span style="color: #1d4ed8;">${icon}</span> ${escapeHtml(title)}</h3>`;
   if (rows.length === 0) {
-    return `${heading}<p style="margin: 0 0 8px; color: #9ca3af; font-size: 13px;">${emptyText}</p>`;
+    return `${heading}<p style="margin: 0 0 8px; color: #9ca3af; font-size: 13px;">${escapeHtml(emptyText)}</p>`;
   }
   return `${heading}<ul style="margin: 0 0 8px; padding: 0;">
-        ${renderHomeworkItemsHtml(rows)}
+        ${renderHomeworkItemsHtml(rows, locale)}
       </ul>`;
 }
 
-function renderHomeworkBlocksHtml(c: ChildDigest): string {
-  return `${renderHomeworkSectionHtml("Homework for today", c.homeworkForToday, "No homework for today.", ICON_HOMEWORK_FOR)}
-      ${renderHomeworkSectionHtml("Homework due today", c.homeworkDueToday, "Nothing due today.", ICON_HOMEWORK_DUE)}`;
+function renderHomeworkBlocksHtml(c: ChildDigest, locale: Locale): string {
+  const forTitle = translate(locale, "notify.email.homeworkForTodayHeading");
+  const forEmpty = translate(locale, "notify.email.homeworkForTodayEmpty");
+  const dueTitle = translate(locale, "notify.email.homeworkDueTodayHeading");
+  const dueEmpty = translate(locale, "notify.email.homeworkDueTodayEmpty");
+  return `${renderHomeworkSectionHtml(forTitle, c.homeworkForToday, forEmpty, ICON_HOMEWORK_FOR, locale)}
+      ${renderHomeworkSectionHtml(dueTitle, c.homeworkDueToday, dueEmpty, ICON_HOMEWORK_DUE, locale)}`;
 }
 
-function renderHtml(d: RefreshDigest): string {
-  const heroLine = buildHeroLine(d);
-  const generated = formatHHmm(new Date(d.generatedAt));
-  const heroRows = d.children.map(renderChildHeroRowHtml).join("\n    ");
-  const detailSections = d.children.map(renderChildDetailHtml).join("\n    ");
+function renderHtml(d: RefreshDigest, locale: Locale): string {
+  const heroLine = buildHeroLine(d, locale);
+  const generated = formatHHmm(locale, new Date(d.generatedAt));
+  const heroRows = d.children.map((c) => renderChildHeroRowHtml(c, locale)).join("\n    ");
+  const detailSections = d.children.map((c) => renderChildDetailHtml(c, locale)).join("\n    ");
+  const checkedText = translate(locale, "notify.email.checked", { time: generated });
+  const footerText = translate(locale, "notify.email.footer", { time: generated });
 
   return `<!doctype html>
 <html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif; margin: 0; padding: 24px; background: #f3f4f6; color: #111827;">
   <div style="max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 8px; padding: 24px;">
     <h1 style="margin: 0 0 4px; font-size: 18px; color: #111827;">${escapeHtml(heroLine)}</h1>
-    <p style="color: #9ca3af; margin: 0 0 16px; font-size: 12px;">Checked ${generated}</p>
+    <p style="color: #9ca3af; margin: 0 0 16px; font-size: 12px;">${escapeHtml(checkedText)}</p>
     ${heroRows}
     <div style="margin-top: 16px;">
       ${detailSections}
     </div>
-    <p style="margin: 24px 0 0; color: #9ca3af; font-size: 11px;">TeacherEase Parent Companion · local notification · generated ${generated}</p>
+    <p style="margin: 24px 0 0; color: #9ca3af; font-size: 11px;">${escapeHtml(footerText)}</p>
   </div>
 </body>
 </html>`;
@@ -228,93 +264,121 @@ function renderChildHomeworkText(
   title: string,
   rows: readonly HomeworkRecord[],
   emptyLine: string,
+  locale: Locale,
 ): readonly string[] {
   if (rows.length === 0) return [`  ${title}: ${emptyLine.trim()}`];
   const parts: string[] = [`  ${title}:`];
   for (const hw of rows) {
     const bits = [hw.subject];
     if (hw.content) bits.push(hw.content);
-    if (hw.dueDate) bits.push(`due ${formatIsoShort(hw.dueDate)}${hw.dueDateInferred ? "*" : ""}`);
+    if (hw.dueDate) {
+      bits.push(
+        translate(locale, "notify.email.dueShort", { date: formatIsoShort(locale, hw.dueDate) }) +
+          (hw.dueDateInferred ? "*" : ""),
+      );
+    }
     parts.push(`    - ${bits.join(" · ")}`);
   }
   return parts;
 }
 
-function renderChildAttentionText(c: ChildDigest): readonly string[] {
+function renderChildAttentionText(c: ChildDigest, locale: Locale): readonly string[] {
+  const attentionHeading = translate(locale, "notify.email.attentionHeading");
   if (c.attention.length === 0) {
-    return [`  Attention: Nothing needs attention for ${c.childName}.`];
+    return [
+      `  ${attentionHeading}: ${translate(locale, "notify.email.attentionEmpty", { childName: c.childName })}`,
+    ];
   }
-  const parts: string[] = ["  Attention:"];
+  const parts: string[] = [`  ${attentionHeading}:`];
+  const reasonMissing = translate(locale, "notify.email.attentionReasonMissing");
+  const reasonLow = translate(locale, "notify.email.attentionReasonLowScore");
   for (const item of c.attention.slice(0, MAX_ATTENTION_ITEMS)) {
-    const reason = item.reason === "missing" ? "missing" : "low score";
+    const reason = item.reason === "missing" ? reasonMissing : reasonLow;
     const trailBits: string[] = [];
     if (item.reason !== "missing" && item.assignment.grade) {
       trailBits.push(item.assignment.grade);
     }
-    if (item.assignment.dueDate) trailBits.push(`due ${item.assignment.dueDate}`);
+    if (item.assignment.dueDate) {
+      trailBits.push(translate(locale, "notify.email.dueShort", { date: item.assignment.dueDate }));
+    }
     const trail = trailBits.length > 0 ? ` · ${trailBits.join(" · ")}` : "";
     parts.push(`    [${reason}] ${item.assignment.name} · ${item.className}${trail}`);
   }
   if (c.attention.length > MAX_ATTENTION_ITEMS) {
-    parts.push(`    (+${c.attention.length - MAX_ATTENTION_ITEMS} more)`);
+    parts.push(
+      `    (${translate(locale, "notify.email.attentionMore", {
+        count: c.attention.length - MAX_ATTENTION_ITEMS,
+      })})`,
+    );
   }
   return parts;
 }
 
-function renderChildHeroRowText(c: ChildDigest): readonly string[] {
+function renderChildHeroRowText(c: ChildDigest, locale: Locale): readonly string[] {
   const titleBody =
     c.hero.attentionCount === 0
-      ? "All caught up"
-      : `${c.hero.attentionCount} class(es) need attention`;
-  const parts: string[] = [`${c.childName}: ${titleBody}`, `  ${c.hero.meetingCount} meeting`];
+      ? // biome-ignore lint/security/noSecrets: catalog key, not a secret
+        translate(locale, "notify.email.heroAllCaughtUp")
+      : translate(
+          locale,
+          c.hero.attentionCount === 1
+            ? "notify.email.heroAttention.one"
+            : "notify.email.heroAttention.other",
+          { count: c.hero.attentionCount },
+        );
+  const parts: string[] = [
+    `${c.childName}: ${titleBody}`,
+    `  ${translate(locale, "notify.email.heroMeeting", { count: c.hero.meetingCount })}`,
+  ];
   if (c.homeworkConfigured) {
-    parts.push(`  ${c.homeworkForToday.length} homework for today`);
-    parts.push(`  ${c.homeworkDueToday.length} homework due today`);
+    parts.push(
+      `  ${translate(locale, "notify.email.heroHomeworkForToday", { count: c.homeworkForToday.length })}`,
+    );
+    parts.push(
+      `  ${translate(locale, "notify.email.heroHomeworkDueToday", { count: c.homeworkDueToday.length })}`,
+    );
   }
   return parts;
 }
 
-function renderChildDetailText(c: ChildDigest): readonly string[] {
+function renderChildDetailText(c: ChildDigest, locale: Locale): readonly string[] {
   const parts: string[] = ["---", c.childName, ""];
-  parts.push(...renderChildAttentionText(c));
+  parts.push(...renderChildAttentionText(c, locale));
   if (c.homeworkConfigured) {
     parts.push("");
-    parts.push(
-      ...renderChildHomeworkText(
-        "Homework for today",
-        c.homeworkForToday,
-        "No homework for today.",
-      ),
-    );
-    parts.push(
-      ...renderChildHomeworkText("Homework due today", c.homeworkDueToday, "Nothing due today."),
-    );
+    const forTitle = translate(locale, "notify.email.homeworkForTodayHeading");
+    const forEmpty = translate(locale, "notify.email.homeworkForTodayEmpty");
+    const dueTitle = translate(locale, "notify.email.homeworkDueTodayHeading");
+    const dueEmpty = translate(locale, "notify.email.homeworkDueTodayEmpty");
+    parts.push(...renderChildHomeworkText(forTitle, c.homeworkForToday, forEmpty, locale));
+    parts.push(...renderChildHomeworkText(dueTitle, c.homeworkDueToday, dueEmpty, locale));
   }
   parts.push("");
   return parts;
 }
 
-function renderText(d: RefreshDigest): string {
-  const heroLine = buildHeroLine(d);
-  const parts: string[] = [`${TITLE_PREFIX}: ${heroLine}`, ""];
+function renderText(d: RefreshDigest, locale: Locale): string {
+  const heroLine = buildHeroLine(d, locale);
+  const titlePrefix = translate(locale, "notify.email.titlePrefix");
+  const parts: string[] = [`${titlePrefix}: ${heroLine}`, ""];
 
   // Hero rows first (stacked), then detail sections — mirrors the email HTML.
   for (const c of d.children) {
-    parts.push(...renderChildHeroRowText(c));
+    parts.push(...renderChildHeroRowText(c, locale));
     parts.push("");
   }
   for (const c of d.children) {
-    parts.push(...renderChildDetailText(c));
+    parts.push(...renderChildDetailText(c, locale));
   }
 
   return parts.join("\n").trimEnd();
 }
 
-export function renderDigestEmail(d: RefreshDigest): RenderedEmail {
-  const subject = `${TITLE_PREFIX}: ${buildHeroLine(d)}`;
+export function renderDigestEmail(d: RefreshDigest, locale: Locale): RenderedEmail {
+  const subject = translate(locale, "notify.email.subject", { heroLine: buildHeroLine(d, locale) });
   return {
     subject,
-    textBody: renderText(d),
-    htmlBody: renderHtml(d),
+    textBody: renderText(d, locale),
+    htmlBody: renderHtml(d, locale),
   };
 }

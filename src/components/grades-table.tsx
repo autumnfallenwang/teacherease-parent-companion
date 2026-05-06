@@ -1,3 +1,5 @@
+"use client";
+
 import {
   CheckCircle2,
   ChevronRight,
@@ -8,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { ProgressBar } from "@/components/progress-bar";
+import { useT } from "@/components/shell/locale-provider";
 import { StatusDots } from "@/components/status-dots";
 import { sortClassesByUrgency } from "@/lib/core/sort";
 import type { TrendDirection } from "@/lib/core/trend";
@@ -43,11 +46,12 @@ function getClassTabColor(className: string): string {
 }
 
 function StatusIndicator({ grade, isAttention }: { grade: GradeRecord; isAttention: boolean }) {
+  const t = useT();
   if (isAttention) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-attention/15 px-2.5 py-1 text-xs font-medium text-attention-foreground">
         <CircleAlert className="h-3 w-3 fill-attention text-attention" />
-        Needs Attention
+        {t("classes.statusBadge.needsAttention")}
       </span>
     );
   }
@@ -55,14 +59,14 @@ function StatusIndicator({ grade, isAttention }: { grade: GradeRecord; isAttenti
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-meeting/15 px-2.5 py-1 text-xs font-medium text-meeting">
         <CheckCircle2 className="h-3 w-3" />
-        Meeting
+        {t("classes.statusBadge.meeting")}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-ungraded/10 px-2.5 py-1 text-xs font-medium text-ungraded-foreground">
       <CircleDashed className="h-3 w-3" />
-      Not Assessed
+      {t("classes.statusBadge.notAssessed")}
     </span>
   );
 }
@@ -86,10 +90,12 @@ export function GradesTable({
   onClassClick,
   children,
 }: GradesTableProps) {
+  const t = useT();
+
   if (grades.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-sm text-muted-foreground">No grade data yet. Tap Refresh to check.</p>
+        <p className="text-sm text-muted-foreground">{t("classes.empty")}</p>
       </div>
     );
   }
@@ -99,7 +105,9 @@ export function GradesTable({
   return (
     <div className="space-y-3">
       <div className="flex justify-end px-1">
-        <p className="text-xs text-muted-foreground">{grades.length} total</p>
+        <p className="text-xs text-muted-foreground">
+          {t("classes.totalCount", { count: grades.length })}
+        </p>
       </div>
 
       <div className="space-y-1.5">

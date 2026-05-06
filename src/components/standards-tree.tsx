@@ -1,3 +1,5 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import {
   BookX,
@@ -9,6 +11,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { useMemo } from "react";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import {
   type AssignmentAttention,
   type AttentionConfig,
@@ -16,6 +19,7 @@ import {
   DEFAULT_ATTENTION_CONFIG,
   type StandardAttentionNode as EngineStandardNode,
 } from "@/lib/core/attention-engine";
+import { formatPortalDate } from "@/lib/i18n";
 import type { Assignment, ClassDetails, Standard } from "@/lib/scraper/types";
 
 interface StandardsTreeProps {
@@ -57,6 +61,8 @@ function AssignmentRow({
   assignment: Assignment;
   attention: AssignmentAttention;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const { icon: Icon, className: iconClass } = resolveAssignmentIcon(assignment, attention);
 
   // One uniform row container for every state. The icon (resolved above) +
@@ -82,10 +88,10 @@ function AssignmentRow({
           {assignment.dueDate && (
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {assignment.dueDate}
+              {formatPortalDate(locale, assignment.dueDate)}
             </span>
           )}
-          <span className={tagClasses}>Missing</span>
+          <span className={tagClasses}>{t("classes.assignment.missing")}</span>
         </div>
       </div>
     );
@@ -103,7 +109,7 @@ function AssignmentRow({
         {assignment.dueDate && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {assignment.dueDate}
+            {formatPortalDate(locale, assignment.dueDate)}
           </span>
         )}
         {hasGrade ? (
@@ -120,7 +126,9 @@ function AssignmentRow({
             )}
           </>
         ) : (
-          <span className="text-[11px] italic text-muted-foreground">Not graded</span>
+          <span className="text-[11px] italic text-muted-foreground">
+            {t("classes.assignment.notGraded")}
+          </span>
         )}
       </div>
     </div>
@@ -136,6 +144,7 @@ function StandardNode({
   attention: EngineStandardNode;
   depth: number;
 }) {
+  const t = useT();
   const hasContent = standard.assignments.length > 0 || standard.children.length > 0;
   const { status, agedOutOnly } = attention.flag;
 
@@ -143,14 +152,14 @@ function StandardNode({
   // meeting dimension.  This icon carries OUR attention dimension (per Q25).
   let Icon = CheckCircle2;
   let iconClass = "text-meeting";
-  let iconTitle = "All clear";
+  let iconTitle = t("classes.iconTitle.allClear");
   if (status === "attention") {
     Icon = CircleAlert;
     iconClass = "text-attention";
-    iconTitle = "Needs attention";
+    iconTitle = t("classes.iconTitle.needsAttention");
   } else if (agedOutOnly) {
     iconClass = "text-muted-foreground";
-    iconTitle = "Older items (resolved)";
+    iconTitle = t("classes.iconTitle.olderResolved");
   }
 
   return (
@@ -203,7 +212,9 @@ function StandardNode({
       )}
 
       {!hasContent && (
-        <p className="ml-5 py-1 text-[11px] italic text-muted-foreground">(no assignments yet)</p>
+        <p className="ml-5 py-1 text-[11px] italic text-muted-foreground">
+          {t("classes.standardEmpty")}
+        </p>
       )}
     </div>
   );
@@ -214,6 +225,7 @@ export function StandardsTree({
   isLoading,
   attentionCfg = DEFAULT_ATTENTION_CONFIG,
 }: StandardsTreeProps) {
+  const t = useT();
   // Compute attention unconditionally — hook rules require it above any
   // early-returns.  `null` when detail isn't ready yet.
   const attention = useMemo(
@@ -224,7 +236,7 @@ export function StandardsTree({
   if (isLoading) {
     return (
       <div className="px-4 py-4">
-        <p className="text-[12px] text-muted-foreground">Loading details...</p>
+        <p className="text-[12px] text-muted-foreground">{t("classes.standardsLoading")}</p>
       </div>
     );
   }
@@ -233,7 +245,7 @@ export function StandardsTree({
     return (
       <div className="flex items-center gap-2 px-4 py-4">
         <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <p className="text-[12px] text-muted-foreground">No standards data available.</p>
+        <p className="text-[12px] text-muted-foreground">{t("classes.standardsEmpty")}</p>
       </div>
     );
   }
@@ -241,7 +253,7 @@ export function StandardsTree({
   if (detail.standards.length === 0) {
     return (
       <div className="px-4 py-4">
-        <p className="text-[12px] text-muted-foreground">No standards data available.</p>
+        <p className="text-[12px] text-muted-foreground">{t("classes.standardsEmpty")}</p>
       </div>
     );
   }

@@ -5,25 +5,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
+import { useT } from "@/components/shell/locale-provider";
 import { SidebarChildSelector } from "@/components/shell/sidebar-child-selector";
 import { Button } from "@/components/ui/button";
 import { getSettingBool, setSettingBool } from "@/lib/ipc";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: ComponentType<{ className?: string }>;
 }
 
 const PRIMARY_NAV: readonly NavItem[] = [
-  { href: "/", label: "Today", icon: Home },
-  { href: "/classes", label: "Classes", icon: BookOpen },
-  { href: "/history", label: "History", icon: History },
+  { href: "/", labelKey: "shell.sidebar.today", icon: Home },
+  { href: "/classes", labelKey: "shell.sidebar.classes", icon: BookOpen },
+  { href: "/history", labelKey: "shell.sidebar.history", icon: History },
 ];
 
 const UTILITY_NAV: readonly NavItem[] = [
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/about", label: "About", icon: Info },
+  { href: "/settings", labelKey: "shell.sidebar.settings", icon: Settings },
+  { href: "/about", labelKey: "shell.sidebar.about", icon: Info },
 ];
 
 function isActive(pathname: string | null, href: string): boolean {
@@ -41,11 +42,13 @@ function NavLink({
   active: boolean;
   collapsed: boolean;
 }) {
+  const t = useT();
   const Icon = item.icon;
+  const label = t(item.labelKey);
   return (
     <Link
       href={item.href}
-      title={collapsed ? item.label : undefined}
+      title={collapsed ? label : undefined}
       className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
         active
           ? "bg-secondary font-medium text-foreground"
@@ -53,12 +56,13 @@ function NavLink({
       }`}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span>{item.label}</span>}
+      {!collapsed && <span>{label}</span>}
     </Link>
   );
 }
 
 export function Sidebar() {
+  const t = useT();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -87,7 +91,7 @@ export function Sidebar() {
               className="text-[13px] font-semibold tracking-tight"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              Companion
+              {t("shell.brand.companion")}
             </span>
           </div>
         )}
@@ -102,7 +106,7 @@ export function Sidebar() {
             })
           }
           className="h-7 w-7 shrink-0"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("shell.sidebar.expand") : t("shell.sidebar.collapse")}
         >
           <PanelLeft className="h-3.5 w-3.5" />
         </Button>

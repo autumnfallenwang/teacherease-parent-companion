@@ -195,7 +195,7 @@ describe("login", () => {
       login(DUMMY_BASE, DUMMY_CREDS, fetchImpl as unknown as typeof fetch),
     ).rejects.toMatchObject({
       name: "LoginError",
-      message: expect.stringContaining("Double-check"),
+      code: "badCredentials",
     });
   });
 
@@ -228,7 +228,8 @@ describe("login", () => {
       login(DUMMY_BASE, DUMMY_CREDS, fetchImpl as unknown as typeof fetch),
     ).rejects.toMatchObject({
       name: "LoginError",
-      message: expect.stringContaining("500"),
+      code: "unexpectedStatus",
+      status: 500,
     });
   });
 
@@ -239,7 +240,8 @@ describe("login", () => {
       login(DUMMY_BASE, DUMMY_CREDS, fetchImpl as unknown as typeof fetch),
     ).rejects.toMatchObject({
       name: "LoginError",
-      message: expect.stringContaining("503"),
+      code: "loginPageFetchFailed",
+      status: 503,
     });
   });
 });

@@ -5,6 +5,7 @@
 // Post-Q27: one RefreshDigest in, one multipart email out. Template lives
 // in `./email-templates`; this module is transport glue.
 
+import type { Locale } from "@/lib/i18n";
 import { getSettingBool, getSettingString, getSmtpPassword, sendEmail } from "@/lib/ipc";
 import { renderDigestEmail } from "./email-templates";
 import type { NotifyChannel, RefreshDigest } from "./types";
@@ -44,10 +45,10 @@ export class EmailChannel implements NotifyChannel {
     return await getSettingBool(`notify.refreshDigest.${this.name}`, DEFAULT_ENABLED);
   }
 
-  async send(digest: RefreshDigest): Promise<void> {
+  async send(digest: RefreshDigest, locale: Locale): Promise<void> {
     const cfg = await loadSmtpConfig();
     if (!cfg) throw new Error("SMTP not configured");
-    const rendered = renderDigestEmail(digest);
+    const rendered = renderDigestEmail(digest, locale);
     await sendEmail({
       host: cfg.host,
       port: cfg.port,

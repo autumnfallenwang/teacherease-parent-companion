@@ -2,7 +2,9 @@
 
 import { AlertTriangle, BookX, ChevronRight, Clock, TrendingDown } from "lucide-react";
 import { useState } from "react";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { type AttentionItem, sortItemsMissingFirst } from "@/lib/core/attention-engine";
+import { formatPortalDate } from "@/lib/i18n";
 
 interface AttentionSectionProps {
   withinWindow: AttentionItem[];
@@ -10,6 +12,7 @@ interface AttentionSectionProps {
 }
 
 function AttentionRow({ item }: { item: AttentionItem }) {
+  const locale = useLocale();
   const { assignment, reason, className, withinWindow } = item;
   const isMissing = reason === "missing";
 
@@ -47,7 +50,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
         {assignment.dueDate && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {assignment.dueDate}
+            {formatPortalDate(locale, assignment.dueDate)}
           </span>
         )}
       </div>
@@ -56,6 +59,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
 }
 
 export function AttentionSection({ withinWindow, agedOut }: AttentionSectionProps) {
+  const t = useT();
   const recent = sortItemsMissingFirst(withinWindow);
   const older = sortItemsMissingFirst(agedOut);
   const totalCount = recent.length + older.length;
@@ -68,7 +72,7 @@ export function AttentionSection({ withinWindow, agedOut }: AttentionSectionProp
       <div className="flex items-center gap-2 px-1">
         <AlertTriangle className="h-4 w-4 text-attention" />
         <h2 className="text-lg font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-          Attention
+          {t("today.attention.heading")}
         </h2>
         <span className="ml-auto rounded-full bg-attention/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-attention-foreground">
           {totalCount}
@@ -78,7 +82,9 @@ export function AttentionSection({ withinWindow, agedOut }: AttentionSectionProp
       {/* Within forgiveness window — expanded by default */}
       {recent.length > 0 && (
         <div className="space-y-1.5">
-          <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">Recent</p>
+          <p className="px-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+            {t("today.attention.recent")}
+          </p>
           {recent.map((item) => (
             <AttentionRow
               key={`${item.className}-${item.assignment.testNameId}-${item.reason}`}
@@ -99,7 +105,7 @@ export function AttentionSection({ withinWindow, agedOut }: AttentionSectionProp
             <ChevronRight
               className={`h-3 w-3 transition-transform duration-200 ${olderExpanded ? "rotate-90" : ""}`}
             />
-            Older ({older.length})
+            {t("today.attention.older", { count: older.length })}
           </button>
           <div
             className="grid transition-[grid-template-rows] duration-200 ease-out"

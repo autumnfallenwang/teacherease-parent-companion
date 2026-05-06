@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useT } from "@/components/shell/locale-provider";
 import { Button } from "@/components/ui/button";
 import { getSettingBool, setSettingBool } from "@/lib/ipc";
 
@@ -32,17 +33,17 @@ export type SettingsTab =
 
 interface SettingsTabItem {
   readonly key: SettingsTab;
-  readonly label: string;
+  readonly labelKey: string;
   readonly icon: LucideIcon;
 }
 
 const TABS: readonly SettingsTabItem[] = [
-  { key: "children", label: "Children", icon: BookUser },
-  { key: "appearance", label: "Appearance", icon: Eye },
-  { key: "attention", label: "Attention", icon: FlagTriangleRight },
-  { key: "fetch", label: "Fetch", icon: Download },
-  { key: "notifications", label: "Notifications", icon: Bell },
-  { key: "advanced", label: "Advanced", icon: SettingsIcon },
+  { key: "children", labelKey: "settings.tabs.children", icon: BookUser },
+  { key: "appearance", labelKey: "settings.tabs.appearance", icon: Eye },
+  { key: "attention", labelKey: "settings.tabs.attention", icon: FlagTriangleRight },
+  { key: "fetch", labelKey: "settings.tabs.fetch", icon: Download },
+  { key: "notifications", labelKey: "settings.tabs.notifications", icon: Bell },
+  { key: "advanced", labelKey: "settings.tabs.advanced", icon: SettingsIcon },
 ];
 
 export function isSettingsTab(value: unknown): value is SettingsTab {
@@ -55,6 +56,7 @@ function tabFromPathname(pathname: string): SettingsTab {
 }
 
 export function SettingsSidebar() {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const activeTab = tabFromPathname(pathname);
@@ -84,7 +86,7 @@ export function SettingsSidebar() {
             className="pl-1 text-[13px] font-semibold tracking-tight"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Settings
+            {t("shell.sidebar.settings")}
           </span>
         )}
         <Button
@@ -98,7 +100,7 @@ export function SettingsSidebar() {
             })
           }
           className="h-7 w-7 shrink-0"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("shell.sidebar.expand") : t("shell.sidebar.collapse")}
         >
           <PanelLeft className="h-3.5 w-3.5" />
         </Button>
@@ -108,23 +110,24 @@ export function SettingsSidebar() {
         <button
           type="button"
           onClick={handleBack}
-          title={collapsed ? "Back" : undefined}
+          title={collapsed ? t("shell.sidebar.back") : undefined}
           className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Back</span>}
+          {!collapsed && <span>{t("shell.sidebar.back")}</span>}
         </button>
       </nav>
 
       <nav className="flex flex-col gap-0.5 px-2 py-1">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = t.key === activeTab;
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const active = tab.key === activeTab;
+          const label = t(tab.labelKey);
           return (
             <Link
-              key={t.key}
-              href={`/settings/${t.key}`}
-              title={collapsed ? t.label : undefined}
+              key={tab.key}
+              href={`/settings/${tab.key}`}
+              title={collapsed ? label : undefined}
               className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                 active
                   ? "bg-secondary font-medium text-foreground"
@@ -132,7 +135,7 @@ export function SettingsSidebar() {
               }`}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{t.label}</span>}
+              {!collapsed && <span>{label}</span>}
             </Link>
           );
         })}

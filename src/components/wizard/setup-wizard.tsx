@@ -8,14 +8,16 @@
 import { Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/components/shell/locale-provider";
 import { Button } from "@/components/ui/button";
 import { log, logErr, quitApp, setSettingString } from "@/lib/ipc";
-import { APP_NAME, DISCLAIMER_FULL, PRIVACY_NOTICE, REPO_URL, RESPONSIBLE_USE } from "@/lib/legal";
+import { APP_NAME, REPO_URL } from "@/lib/legal";
 
 const QUICKSTART_URL = `${REPO_URL}#quick-start`;
 const ACK_KEY = "wizard.disclaimerAcknowledgedAt";
 
 export function SetupWizard() {
+  const t = useT();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -53,35 +55,41 @@ export function SetupWizard() {
           </div>
           <div className="min-w-0">
             <h1 className="text-[18px] font-medium" style={{ fontFamily: "var(--font-heading)" }}>
-              Welcome to {APP_NAME}
+              {t("wizard.welcome", { appName: APP_NAME })}
             </h1>
-            <p className="text-[12px] text-muted-foreground">
-              Please read and acknowledge before continuing.
-            </p>
+            <p className="text-[12px] text-muted-foreground">{t("wizard.subtitle")}</p>
           </div>
         </div>
 
         <div className="max-h-[50vh] space-y-4 overflow-y-auto rounded-lg border border-border bg-secondary/20 p-4 text-[13px] leading-relaxed">
-          <DisclaimerBlock title="Disclaimer" body={DISCLAIMER_FULL} />
-          <DisclaimerBlock title="Privacy" body={PRIVACY_NOTICE} />
-          <DisclaimerBlock title="Responsible use" body={RESPONSIBLE_USE} />
+          <DisclaimerBlock
+            title={t("wizard.disclaimer.heading")}
+            body={t("wizard.disclaimer.full")}
+          />
+          <DisclaimerBlock
+            title={t("wizard.disclaimer.privacyHeading")}
+            body={t("wizard.disclaimer.privacy")}
+          />
+          <DisclaimerBlock
+            title={t("wizard.disclaimer.responsibleHeading")}
+            body={t("wizard.disclaimer.responsibleUse")}
+          />
         </div>
 
         <p className="text-[12px] text-muted-foreground">
-          New here?{" "}
           <a
             href={QUICKSTART_URL}
             target="_blank"
             rel="noreferrer noopener"
             className="text-primary underline-offset-4 hover:underline"
           >
-            Read the quick start →
+            {t("common.readQuickStart")}
           </a>
         </p>
 
         <div className="flex items-center justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={handleQuit}>
-            Quit
+            {t("wizard.quit")}
           </Button>
           <Button
             type="button"
@@ -91,7 +99,7 @@ export function SetupWizard() {
               void handleAcknowledge();
             }}
           >
-            {busy ? "Saving…" : "I understand — continue"}
+            {busy ? t("wizard.saving") : t("wizard.continue")}
           </Button>
         </div>
       </div>

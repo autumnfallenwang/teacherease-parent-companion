@@ -3,6 +3,7 @@
 // does not prevent the next channel from running. Deps are injected so
 // the router is unit-testable without Tauri (mirrors FetchRunner's pattern).
 
+import type { Locale } from "@/lib/i18n";
 import type { NotifyChannel, NotifyRouterDeps, RefreshDigest } from "./types";
 
 export class NotifyRouter {
@@ -11,11 +12,11 @@ export class NotifyRouter {
     private readonly deps: NotifyRouterDeps,
   ) {}
 
-  async dispatch(digest: RefreshDigest): Promise<void> {
+  async dispatch(digest: RefreshDigest, locale: Locale): Promise<void> {
     for (const ch of this.channels) {
       if (!(await ch.isEnabled(digest))) continue;
       try {
-        await ch.send(digest);
+        await ch.send(digest, locale);
         await this.deps.log(`notify: ${ch.name} ${digest.type} sent`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "unknown";

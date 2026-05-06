@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AttentionSection } from "@/components/attention-section";
 import { EmptyState } from "@/components/empty-state";
 import { HomeworkTodaySections } from "@/components/homework-card";
+import { useT } from "@/components/shell/locale-provider";
 import { PageHeader } from "@/components/shell/page-header";
 import { CHILD_DATA_REFRESHED_EVENT } from "@/components/shell/sidebar-child-selector";
 import { StatusHero } from "@/components/status-hero";
@@ -43,6 +44,7 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function Dashboard() {
+  const t = useT();
   const { selectedChildId: childId, setSelectedChildId } = useSelectedChild();
   const [allChildren, setAllChildren] = useState<ChildRecord[]>([]);
   const [lastFetchRun, setLastFetchRun] = useState<FetchRunRecord | null>(null);
@@ -141,7 +143,7 @@ export function Dashboard() {
   if (childId === null && allChildren.length === 0) {
     return (
       <>
-        <PageHeader title="Today" />
+        <PageHeader title={t("today.title")} />
         <div className="flex flex-1 flex-col">
           <EmptyState />
         </div>
@@ -152,11 +154,11 @@ export function Dashboard() {
   return (
     <>
       <PageHeader
-        title="Today"
+        title={t("today.title")}
         actions={
           lastFetchRun?.runAt ? (
             <span className="text-[11px] text-muted-foreground">
-              Checked {formatTimeAgo(lastFetchRun.runAt)}
+              {t("today.checked", { time: formatTimeAgo(lastFetchRun.runAt) })}
             </span>
           ) : null
         }
@@ -178,7 +180,7 @@ export function Dashboard() {
             href="/classes"
             className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
-            View all classes →
+            {t("today.viewAllClasses")}
           </Link>
         </div>
       </div>

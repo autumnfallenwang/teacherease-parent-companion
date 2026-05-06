@@ -51,11 +51,17 @@ export const FONT_SIZE_DEFAULT = 1.0;
 
 // Named presets. Small is the baseline (1.0) so a fresh install looks exactly
 // like the original no-preference experience. Medium bumps to a comfortably
-// larger size; Large is an actually-large reading size.
-export const FONT_SIZE_PRESETS: ReadonlyArray<{ value: number; label: string }> = [
-  { value: 1.0, label: "Small" },
-  { value: 1.15, label: "Medium" },
-  { value: 1.3, label: "Large" },
+// larger size; Large is an actually-large reading size. `label` is the
+// English fallback used by tests; `labelKey` flows through `t()` for the
+// translated UI label (Phase 32 / B3).
+export const FONT_SIZE_PRESETS: ReadonlyArray<{
+  value: number;
+  label: string;
+  labelKey: string;
+}> = [
+  { value: 1.0, label: "Small", labelKey: "settings.appearance.size.small" },
+  { value: 1.15, label: "Medium", labelKey: "settings.appearance.size.medium" },
+  { value: 1.3, label: "Large", labelKey: "settings.appearance.size.large" },
 ];
 
 /**

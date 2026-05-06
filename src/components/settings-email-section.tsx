@@ -8,6 +8,7 @@
 import { Loader2, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,7 @@ async function loadConfig(): Promise<LoadedConfig> {
 }
 
 export function SettingsEmailSection() {
+  const t = useT();
   const [config, setConfig] = useState<LoadedConfig | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -101,7 +103,7 @@ export function SettingsEmailSection() {
   if (!config) {
     return (
       <div className="rounded-lg bg-card px-4 py-3 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        Loading…
+        {t("common.loading")}
       </div>
     );
   }
@@ -139,11 +141,11 @@ export function SettingsEmailSection() {
       <div className="divide-y divide-border rounded-lg border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className={`flex items-center gap-4 px-4 py-3 ${configured ? "" : "opacity-60"}`}>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium">Email digest</p>
+            <p className="text-[13px] font-medium">{t("settings.email.digest.title")}</p>
             <p className="text-[12px] text-muted-foreground">
               {configured
-                ? "Send the daily digest through the SMTP server above."
-                : "Set up SMTP above to enable."}
+                ? t("settings.email.digest.descConfigured")
+                : t("settings.email.digest.descNotConfigured")}
             </p>
           </div>
           <Switch
@@ -152,7 +154,7 @@ export function SettingsEmailSection() {
             onChange={(next) => {
               void toggleDigest(next);
             }}
-            aria-label="Email digest enabled"
+            aria-label={t("settings.email.digest.aria")}
           />
         </div>
       </div>
@@ -167,12 +169,13 @@ interface SmtpSummaryCardProps {
 }
 
 function SmtpSummaryCard({ config, configured, onEdit }: SmtpSummaryCardProps) {
+  const t = useT();
   const summary = configured
     ? `${config.host} · ${config.from} → ${config.to.filter(Boolean).join(", ")}`
-    : "No email configured";
+    : t("settings.email.summary.notConfigured");
   const detail = configured
-    ? "SMTP server + recipients. Click Update to change."
-    : "Send the daily digest to one or more inboxes.";
+    ? t("settings.email.summary.detailConfigured")
+    : t("settings.email.summary.detailNotConfigured");
   return (
     <div className="rounded-lg bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex items-center gap-3">
@@ -185,7 +188,7 @@ function SmtpSummaryCard({ config, configured, onEdit }: SmtpSummaryCardProps) {
         </div>
         <Button variant="ghost" size="sm" className="h-8 gap-1 px-2 text-[12px]" onClick={onEdit}>
           <Pencil className="h-3 w-3" />
-          {configured ? "Update" : "Set up email"}
+          {configured ? t("settings.email.summary.update") : t("settings.email.summary.setup")}
         </Button>
       </div>
     </div>
@@ -217,6 +220,8 @@ function makeRow(value: string): ToRow {
 }
 
 function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
+  const t = useT();
+  const locale = useLocale();
   const [host, setHost] = useState(initial.host);
   const [port, setPort] = useState(initial.port);
   const [username, setUsername] = useState(initial.username);
@@ -232,19 +237,19 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
 
   const validate = (): boolean => {
     const next: Partial<Record<string, string>> = {};
-    if (!host.trim()) next.host = "Required.";
+    if (!host.trim()) next.host = t("settings.email.error.required");
     const p = Number.parseInt(port, 10);
-    if (!Number.isFinite(p) || p <= 0 || p > 65535) next.port = "Enter a port between 1 and 65535.";
-    if (!username.trim()) next.username = "Required.";
-    if (!initial.hasSavedPassword && !password) next.password = "Required.";
-    if (!from.trim() || !from.includes("@")) next.from = "Enter an email address.";
+    if (!Number.isFinite(p) || p <= 0 || p > 65535) next.port = t("settings.email.error.port");
+    if (!username.trim()) next.username = t("settings.email.error.required");
+    if (!initial.hasSavedPassword && !password) next.password = t("settings.email.error.required");
+    if (!from.trim() || !from.includes("@")) next.from = t("settings.email.error.email");
     const toProblems: Record<string, string | undefined> = {};
     const nonEmpty = to.filter((r) => r.value.trim().length > 0);
     if (nonEmpty.length === 0) {
-      toProblems[to[0]?.id ?? "to-0"] = "Enter at least one recipient.";
+      toProblems[to[0]?.id ?? "to-0"] = t("settings.email.error.atLeastOne");
     } else {
       for (const row of nonEmpty) {
-        if (!row.value.trim().includes("@")) toProblems[row.id] = "Enter an email address.";
+        if (!row.value.trim().includes("@")) toProblems[row.id] = t("settings.email.error.email");
       }
     }
     setErrors(next);
@@ -271,17 +276,20 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
       if (sendTestOnSave) {
         setStatus({ kind: "sending" });
         try {
-          await new EmailChannel().send(buildSyntheticDigest());
+          await new EmailChannel().send(buildSyntheticDigest(), locale);
           await log("settings: smtp save + test email sent");
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Unknown error";
           await logErr(`settings: smtp save ok, test email failed: ${msg}`);
-          setStatus({ kind: "err", message: `Saved, but test email failed: ${msg}` });
+          setStatus({
+            kind: "err",
+            message: t("settings.email.form.savedTestFailed", { msg }),
+          });
           return;
         }
       }
 
-      setStatus({ kind: "ok", message: "Saved." });
+      setStatus({ kind: "ok", message: t("settings.email.form.savedOk") });
       setTimeout(() => {
         void onDone();
       }, 600);
@@ -307,21 +315,18 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
   return (
     <div className="space-y-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div>
-        <h2 className="text-[14px] font-medium">SMTP server</h2>
-        <p className="text-[12px] text-muted-foreground">
-          BYO SMTP — we never relay through a server. Password stays on this computer, in the app's
-          local database.
-        </p>
+        <h2 className="text-[14px] font-medium">{t("settings.email.form.heading")}</h2>
+        <p className="text-[12px] text-muted-foreground">{t("settings.email.form.byo")}</p>
       </div>
 
       <div className="grid grid-cols-[1fr_100px] gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="smtp-host" className="text-[13px]">
-            Host
+            {t("settings.email.form.host")}
           </Label>
           <Input
             id="smtp-host"
-            placeholder="smtp.gmail.com"
+            placeholder={t("settings.email.form.placeholderHost")}
             value={host}
             onChange={(e) => setHost(e.target.value)}
             aria-invalid={Boolean(errors.host)}
@@ -331,12 +336,12 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="smtp-port" className="text-[13px]">
-            Port
+            {t("settings.email.form.port")}
           </Label>
           <Input
             id="smtp-port"
             type="number"
-            placeholder="587"
+            placeholder={t("settings.email.form.placeholderPort")}
             value={port}
             onChange={(e) => setPort(e.target.value)}
             aria-invalid={Boolean(errors.port)}
@@ -348,11 +353,11 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="smtp-username" className="text-[13px]">
-          Username
+          {t("settings.email.form.username")}
         </Label>
         <Input
           id="smtp-username"
-          placeholder="you@gmail.com"
+          placeholder={t("settings.email.form.placeholderUsername")}
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           aria-invalid={Boolean(errors.username)}
@@ -363,13 +368,15 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="smtp-password" className="text-[13px]">
-          Password
+          {t("settings.email.form.password")}
         </Label>
         <Input
           id="smtp-password"
           type="password"
           placeholder={
-            initial.hasSavedPassword ? "Keep existing (type to replace)" : "App password"
+            initial.hasSavedPassword
+              ? t("settings.email.form.placeholderPasswordKeep")
+              : t("settings.email.form.placeholderPasswordNew")
           }
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -381,12 +388,12 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="smtp-from" className="text-[13px]">
-          From
+          {t("settings.email.form.from")}
         </Label>
         <Input
           id="smtp-from"
           type="email"
-          placeholder="you@gmail.com"
+          placeholder={t("settings.email.form.placeholderFrom")}
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           aria-invalid={Boolean(errors.from)}
@@ -396,13 +403,13 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-[13px]">To</Label>
+        <Label className="text-[13px]">{t("settings.email.form.to")}</Label>
         {to.map((row) => (
           <div key={row.id} className="space-y-1">
             <div className="flex items-center gap-2">
               <Input
                 type="email"
-                placeholder="family@example.com"
+                placeholder={t("settings.email.form.placeholderRecipient")}
                 value={row.value}
                 onChange={(e) => updateRecipient(row.id, e.target.value)}
                 aria-invalid={Boolean(toErrors[row.id])}
@@ -415,7 +422,7 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
                 className="h-9 w-9"
                 disabled={to.length <= 1}
                 onClick={() => removeRecipient(row.id)}
-                aria-label="Remove recipient"
+                aria-label={t("settings.email.form.removeRecipientAria")}
               >
                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
               </Button>
@@ -431,7 +438,7 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
           onClick={addRecipient}
         >
           <Plus className="h-3 w-3" />
-          Add recipient
+          {t("settings.email.form.addRecipient")}
         </Button>
       </div>
 
@@ -439,9 +446,9 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
         <Switch
           checked={sendTestOnSave}
           onChange={setSendTestOnSave}
-          aria-label="Send test email after save"
+          aria-label={t("settings.email.form.sendTestAria")}
         />
-        <span className="text-[13px]">Send test email after save</span>
+        <span className="text-[13px]">{t("settings.email.form.sendTestToggle")}</span>
       </div>
 
       <div className="flex items-center gap-3 pt-2">
@@ -449,33 +456,33 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
           {status.kind === "saving" && (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Saving…
+              {t("settings.email.form.saving")}
             </>
           )}
           {status.kind === "sending" && (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Sending test…
+              {t("settings.email.form.sendingTest")}
             </>
           )}
           {status.kind !== "saving" &&
             status.kind !== "sending" &&
-            (sendTestOnSave ? "Save & send test email" : "Save")}
+            (sendTestOnSave ? t("settings.email.form.saveAndTest") : t("settings.email.form.save"))}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={inFlight}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         {status.kind === "ok" && <p className="text-[12px] text-meeting">{status.message}</p>}
         {status.kind === "err" && <p className="text-[12px] text-destructive">{status.message}</p>}
       </div>
 
       <p className="pt-1 text-[11px] text-muted-foreground">
-        For Gmail, use an App Password (2-step verification required).{" "}
+        {t("settings.email.form.gmailHint")}{" "}
         <Link
           href="/gmail-app-password"
           className="text-primary underline-offset-4 hover:underline"
         >
-          Setup guide →
+          {t("settings.email.form.gmailHintLink")}
         </Link>
       </p>
     </div>

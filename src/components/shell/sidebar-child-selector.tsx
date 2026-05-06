@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "@/components/shell/locale-provider";
 import {
   parseChildId,
   SELECTED_CHILD_KEY,
@@ -13,6 +14,7 @@ import type { ChildRecord } from "@/lib/scraper/types";
 export const CHILD_DATA_REFRESHED_EVENT = "child-data-refreshed";
 
 export function SidebarChildSelector({ collapsed }: { collapsed: boolean }) {
+  const t = useT();
   const { selectedChildId, setSelectedChildId } = useSelectedChild();
   const [children, setChildren] = useState<ChildRecord[]>([]);
 
@@ -65,7 +67,7 @@ export function SidebarChildSelector({ collapsed }: { collapsed: boolean }) {
       <div className="mx-3 my-2 h-px bg-border/60" aria-hidden="true" />
       <div className="px-2">
         <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Viewing
+          {t("shell.sidebar.viewing")}
         </p>
         <div className="space-y-0.5">
           {children.map((c) => {
