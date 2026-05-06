@@ -167,7 +167,7 @@ describe("EmailChannel.send", () => {
     const digest = makeDigest({ children: [childA, childB] });
 
     const ch = new EmailChannel();
-    await ch.send(digest);
+    await ch.send(digest, "en");
 
     const call = vi.mocked(ipc.sendEmail).mock.calls[0]?.[0];
     expect(call).toBeDefined();
@@ -202,7 +202,7 @@ describe("EmailChannel.send", () => {
     const digest = makeDigest({ children: [childA] });
 
     const ch = new EmailChannel();
-    await ch.send(digest);
+    await ch.send(digest, "en");
 
     const call = vi.mocked(ipc.sendEmail).mock.calls[0]?.[0];
     // Single-child digest → subject names the child (B-10).
@@ -238,7 +238,7 @@ describe("EmailChannel.send", () => {
     const digest = makeDigest({ children: [childA], failures });
 
     const ch = new EmailChannel();
-    await ch.send(digest);
+    await ch.send(digest, "en");
 
     const call = vi.mocked(ipc.sendEmail).mock.calls[0]?.[0];
     expect(call?.subject).not.toContain("fetch failed");
@@ -271,7 +271,7 @@ describe("EmailChannel.send", () => {
     const digest = makeDigest({ children: [childA] });
 
     const ch = new EmailChannel();
-    await ch.send(digest);
+    await ch.send(digest, "en");
 
     const call = vi.mocked(ipc.sendEmail).mock.calls[0]?.[0];
     expect(call?.htmlBody).not.toContain("Homework for today");
@@ -296,7 +296,7 @@ describe("EmailChannel.send", () => {
     const digest = makeDigest({ children: [childA] });
 
     const ch = new EmailChannel();
-    await ch.send(digest);
+    await ch.send(digest, "en");
 
     const call = vi.mocked(ipc.sendEmail).mock.calls[0]?.[0];
     expect(call?.htmlBody).toContain("&lt;Mal&gt;");
@@ -306,12 +306,12 @@ describe("EmailChannel.send", () => {
   it("throws when SMTP is not configured at send time", async () => {
     mockSmtpUnconfigured();
     const ch = new EmailChannel();
-    await expect(ch.send(emptyDigest())).rejects.toThrow("SMTP not configured");
+    await expect(ch.send(emptyDigest(), "en")).rejects.toThrow("SMTP not configured");
   });
 
   it("propagates sendEmail failures so the router can catch them", async () => {
     vi.mocked(ipc.sendEmail).mockRejectedValue(new Error("auth failed"));
     const ch = new EmailChannel();
-    await expect(ch.send(emptyDigest())).rejects.toThrow("auth failed");
+    await expect(ch.send(emptyDigest(), "en")).rejects.toThrow("auth failed");
   });
 });

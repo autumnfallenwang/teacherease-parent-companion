@@ -24,9 +24,30 @@ import {
 import { validateHomeworkUrl } from "@/lib/scraper/homework-validator";
 import { login } from "@/lib/scraper/teacherease";
 import type { ChildRecord } from "@/lib/scraper/types";
+import { HomeworkUrlError, LoginError } from "@/lib/scraper/types";
 
 function notifyChildDataRefreshed() {
   window.dispatchEvent(new CustomEvent(CHILD_DATA_REFRESHED_EVENT));
+}
+
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+/**
+ * Maps a thrown scraper error to a localized string. Unknown errors fall
+ * through to the caller-supplied fallback. Phase 32 / B3.
+ */
+function describeScraperError(err: unknown, t: TFn, fallbackKey: string): string {
+  if (err instanceof LoginError) {
+    return t(`errors.scraper.login.${err.code}`, err.status ? { status: err.status } : undefined);
+  }
+  if (err instanceof HomeworkUrlError) {
+    return t(
+      `errors.scraper.homework.${err.code}`,
+      err.status ? { status: err.status } : undefined,
+    );
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return t(fallbackKey);
 }
 
 interface EditChildChanges {
@@ -293,7 +314,7 @@ function EditChildForm({
       await onDone();
     } catch (err) {
       await logErr(`settings: edit child failed ${err instanceof Error ? err.message : "unknown"}`);
-      setError(err instanceof Error ? err.message : t("settings.children.error.saveFailed"));
+      setError(describeScraperError(err, t, "settings.children.error.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -418,7 +439,7 @@ function AddChildForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCan
       await onDone();
     } catch (err) {
       await logErr(`settings: add child failed ${err instanceof Error ? err.message : "unknown"}`);
-      setError(err instanceof Error ? err.message : t("settings.children.error.loginFailed"));
+      setError(describeScraperError(err, t, "settings.children.error.loginFailed"));
     } finally {
       setIsValidating(false);
     }

@@ -82,3 +82,57 @@ export function formatDateTime(
 ): string {
   return date.toLocaleString(locale, opts);
 }
+
+/**
+ * Format a portal date that may arrive as ISO ("2026-05-04"), "M/D" /
+ * "MM/DD", or a full Date-parseable string. Falls back to the raw string
+ * when unparseable. Used by attention rows + standards-tree where
+ * `assignment.dueDate` arrives as whatever the portal exposed.
+ *
+ * Per Q37 amendment, portal *values* are verbatim, but date *format*
+ * follows the active locale. So 5/4 → "lun 5/4" (Spanish), "5月4日"
+ * (Chinese), "Mon · May 4" (English).
+ */
+export function formatPortalDate(locale: Locale, raw: string | null | undefined): string {
+  if (!raw) return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const md = trimmed.match(/^(\d{1,2})\/(\d{1,2})$/);
+  let parsed: Date | null = null;
+  if (md) {
+    const month = Number.parseInt(md[1] ?? "0", 10) - 1;
+    const day = Number.parseInt(md[2] ?? "0", 10);
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      parsed = new Date(new Date().getFullYear(), month, day);
+    }
+  } else {
+    const d = new Date(trimmed);
+    parsed = Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (!parsed) return trimmed;
+  return formatDate(locale, parsed, { month: "short", day: "numeric" });
+}
+
+/**
+ * Relative-time formatter for "in 2h" / "due now" / "in 5m" prose. Used by
+ * Settings → Fetch and Settings → Notifications next-run chips. Returns ""
+ * for null / NaN inputs (rendering decision: callers display nothing).
+ *
+ * Phase 32 / B3: replaced the duplicate copies that lived in
+ * `settings-fetch.tsx` and `settings-notifications.tsx`. Compact format
+ * ("in 5m") is not standard `Intl.RelativeTimeFormat` output, so this stays
+ * template-based with catalog keys instead of the Intl API.
+ */
+export function formatRelative(locale: Locale, iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const ms = d.getTime() - Date.now();
+  if (ms <= 0) return translate(locale, "time.relative.now");
+  const mins = Math.round(ms / 60_000);
+  if (mins < 60) return translate(locale, "time.relative.minutes", { count: mins });
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) return translate(locale, "time.relative.hours", { count: h });
+  return translate(locale, "time.relative.hoursAndMinutes", { h, m });
+}

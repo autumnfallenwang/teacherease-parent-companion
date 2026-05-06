@@ -6,6 +6,7 @@
 // summary; Email → detailed per-child breakdown.
 
 import type { AttentionItem } from "@/lib/core/attention-engine";
+import type { Locale } from "@/lib/i18n";
 import type { HomeworkRecord } from "@/lib/ipc";
 
 export interface DigestFailure {
@@ -73,8 +74,10 @@ export interface NotifyChannel {
   readonly name: string;
   /** Channel-level gate: OS permission, SMTP configured, per-channel user toggle. */
   isEnabled(digest: RefreshDigest): Promise<boolean>;
-  /** Deliver the digest. Throws on failure — router catches and logs. */
-  send(digest: RefreshDigest): Promise<void>;
+  /** Deliver the digest. Throws on failure — router catches and logs.
+   *  `locale` is resolved once per cycle by the scheduler from `ui.language`
+   *  and threaded through the channel for every translated string. */
+  send(digest: RefreshDigest, locale: Locale): Promise<void>;
 }
 
 export interface NotifyRouterDeps {

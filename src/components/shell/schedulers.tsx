@@ -6,6 +6,7 @@
 
 import { useEffect } from "react";
 import { runFetchCycle } from "@/lib/fetch/cycle";
+import { LANGUAGE_SETTING_DEFAULT, LANGUAGE_SETTING_KEY, resolveLocale } from "@/lib/i18n";
 import {
   getChildren,
   getLatestSuccessfulFetchRun,
@@ -61,7 +62,17 @@ async function runNotifyCycle(): Promise<void> {
     await log("notify-cycle: fetch-before-dispatch disabled, reading DB only");
   }
   const digest = await buildDigestFromDb(children, new Date());
-  await buildNotifyRouter().dispatch(digest);
+  // Phase 32 / B3 — resolve locale once per cycle from `ui.language` so the
+  // notify pipeline (email + OS) renders in the user's chosen language.
+  // Falls through to English when the catalog lacks a key (translate's
+  // built-in fallback chain).
+  const langSetting = await getSettingString(LANGUAGE_SETTING_KEY, LANGUAGE_SETTING_DEFAULT);
+  const locale = resolveLocale(
+    langSetting === "system" || langSetting === "en" || langSetting === "es" || langSetting === "zh"
+      ? langSetting
+      : LANGUAGE_SETTING_DEFAULT,
+  );
+  await buildNotifyRouter().dispatch(digest, locale);
 }
 
 async function shouldColdStartFetch(): Promise<boolean> {

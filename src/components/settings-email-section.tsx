@@ -8,7 +8,7 @@
 import { Loader2, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useT } from "@/components/shell/locale-provider";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -221,6 +221,7 @@ function makeRow(value: string): ToRow {
 
 function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
   const t = useT();
+  const locale = useLocale();
   const [host, setHost] = useState(initial.host);
   const [port, setPort] = useState(initial.port);
   const [username, setUsername] = useState(initial.username);
@@ -275,7 +276,7 @@ function EmailForm({ initial, onDone, onCancel }: EmailFormProps) {
       if (sendTestOnSave) {
         setStatus({ kind: "sending" });
         try {
-          await new EmailChannel().send(buildSyntheticDigest());
+          await new EmailChannel().send(buildSyntheticDigest(), locale);
           await log("settings: smtp save + test email sent");
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Unknown error";

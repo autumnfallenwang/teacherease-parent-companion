@@ -7,10 +7,10 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { type Locale, translate } from "@/lib/i18n";
 import { getSettingBool, log, logWarning } from "@/lib/ipc";
 import type { NotifyChannel, RefreshDigest } from "./types";
 
-const TITLE_PREFIX = "TeacherEase Parent Companion";
 const DEFAULT_ENABLED = true;
 const MAX_LINE_CHARS = 90;
 
@@ -23,23 +23,49 @@ async function ensureNotificationPermission(): Promise<boolean> {
   return granted;
 }
 
-export function buildHeroLine(d: RefreshDigest): string {
+export function buildHeroLine(d: RefreshDigest, locale: Locale): string {
   const soleChildName = d.family.childCount === 1 ? (d.children[0]?.childName ?? null) : null;
   if (d.family.attentionCount > 0) {
-    const w = d.family.attentionCount === 1 ? "class" : "classes";
     if (d.family.childCount <= 1) {
-      const prefix = soleChildName ? `${soleChildName}: ` : "";
-      return `${prefix}${d.family.attentionCount} ${w} need attention`;
+      if (soleChildName) {
+        return translate(
+          locale,
+          d.family.attentionCount === 1
+            ? "notify.os.heroAttentionForChild.one"
+            : "notify.os.heroAttentionForChild.other",
+          { childName: soleChildName, count: d.family.attentionCount },
+        );
+      }
+      return translate(
+        locale,
+        d.family.attentionCount === 1
+          ? "notify.os.heroAttention.one"
+          : "notify.os.heroAttention.other",
+        { count: d.family.attentionCount },
+      );
     }
-    return `${d.family.attentionCount} ${w} need attention across ${d.family.childCount} children`;
+    return translate(
+      locale,
+      d.family.attentionCount === 1
+        ? "notify.os.heroAttentionAcrossChildren.one"
+        : "notify.os.heroAttentionAcrossChildren.other",
+      { count: d.family.attentionCount, childCount: d.family.childCount },
+    );
   }
   if (d.family.childCount > 0) {
     if (d.family.childCount === 1) {
-      return soleChildName ? `${soleChildName}: all caught up` : "All caught up";
+      return soleChildName
+        ? // biome-ignore lint/security/noSecrets: catalog key, not a secret
+          translate(locale, "notify.os.heroAllCaughtUpForChild", { childName: soleChildName })
+        : // biome-ignore lint/security/noSecrets: catalog key, not a secret
+          translate(locale, "notify.os.heroAllCaughtUp");
     }
-    return `All caught up for ${d.family.childCount} children`;
+    // biome-ignore lint/security/noSecrets: catalog key, not a secret
+    return translate(locale, "notify.os.heroAllCaughtUpForChildren", {
+      count: d.family.childCount,
+    });
   }
-  return "Refresh complete";
+  return translate(locale, "notify.os.refreshComplete");
 }
 
 function clip(s: string, max: number = MAX_LINE_CHARS): string {
@@ -47,15 +73,19 @@ function clip(s: string, max: number = MAX_LINE_CHARS): string {
   return `${s.slice(0, max - 1)}…`;
 }
 
-export function buildBody(d: RefreshDigest): string {
+export function buildBody(d: RefreshDigest, locale: Locale): string {
   // Mirrors the Today tab's StatusHero: pure data-driven summary — no
   // mention of fetch success/failure (D-18). Title carries the attention
   // verdict; body carries the numeric counts.
-  if (d.family.childCount === 0) return "Everything's clean.";
+  if (d.family.childCount === 0) return translate(locale, "notify.os.bodyEverythingClean");
   return [
-    `${d.family.meetingCount} meeting`,
-    `${d.family.homeworkForTodayCount} homework for today`,
-    `${d.family.homeworkDueTodayCount} homework due today`,
+    translate(locale, "notify.os.bodyMeeting", { count: d.family.meetingCount }),
+    translate(locale, "notify.os.bodyHomeworkForToday", {
+      count: d.family.homeworkForTodayCount,
+    }),
+    translate(locale, "notify.os.bodyHomeworkDueToday", {
+      count: d.family.homeworkDueTodayCount,
+    }),
   ]
     .map((line) => clip(line))
     .join("\n");
@@ -73,9 +103,10 @@ export class OSChannel implements NotifyChannel {
     return await getSettingBool(`notify.refreshDigest.${this.name}`, DEFAULT_ENABLED);
   }
 
-  async send(digest: RefreshDigest): Promise<void> {
-    const title = `${TITLE_PREFIX}: ${buildHeroLine(digest)}`;
-    const body = buildBody(digest);
+  async send(digest: RefreshDigest, locale: Locale): Promise<void> {
+    const titlePrefix = translate(locale, "notify.os.titlePrefix");
+    const title = `${titlePrefix}: ${buildHeroLine(digest, locale)}`;
+    const body = buildBody(digest, locale);
     await log(
       `notification: digest children=${digest.family.childCount} attention=${digest.family.attentionCount} hwForToday=${digest.family.homeworkForTodayCount} hwDueToday=${digest.family.homeworkDueTodayCount}`,
     );

@@ -56,26 +56,28 @@ describe("buildHeroLine", () => {
     const d = baseDigest({
       family: { childCount: 2, attentionCount: 3 },
     });
-    expect(buildHeroLine(d)).toBe("3 classes need attention across 2 children");
+    expect(buildHeroLine(d, "en")).toBe("3 classes need attention across 2 children");
+    // Sanity: above template uses childCount + count interpolation under
+    // notify.os.heroAttentionAcrossChildren.* keys.
   });
 
   it("uses singular 'class' and single-child phrasing", () => {
     const d = baseDigest({
       family: { childCount: 1, attentionCount: 1 },
     });
-    expect(buildHeroLine(d)).toBe("1 class need attention");
+    expect(buildHeroLine(d, "en")).toBe("1 class needs attention");
   });
 
   it("says 'All caught up' when no attention and some children", () => {
     const d1 = baseDigest({ family: { childCount: 1 } });
-    expect(buildHeroLine(d1)).toBe("All caught up");
+    expect(buildHeroLine(d1, "en")).toBe("All caught up");
     const d2 = baseDigest({ family: { childCount: 3 } });
-    expect(buildHeroLine(d2)).toBe("All caught up for 3 children");
+    expect(buildHeroLine(d2, "en")).toBe("All caught up for 3 children");
   });
 
   it("falls back to generic when family is empty", () => {
     const d = baseDigest({});
-    expect(buildHeroLine(d)).toBe("Refresh complete");
+    expect(buildHeroLine(d, "en")).toBe("Refresh complete");
   });
 
   it("never surfaces failure language even when failures are populated (D-18)", () => {
@@ -83,8 +85,8 @@ describe("buildHeroLine", () => {
       failures: [{ childId: 1, childName: "Alex", source: "teacherease", error: "login broke" }],
       family: { childCount: 1, attentionCount: 0 },
     });
-    expect(buildHeroLine(d)).not.toContain("fetch failed");
-    expect(buildHeroLine(d)).toBe("All caught up");
+    expect(buildHeroLine(d, "en")).not.toContain("fetch failed");
+    expect(buildHeroLine(d, "en")).toBe("All caught up");
   });
 });
 
@@ -99,12 +101,12 @@ describe("buildBody", () => {
         homeworkDueTodayCount: 1,
       },
     });
-    expect(buildBody(d)).toBe("5 meeting\n2 homework for today\n1 homework due today");
+    expect(buildBody(d, "en")).toBe("5 meeting\n2 homework for today\n1 homework due today");
   });
 
   it("falls back to 'Everything's clean.' when childCount is 0", () => {
     const d = baseDigest({ family: { childCount: 0 } });
-    expect(buildBody(d)).toBe("Everything's clean.");
+    expect(buildBody(d, "en")).toBe("Everything's clean.");
   });
 
   it("never surfaces failure info even when failures are populated (D-18)", () => {
@@ -115,7 +117,7 @@ describe("buildBody", () => {
       ],
       family: { childCount: 1, homeworkForTodayCount: 3, homeworkDueTodayCount: 0 },
     });
-    const body = buildBody(d);
+    const body = buildBody(d, "en");
     expect(body).not.toContain("Alex");
     expect(body).not.toContain("teacherease");
     expect(body).toContain("3 homework for today");
@@ -148,7 +150,7 @@ describe("OSChannel", () => {
     vi.mocked(ipc.getSettingBool).mockResolvedValue(true);
     const ch = new OSChannel();
     const d = baseDigest({ family: { childCount: 1 } });
-    await ch.send(d);
+    await ch.send(d, "en");
     expect(plugin.sendNotification).toHaveBeenCalledWith({
       title: "TeacherEase Parent Companion: All caught up",
       body: "0 meeting\n0 homework for today\n0 homework due today",

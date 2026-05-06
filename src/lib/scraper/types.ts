@@ -26,13 +26,66 @@ export interface Session {
 export type FetchImpl = (url: string | URL, init?: RequestInit) => Promise<Response>;
 
 /**
- * Thrown when login fails — wrong credentials, portal down, parser broken,
- * or an unexpected HTTP response shape. The message is user-presentable.
+ * Login error codes. UI catch sites translate these via
+ * `t(\`errors.scraper.login.${code}\`)`. Scraper stays pure (no t() import).
+ *
+ * - `noNetwork` — fetch threw (DNS, offline, etc.)
+ * - `loginPageFetchFailed` — login page returned non-2xx (HTTP {status} in vars)
+ * - `badCredentials` — server bounced us back to the login page
+ * - `unexpectedStatus` — server replied with something we don't know how to read
+ * - `unknown` — fallback used by call sites when nothing else matches
+ */
+export type LoginErrorCode =
+  | "noNetwork"
+  | "loginPageFetchFailed"
+  | "badCredentials"
+  | "unexpectedStatus"
+  | "unknown";
+
+/**
+ * Thrown when login fails. Carries an error code (not English text) so the
+ * UI can translate via the catalog. The base `Error.message` is set to the
+ * code string for log readability.
  */
 export class LoginError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+  readonly code: LoginErrorCode;
+  /** Optional `{status}` interpolation value for `loginPageFetchFailed` /
+   *  `unexpectedStatus` codes. */
+  readonly status?: number;
+
+  constructor(code: LoginErrorCode, options?: ErrorOptions & { status?: number }) {
+    super(code, options);
     this.name = "LoginError";
+    this.code = code;
+    this.status = options?.status;
+  }
+}
+
+/**
+ * Homework-URL validation error codes (mirrors LoginErrorCode shape).
+ *
+ * - `invalidUrl` — `new URL()` threw
+ * - `notGoogleSites` — hostname mismatch
+ * - `unreachable` — fetch threw
+ * - `unreachableHttp` — fetch returned non-2xx (status in vars)
+ * - `notGoogleSitesPage` — fetched page lacks the homework-content selector
+ */
+export type HomeworkUrlErrorCode =
+  | "invalidUrl"
+  | "notGoogleSites"
+  | "unreachable"
+  | "unreachableHttp"
+  | "notGoogleSitesPage";
+
+export class HomeworkUrlError extends Error {
+  readonly code: HomeworkUrlErrorCode;
+  readonly status?: number;
+
+  constructor(code: HomeworkUrlErrorCode, options?: ErrorOptions & { status?: number }) {
+    super(code, options);
+    this.name = "HomeworkUrlError";
+    this.code = code;
+    this.status = options?.status;
   }
 }
 

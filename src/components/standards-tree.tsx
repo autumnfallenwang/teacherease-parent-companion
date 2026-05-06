@@ -11,7 +11,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { useMemo } from "react";
-import { useT } from "@/components/shell/locale-provider";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import {
   type AssignmentAttention,
   type AttentionConfig,
@@ -19,6 +19,7 @@ import {
   DEFAULT_ATTENTION_CONFIG,
   type StandardAttentionNode as EngineStandardNode,
 } from "@/lib/core/attention-engine";
+import { formatPortalDate } from "@/lib/i18n";
 import type { Assignment, ClassDetails, Standard } from "@/lib/scraper/types";
 
 interface StandardsTreeProps {
@@ -61,6 +62,7 @@ function AssignmentRow({
   attention: AssignmentAttention;
 }) {
   const t = useT();
+  const locale = useLocale();
   const { icon: Icon, className: iconClass } = resolveAssignmentIcon(assignment, attention);
 
   // One uniform row container for every state. The icon (resolved above) +
@@ -86,7 +88,7 @@ function AssignmentRow({
           {assignment.dueDate && (
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {assignment.dueDate}
+              {formatPortalDate(locale, assignment.dueDate)}
             </span>
           )}
           <span className={tagClasses}>{t("classes.assignment.missing")}</span>
@@ -107,7 +109,7 @@ function AssignmentRow({
         {assignment.dueDate && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {assignment.dueDate}
+            {formatPortalDate(locale, assignment.dueDate)}
           </span>
         )}
         {hasGrade ? (

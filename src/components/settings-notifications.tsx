@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { formatDateTime, type Locale } from "@/lib/i18n";
+import { formatDateTime, formatRelative, type Locale } from "@/lib/i18n";
 import {
   getSettingBool,
   getSettingString,
@@ -51,19 +51,6 @@ function formatLocal(iso: string | null, locale: Locale): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return formatDateTime(locale, d);
-}
-
-function formatRelative(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const ms = d.getTime() - Date.now();
-  if (ms <= 0) return "due now";
-  const mins = Math.round(ms / 60_000);
-  if (mins < 60) return `in ${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m === 0 ? `in ${h}h` : `in ${h}h ${m}m`;
 }
 
 export function SettingsNotifications() {
@@ -365,8 +352,8 @@ export function SettingsNotifications() {
             <span className="font-medium text-foreground">
               {formatLocal(notifyNextRunAt, locale)}
             </span>
-            {notifyNextRunAt && formatRelative(notifyNextRunAt) && (
-              <span className="ml-1.5">({formatRelative(notifyNextRunAt)})</span>
+            {notifyNextRunAt && formatRelative(locale, notifyNextRunAt) && (
+              <span className="ml-1.5">({formatRelative(locale, notifyNextRunAt)})</span>
             )}
           </p>
         </div>

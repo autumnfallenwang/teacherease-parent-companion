@@ -16,7 +16,7 @@ function makeDeps(): NotifyRouterDeps & {
 function channel(opts: {
   name: string;
   enabled?: boolean;
-  send?: (d: RefreshDigest) => Promise<void>;
+  send?: (d: RefreshDigest, locale: "en" | "es" | "zh") => Promise<void>;
 }): NotifyChannel {
   return {
     name: opts.name,
@@ -43,9 +43,9 @@ describe("NotifyRouter", () => {
     const ch = channel({ name: "os", send });
     const router = new NotifyRouter([ch], deps);
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
-    expect(send).toHaveBeenCalledWith(emptyDigest);
+    expect(send).toHaveBeenCalledWith(emptyDigest, "en");
     expect(deps.log).toHaveBeenCalledWith("notify: os refreshDigest sent");
     expect(deps.logWarning).not.toHaveBeenCalled();
   });
@@ -56,7 +56,7 @@ describe("NotifyRouter", () => {
     const ch = channel({ name: "os", enabled: false, send });
     const router = new NotifyRouter([ch], deps);
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
     expect(send).not.toHaveBeenCalled();
     expect(deps.log).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("NotifyRouter", () => {
     });
     const router = new NotifyRouter([a, b], deps);
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
     expect(order).toEqual(["os", "email"]);
     expect(deps.log).toHaveBeenNthCalledWith(1, "notify: os refreshDigest sent");
@@ -99,9 +99,9 @@ describe("NotifyRouter", () => {
     const ok = channel({ name: "email", send: working });
     const router = new NotifyRouter([failing, ok], deps);
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
-    expect(working).toHaveBeenCalledWith(emptyDigest);
+    expect(working).toHaveBeenCalledWith(emptyDigest, "en");
     expect(deps.logWarning).toHaveBeenCalledWith(
       "notify: os refreshDigest failed — permission revoked",
     );
@@ -113,16 +113,16 @@ describe("NotifyRouter", () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const router = new NotifyRouter([channel({ name: "os", send })], deps);
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
-    expect(send).toHaveBeenCalledWith(emptyDigest);
+    expect(send).toHaveBeenCalledWith(emptyDigest, "en");
   });
 
   it("logs the success line with channel name and event type", async () => {
     const deps = makeDeps();
     const router = new NotifyRouter([channel({ name: "email" })], deps);
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
     expect(deps.log).toHaveBeenCalledWith("notify: email refreshDigest sent");
   });
@@ -134,7 +134,7 @@ describe("NotifyRouter", () => {
       deps,
     );
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
     expect(deps.logWarning).toHaveBeenCalledWith("notify: os refreshDigest failed — boom");
   });
@@ -146,7 +146,7 @@ describe("NotifyRouter", () => {
       deps,
     );
 
-    await router.dispatch(emptyDigest);
+    await router.dispatch(emptyDigest, "en");
 
     expect(deps.logWarning).toHaveBeenCalledWith("notify: os refreshDigest failed — unknown");
   });

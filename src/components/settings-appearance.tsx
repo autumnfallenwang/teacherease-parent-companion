@@ -4,7 +4,8 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { SettingsSection } from "@/components/settings/section";
-import { emitLanguageChanged, useT } from "@/components/shell/locale-provider";
+import { emitLanguageChanged, useLocale, useT } from "@/components/shell/locale-provider";
+import { Switch } from "@/components/ui/switch";
 import {
   FONT_SIZE_DEFAULT,
   FONT_SIZE_MAX,
@@ -26,12 +27,15 @@ const PROFILE_KEY = "appearance.profile";
 const FONT_SIZE_KEY = "appearance.fontSize";
 const EVENT_NAME = "theme-preference-change";
 
-// Phase 32 / D-24 / Q37 — Language picker. Labels render literally as the
-// language's own name (System / English / Español / 中文) — standard
-// convention so users can recognize their language even when the rest of
-// the UI is in a different one.
-const LANGUAGE_OPTIONS: Array<{ value: LanguageSetting; label: string }> = [
-  { value: "system", label: "System" },
+// Phase 32 / D-24 / Q37 — Language picker. Layout: a "Use system language"
+// switch + (when off) a dropdown of explicit choices. Adding a new locale =
+// drop a JSON file in `locales/`, add the language to the `Locale` union in
+// `i18n.ts`, and add a row to `LANGUAGES` below. No UI structure change.
+//
+// Labels render literally as the language's own name ("English", "Español",
+// "中文") — standard convention so users can recognize their language even
+// when the rest of the UI is in a different one.
+const LANGUAGES: Array<{ value: "en" | "es" | "zh"; label: string }> = [
   { value: "en", label: "English" },
   { value: "es", label: "Español" },
   { value: "zh", label: "中文" },
@@ -39,6 +43,10 @@ const LANGUAGE_OPTIONS: Array<{ value: LanguageSetting; label: string }> = [
 
 function isLanguageSetting(value: string): value is LanguageSetting {
   return value === "system" || value === "en" || value === "es" || value === "zh";
+}
+
+function isLanguageChoice(value: string): value is "en" | "es" | "zh" {
+  return value === "en" || value === "es" || value === "zh";
 }
 
 const MODE_OPTIONS: Array<{ value: ThemePreference; labelKey: string; icon: ReactNode }> = [
@@ -75,10 +83,16 @@ function scaleToPercent(scale: number): number {
 
 export function SettingsAppearance() {
   const t = useT();
+  const resolvedLocale = useLocale();
   const [mode, setMode] = useState<ThemePreference>("system");
   const [profile, setProfile] = useState<ThemeProfile>("default");
   const [scale, setScale] = useState<number>(FONT_SIZE_DEFAULT);
   const [language, setLanguage] = useState<LanguageSetting>(LANGUAGE_SETTING_DEFAULT);
+  // Tracks the dropdown's choice when toggle is off, AND remembers what to
+  // restore when the user toggles "Use system language" off again. Seeded
+  // from the resolved locale so a user who's been on "system" sees their
+  // current rendered language preselected.
+  const [manualLocale, setManualLocale] = useState<"en" | "es" | "zh">(resolvedLocale);
   // Separate draft state so intermediate typing in the custom input doesn't
   // trigger saves (per Q24: text inputs commit on Enter or blur).
   const [percentInput, setPercentInput] = useState<string>(
@@ -97,7 +111,12 @@ export function SettingsAppearance() {
       const parsed = parseFontSize(rawSize);
       setScale(parsed);
       setPercentInput(String(scaleToPercent(parsed)));
-      setLanguage(isLanguageSetting(rawLang) ? rawLang : LANGUAGE_SETTING_DEFAULT);
+      const langSetting = isLanguageSetting(rawLang) ? rawLang : LANGUAGE_SETTING_DEFAULT;
+      setLanguage(langSetting);
+      // If the saved setting is a concrete locale, seed manualLocale from
+      // it so the dropdown reflects the user's last explicit choice.
+      // Otherwise leave the seed (current resolved locale) alone.
+      if (isLanguageChoice(langSetting)) setManualLocale(langSetting);
     });
   }, []);
 
@@ -162,7 +181,24 @@ export function SettingsAppearance() {
     void applyScale(next);
   };
 
-  const handleLanguage = async (value: LanguageSetting) => {
+  const handleSystemToggle = async (useSystem: boolean) => {
+    const next: LanguageSetting = useSystem ? "system" : manualLocale;
+    if (next === language) return;
+    setLanguage(next);
+    try {
+      await setSettingString(LANGUAGE_SETTING_KEY, next);
+      emitLanguageChanged(next);
+      await log(`settings: ui.language=${next}`);
+    } catch (e) {
+      await logErr(
+        `settings: ui.language save failed — ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
+  };
+
+  const handleManualLocale = async (value: "en" | "es" | "zh") => {
+    setManualLocale(value);
+    if (language === "system") return; // toggle is on; don't switch the active locale
     if (value === language) return;
     setLanguage(value);
     try {
@@ -183,28 +219,42 @@ export function SettingsAppearance() {
         help={t("settings.appearance.language.help")}
         card={false}
       >
-        <div className="inline-flex rounded-lg border border-border bg-card p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          {LANGUAGE_OPTIONS.map((opt) => {
-            const active = language === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                aria-pressed={active}
-                aria-label={opt.label}
-                onClick={() => {
-                  void handleLanguage(opt.value);
-                }}
-                className={`inline-flex items-center rounded-md px-3 py-1.5 text-[13px] transition-colors ${
-                  active
-                    ? "bg-secondary font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+        {/* One-line layout in a card to match other settings rows
+            (Mode / Size / Profile). [Switch] System | resolved-locale OR
+            dropdown. ON ⇒ static label; OFF ⇒ dropdown. */}
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <span className="text-[13px] font-medium">
+            {t("settings.appearance.language.systemLabel")}
+          </span>
+          <Switch
+            checked={language === "system"}
+            onChange={(next) => {
+              void handleSystemToggle(next);
+            }}
+            aria-label={t("settings.appearance.language.systemLabel")}
+          />
+          {language === "system" ? (
+            <span className="text-[13px] text-muted-foreground">
+              {LANGUAGES.find((l) => l.value === resolvedLocale)?.label ?? resolvedLocale}
+            </span>
+          ) : (
+            <select
+              id="language-select"
+              value={manualLocale}
+              onChange={(e) => {
+                if (isLanguageChoice(e.target.value)) {
+                  void handleManualLocale(e.target.value);
+                }
+              }}
+              className="h-9 rounded-lg border border-input bg-card px-2 text-[13px] text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.value} value={lang.value}>
+                  {lang.label}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </SettingsSection>
 
@@ -285,16 +335,17 @@ export function SettingsAppearance() {
         help={t("settings.appearance.size.help")}
         card={false}
       >
-        <div className="space-y-3">
-          <div className="inline-flex rounded-lg border border-border bg-card p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="space-y-3 rounded-lg border border-border bg-card px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
             {FONT_SIZE_PRESETS.map((preset) => {
               const active = isScaleNear(scale, preset.value);
+              const label = t(preset.labelKey);
               return (
                 <button
                   key={preset.label}
                   type="button"
                   aria-pressed={active}
-                  aria-label={preset.label}
+                  aria-label={label}
                   onClick={() => {
                     void applyScale(preset.value);
                   }}
@@ -304,7 +355,7 @@ export function SettingsAppearance() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {preset.label}
+                  {label}
                 </button>
               );
             })}

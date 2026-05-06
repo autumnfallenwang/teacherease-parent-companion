@@ -2,8 +2,9 @@
 
 import { AlertTriangle, BookX, ChevronRight, Clock, TrendingDown } from "lucide-react";
 import { useState } from "react";
-import { useT } from "@/components/shell/locale-provider";
+import { useLocale, useT } from "@/components/shell/locale-provider";
 import { type AttentionItem, sortItemsMissingFirst } from "@/lib/core/attention-engine";
+import { formatPortalDate } from "@/lib/i18n";
 
 interface AttentionSectionProps {
   withinWindow: AttentionItem[];
@@ -11,6 +12,7 @@ interface AttentionSectionProps {
 }
 
 function AttentionRow({ item }: { item: AttentionItem }) {
+  const locale = useLocale();
   const { assignment, reason, className, withinWindow } = item;
   const isMissing = reason === "missing";
 
@@ -48,7 +50,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
         {assignment.dueDate && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {assignment.dueDate}
+            {formatPortalDate(locale, assignment.dueDate)}
           </span>
         )}
       </div>

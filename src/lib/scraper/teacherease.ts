@@ -72,12 +72,10 @@ export async function login(
       headers: { "User-Agent": USER_AGENT },
     });
   } catch (err) {
-    throw new LoginError("Couldn't reach TeacherEase. Check your internet connection.", {
-      cause: err,
-    });
+    throw new LoginError("noNetwork", { cause: err });
   }
   if (!pageRes.ok) {
-    throw new LoginError(`Couldn't load the login page (HTTP ${pageRes.status}).`);
+    throw new LoginError("loginPageFetchFailed", { status: pageRes.status });
   }
   jar.absorb(pageRes.headers.getSetCookie());
   const hiddenFields = extractLoginFormFields(await pageRes.text());
@@ -100,9 +98,7 @@ export async function login(
       redirect: "manual",
     });
   } catch (err) {
-    throw new LoginError("Couldn't reach TeacherEase. Check your internet connection.", {
-      cause: err,
-    });
+    throw new LoginError("noNetwork", { cause: err });
   }
   jar.absorb(loginRes.headers.getSetCookie());
 
@@ -121,12 +117,12 @@ export async function login(
   // bad credentials.
   if (loginRes.status === 200) {
     if (isLoginPageUrl(loginRes.url)) {
-      throw new LoginError("Couldn't log in to TeacherEase. Double-check your email and password.");
+      throw new LoginError("badCredentials");
     }
     return { baseUrl, cookieHeader: jar.header() };
   }
 
-  throw new LoginError(`TeacherEase login failed (HTTP ${loginRes.status}).`);
+  throw new LoginError("unexpectedStatus", { status: loginRes.status });
 }
 
 /**
