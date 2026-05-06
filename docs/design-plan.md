@@ -915,6 +915,40 @@ Q31 made this worse by extending notify to N×/day: a notify schedule can fire t
 
 ---
 
+### Q36 — Scheduler timer in Rust, work in TS (supersedes Q29's "two ScheduleLoops in webview" location detail)
+
+**Problem.** Q29 placed both `ScheduleLoop` instances (fetch + notify) inside the webview as `setTimeout`-driven loops, on the assumption that webview JS could run timers reliably while the Tauri app process was alive. In practice macOS / WebKit aggressively throttles or fully pauses webview JS timers when the Tauri window loses focus (or is minimized / Cmd-H'd). Confirmed live: a notify scheduled for 15:15 EDT didn't fire until 15:55 — the webview's event loop was paused for 40 minutes, then resumed on focus-gain and the queued timer ran. Zero log entries during the gap. This is a foundational reliability bug for an app whose value proposition is "sit in the background, get a daily email" — a focused-only scheduler defeats the point.
+
+A triage sweep across the codebase ([webview-throttling audit, 2026-05-05](#)) confirmed `ScheduleLoop` is the *only* wall-clock-sensitive path in the webview. Other `setTimeout` calls (settings form toast dismissal, "next run at" display refresh, dispatched-toast clear) are UI-only and degrade harmlessly when delayed. Cold-start stale-fetch (`schedulers.tsx:172-183`) handles the >6h-offline case correctly. SMTP send is already in Rust. So the fix is narrowly scoped: move *just the timer* to Rust; keep the *work* in TS.
+
+**Decision.**
+
+1. **Two `tokio::time` tasks in Rust replace the two `ScheduleLoop` instances in the webview.** Spawned at `setup()` in `src-tauri/src/lib.rs`, they live for the app process's lifetime. Each task: read cadence settings → compute next-fire → `tokio::time::sleep_until(...)` → emit `scheduler:fetch-tick` / `scheduler:notify-tick` → loop. Cancellation via `tokio::sync::Notify` so settings-changed can interrupt the sleep without waiting for the current cycle to complete.
+
+2. **Webview reacts to ticks, doesn't drive them.** `schedulers.tsx` listens for the two new events via `listenTauriEvent` and invokes the existing `runFetchCycle()` / `runNotifyCycle()` handlers — same code that runs today, just triggered by an event instead of by `setTimeout`. The cycle handlers themselves (scraper calls, DB writes, notify-router dispatch) all stay in TS where they are.
+
+3. **Manual triggers keep their current entry points.** `FETCH_NOW_EVENT` (dashboard Refresh button), `SEND_DIGEST_NOW_EVENT` (Settings → Notifications → Send now), and tray "Refresh Now" are user-driven actions — they're invoked while the user is actively interacting with the app, so webview throttling is not an issue. They stay as window events handled in `schedulers.tsx`.
+
+4. **Settings-changed reactivity goes through a new Tauri command.** When the user saves cadence changes (runs-per-day / first-slot / weekdays-only), `schedulers.tsx`'s `SCHEDULES_CHANGED_EVENT` handler invokes a `reload_scheduler` command. Rust task wakes (via the cancellation `Notify`), re-reads settings, recomputes next-fire, sleeps again. Webview never restarts a `ScheduleLoop` because there's no `ScheduleLoop` to restart.
+
+5. **Cadence math stays in TS.** `src/lib/schedule/fetch-schedule.ts` and `notify-schedule.ts` are the source of truth for next-run computation. Rust either calls into them via IPC (one `compute_next_run` Tauri command, simplest), or maintains a parallel Rust port covered by Rust unit tests (more work, fewer round-trips). Decision deferred to implementation: pick the path with smaller blast radius once we see the IPC overhead.
+
+**What stays locked.**
+- Q29 points 1–4 + 6 — two independent cadences, manual buttons, cold-start fetch path, tray "Refresh" semantics. Independence is preserved; only the *location* of the timer machinery moves.
+- Q35 — notify cycle still fetches before dispatch (the action-level coupling is unaffected by where the timer fires).
+- Q27's unified `RefreshDigest` event shape, Q31's notify N×/day model.
+
+**What this supersedes.**
+- **Q29's implicit assumption** that the webview is a reliable host for wall-clock timers. The webview is now an *unreliable* host for timers; reliable timing comes from Rust. The two-loop *separation* is preserved; only the implementation location changes.
+
+**Non-goals.**
+- Moving the scraper to Rust. Cheerio + the existing TS scraper module stay where they are; they're invoked by the cycle handlers running in the webview *after* a tick fires. If macOS turns out to fully suspend the webview such that emitted events queue indefinitely (rather than firing on the next responsive moment), the fallback is to invoke cycle handlers directly via Rust commands — but the scraper itself doesn't need a port.
+- A persistent "missed slots" replay mechanism. If the laptop is closed at 15:15, no scheduler can change that — cold-start stale-fetch on next boot already handles the recovery.
+
+**Promoted to:** B-20 in `docs/backlog.md` and Phase 31 in `docs/progress.md` (multi-task phase, T1-T10).
+
+---
+
 ## Tech Stack
 
 | Layer | Tech | Rationale link |
