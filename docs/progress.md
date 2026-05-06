@@ -373,8 +373,8 @@ New Q36 supersedes Q29's "two-loop architecture" location detail: there are stil
 | T6 | Delete `src/lib/schedule/loop.ts` + tests | ✅ Done | Module + `tests/lib/schedule/loop.test.ts` removed (4 tests). No remaining callers; `ScheduleLoop` type isn't exported anywhere else. |
 | T7 | `pnpm check` + `cargo check` + `cargo clippy -D warnings` + `cargo test` | ✅ Done | TS: 299 tests pass / 25 skipped (4 fewer than before — the deleted loop tests). Rust: clippy clean, 6 existing tests pass, fmt clean. New tokio dep (`features = ["sync", "time", "rt"]`) added to `src-tauri/Cargo.toml` because Tauri's `async_runtime` re-exports `Mutex`/`RwLock` but not `Notify` or `time::sleep_until`. **No new Rust unit tests** for the worker — option (1) from the plan was rejected mid-impl: refactoring `worker` to take a generic `Emitter` trait would add type-parameter plumbing through `spawn_worker` for tests-only benefit. The logic is small (~50 lines of `tokio::select!`), reviewable, and the smoke test is the actual proof. Recorded in `docs/lessons.md`. |
 | T8 | Manual smoke test (the whole point of this phase) | ✅ Done | **PASSED.** Smoke test 1 (2026-05-05, ~16:52 EDT): set notify for ~2 min ahead, minimized window to dock, waited. Rust fired at the target wall-clock time with **2 ms drift**, webview received the event, full cycle ran, SMTP went out. **One issue surfaced and fixed mid-test:** the cycle ran twice, sending two emails. Caused by React StrictMode in dev double-mounting `useEffect` and the async `listenTauriEvent` Promise resolving *after* the first mount's cleanup (so `unlistenFetchTick` / `unlistenNotifyTick` / `unlistenTray` never got stored from the first mount, leaving two listeners alive). Patched by re-checking `cancelled` after each `await listenTauriEvent` and unlistening immediately if so. Re-tested at ~16:56 EDT — clean single fire, single cycle, single email. Production builds don't run StrictMode so the bug never affected end users, but the dev-mode fix is now in place. |
-| T9 | README "heads up" note correction | ⏳ Pending | The current README copy ("needs the app open — it can sit in the background") is now accurate post-fix. May still want a small wording polish before the v0.1.8 release; defer to release prep. |
-| T10 | Backlog flip + CHANGELOG | ⏳ Pending | B-20 → done in `docs/backlog.md`. CHANGELOG entry deferred until v0.1.8 release prep. |
+| T9 | README "heads up" note correction | ✅ Done | Existing README copy ("needs the app open — it can sit in the background") is accurate post-fix and reads cleanly; no wording polish needed. |
+| T10 | Backlog flip + CHANGELOG | ✅ Done | B-20 → done in `docs/backlog.md`. CHANGELOG entry shipped under [0.1.8]. |
 
 **End state (target):** Fetch and notify ticks fire on time regardless of window focus state. The webview's only role in scheduling is reacting to ticks and surfacing user-driven manual triggers. Q29's two-loop architecture is preserved in spirit (independent cadences); the loops just live one layer down. No new external library — just `tokio::time` (already pulled in transitively by Tauri).
 
@@ -398,7 +398,7 @@ Q37 locks the architecture: hand-rolled (no library), system-default with manual
 | T8 | First-launch disclaimer + wizard text moves into catalogs | ⏳ Pending | Deferred until the wizard component is extracted. |
 | T9 | `pnpm check` (typecheck + lint + tests) | ✅ Done | All green: 303 tests passing, typecheck clean, 8 pre-existing biome warnings (none in modified files). |
 | T10 | Smoke test in dev — three locales | ✅ Done | **PASSED** 2026-05-05. Three language switches logged (`settings: ui.language=en`, `=es`, `=zh`). Sidebar swapped on each click. Date formatters confirmed locale-aware in History + Settings → Fetch. No errors. |
-| T11 | Backlog flip + CHANGELOG | ⏳ Pending | Phase still in-progress because the broader extraction (~21 components) hasn't happened. The picker+dates piece — which is the user-visible feature — is shipped. CHANGELOG entry deferred to v0.1.8 release prep. |
+| T11 | Backlog flip + CHANGELOG | ✅ Done | D-24 → done in `docs/backlog.md` (Phase 32 complete with B1 + B2 + B3 — ~295 keys × 3 locales). CHANGELOG entry shipped under [0.1.8]. |
 
 **Current state:** Language picker live, dates locale-aware. The original "Chinese dates with English UI" mismatch is fixed end-to-end. Translated surfaces: sidebar tabs (Today/Classes/History/Settings/About), settings sub-tab labels, "Companion" brand text, sidebar expand/collapse tooltips, "Back" button, "Settings" eyebrow, every date format across History / Today / Settings → Fetch / Settings → Notifications. Untranslated surfaces (~21 components' worth of strings — page bodies, settings panel content, wizard, About, error toasts) stay English regardless of locale via the `catalog[key] ?? en[key] ?? key` fallback. Remaining extraction is mechanical and resumable.
 
@@ -415,6 +415,22 @@ The "everything app-generated translates, scraped portal content stays verbatim"
 **Cross-cutting principle (Q37 amendment, 2026-05-05):** translate every app-generated string; leave verbatim every string fetched from TeacherEase or a school's homework page. Class names, assignment names, teacher names, standards labels, grade values ("87%", "A−", "Meeting"), and homework subject/content all stay in their original language regardless of UI locale — that's what the school actually wrote and translating would misrepresent it.
 
 **End state (target):** Language consistent across the app on first launch (no more half-Chinese, half-English). Settings → Appearance → Language picker lets parents override the OS-detected default. Spanish + Chinese coverage on high-traffic strings; long tail falls back to English. Future locales = drop in a JSON file + add a row to the picker; no architectural change.
+
+---
+
+## Phase 33: Update-available chip on Today header (per B-21)
+
+Settings → Advanced has had a daily update-check + "Install update" card since R2, but most parents live on the Today tab and never visit Settings unless something is wrong — so they'd silently run an old version for weeks. This phase surfaces a small "v{N} available" pill in the Today header (left of the "Checked X ago" timestamp) that's clickable and routes straight to Settings → Advanced. Reuses the same throttle (`updater.lastCheckedAt`) as the existing card so a dashboard mount + a Settings visit don't double-poll. Hidden in every other case (no update, network failure, "no release yet" 404).
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T1 | Extract `isNoReleaseYetError` helper into `src/lib/core/update-banner.ts` | ✅ Done | Was a private function in `settings-advanced.tsx`; both consumers now import the shared version. No behavior change in Settings. |
+| T2 | Dashboard update-check `useEffect` | ✅ Done | One-shot effect on mount: `getLastUpdateCheckMs` → `shouldCheckNow` → `checkForUpdate` → `setLastUpdateCheckMs` + persist via `setAvailableUpdate(result)`. Errors and `isNoReleaseYetError(msg)` map to "no chip" — no logging noise either. |
+| T3 | Render chip in PageHeader actions slot | ✅ Done | Conditional `<Link href="/settings/advanced">` rendered before the existing "Checked X ago" span. Tailwind pill style: `rounded-full border border-primary/30 bg-primary/10 text-primary`. The whole `actions` block falls back to `null` when both the chip and the timestamp are absent so the empty flex wrapper doesn't render. |
+| T4 | Catalog keys × 3 locales | ✅ Done | One new key: `today.updateAvailable: "v{version} available"` / `"v{version} disponible"` / `"v{version} 可用"`. |
+| T5 | Smoke test | ✅ Done | Visual smoke 2026-05-05: dev override hardcoded `availableUpdate` to fake v9.9.9 → chip rendered as expected with the pill style + click-through to Settings → Advanced; reverted after confirmation. Settings → Advanced "Check now" still working post-helper-extraction (logged `updater: manual check — up to date`). |
+
+**End state:** When a newer release is published, parents see the chip on first dashboard visit after the throttle window opens. Clicking it lands on the existing Install card. Architecture-clean: the dashboard adds zero new updater state — it shares the `updater.lastCheckedAt` setting with the Advanced card, so both surfaces reflect a single source of truth.
 
 ---
 

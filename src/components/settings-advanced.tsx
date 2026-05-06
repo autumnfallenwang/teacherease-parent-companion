@@ -6,7 +6,7 @@ import { SettingsSection } from "@/components/settings/section";
 import { useT } from "@/components/shell/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { shouldCheckNow } from "@/lib/core/update-banner";
+import { isNoReleaseYetError, shouldCheckNow } from "@/lib/core/update-banner";
 import {
   checkForUpdate,
   disableAutostart,
@@ -25,20 +25,6 @@ import {
 } from "@/lib/ipc";
 import { REPO_URL } from "@/lib/legal";
 import { describeError } from "@/lib/utils";
-
-// The updater endpoint returns 404 / empty body until a release is actually
-// published with a `latest.json` asset. Treat those as "up to date" so users
-// don't see a scary error on the "Check now" button just because no release
-// exists yet. Genuine network / auth errors still surface as errors.
-function isNoReleaseYetError(message: string): boolean {
-  const m = message.toLowerCase();
-  return (
-    m.includes("did not respond with a successful status code") ||
-    m.includes("could not fetch a valid release json") ||
-    m.includes("404") ||
-    m.includes("not found")
-  );
-}
 
 type CheckState =
   | { kind: "idle" }

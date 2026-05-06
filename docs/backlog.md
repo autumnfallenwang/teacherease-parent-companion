@@ -38,6 +38,14 @@ Findings discovered via the walkthrough skill. One row per finding, grouped by t
 
 ---
 
+## B-21 — Update-available indicator only visible inside Settings → Advanced
+**Where:** `src/components/dashboard.tsx` (Today header) + `src/components/settings-advanced.tsx` (existing R2 update card) + `src/lib/core/update-banner.ts` (helpers).
+**Observed:** When a new release ships, the existing R2 auto-check runs daily and surfaces an "Install update" card on Settings → Advanced — but most parents live on the Today tab and never visit Settings unless something is wrong. They'd silently run an old version for weeks.
+**Proposed:** Surface a small clickable "v{N} available" pill in the Today header (left of the existing "Checked X ago" timestamp). Click → routes to `/settings/advanced`. Reuse the existing throttle (`updater.lastCheckedAt`) so dashboard + Settings share a single source of truth and don't double-poll the GitHub release feed. Hide the chip when no update is available, on network failure, or on "no release yet" 404. Translate the label across en/es/zh.
+**Status:** done — shipped via Phase 33 on `main`. Extracted `isNoReleaseYetError` from `settings-advanced.tsx` into `src/lib/core/update-banner.ts` so both consumers share the same error classifier. New `useEffect` in `dashboard.tsx` reuses `getLastUpdateCheckMs` / `setLastUpdateCheckMs` / `shouldCheckNow` / `checkForUpdate`. New `today.updateAvailable` catalog key added × 3 locales (`v{version} available` / `disponible` / `可用`). Visual smoke-tested 2026-05-05.
+
+---
+
 ## D-21 — Migrate logging to `tauri-plugin-log` (unified Rust + TS)
 **Where:** `src-tauri/src/json_log.rs` (delete), `src-tauri/src/log_commands.rs` (delete), `src-tauri/src/lib.rs::run()` (replace logger init), `src/lib/ipc.ts` `log()` / `logWarning()` / `logErr()` (re-export plugin functions).
 **Observed:** Hand-rolled `JsonFileLogger` works but has known limitations: no rotation (`app.log` already 6 MB after a few weeks of use), no panic capture, no runtime level override, no per-module filter, manual `[webview]` prefix hack instead of structured source field. Five next-step features all blocked on hand-extending the logger (~6-7 hours combined). Audit signals at 2/5 — foundation-becomes-ceiling (weak) + knowledge-isolation. Not actively bugging anyone today, but trajectory is "more rough edges land over time," and the dep is already in `Cargo.toml` (paid for, not used).

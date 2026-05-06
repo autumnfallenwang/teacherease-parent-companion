@@ -15,18 +15,22 @@ import {
   computeChildAttention,
   DEFAULT_ATTENTION_CONFIG,
 } from "@/lib/core/attention-engine";
+import { isNoReleaseYetError, shouldCheckNow } from "@/lib/core/update-banner";
 import { type ChildStatus, loadHeroStatuses } from "@/lib/hero-statuses";
-import type { FetchRunRecord, HomeworkRecord } from "@/lib/ipc";
+import type { FetchRunRecord, HomeworkRecord, UpdateInfo } from "@/lib/ipc";
 import {
+  checkForUpdate,
   getAllClassDetails,
   getAttentionConfig,
   getChildren,
   getHomeworkForDay,
+  getLastUpdateCheckMs,
   getLatestFetchRun,
   getLatestSuccessfulFetchRun,
   getSettingBool,
   initLogging,
   log,
+  setLastUpdateCheckMs,
   setupAutostart,
 } from "@/lib/ipc";
 import { toLocalIso } from "@/lib/notify/digest";
@@ -53,6 +57,7 @@ export function Dashboard() {
   const [homeworkForToday, setHomeworkForToday] = useState<HomeworkRecord[]>([]);
   const [homeworkDueToday, setHomeworkDueToday] = useState<HomeworkRecord[]>([]);
   const [heroStatuses, setHeroStatuses] = useState<ChildStatus[]>([]);
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
 
   // Attention engine (Phase 15 AT2) — computed from the full ClassDetails
   // tree + the user-tunable forgiveness + low-score config. `new Date()`
@@ -112,6 +117,31 @@ export function Dashboard() {
     void loadData(childId);
   }, [childId, loadData]);
 
+  // Update-available chip in the Today header. Reuses the same throttle as
+  // Settings → Advanced (`shouldCheckNow` + `updater.lastCheckedAt`) so a
+  // dashboard mount + a Settings visit don't double-poll the GitHub release
+  // feed. Errors and "no release yet" 404s map to "no chip" — we only render
+  // when an update is genuinely available.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const lastChecked = await getLastUpdateCheckMs();
+        if (!shouldCheckNow(lastChecked, Date.now())) return;
+        const result = await checkForUpdate();
+        await setLastUpdateCheckMs(Date.now());
+        if (result) {
+          await log(`dashboard: update available version=${result.version}`);
+          setAvailableUpdate(result);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!isNoReleaseYetError(msg)) {
+          await log(`dashboard: update check failed: ${msg}`);
+        }
+      }
+    })();
+  }, []);
+
   // Scheduler emits CHILD_DATA_REFRESHED_EVENT after every fetch cycle —
   // reload the displayed data + hero statuses in response. Also re-reads
   // child list (children may have been added/removed from Settings while
@@ -156,10 +186,22 @@ export function Dashboard() {
       <PageHeader
         title={t("today.title")}
         actions={
-          lastFetchRun?.runAt ? (
-            <span className="text-[11px] text-muted-foreground">
-              {t("today.checked", { time: formatTimeAgo(lastFetchRun.runAt) })}
-            </span>
+          availableUpdate || lastFetchRun?.runAt ? (
+            <>
+              {availableUpdate ? (
+                <Link
+                  href="/settings/advanced"
+                  className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/15"
+                >
+                  {t("today.updateAvailable", { version: availableUpdate.version })}
+                </Link>
+              ) : null}
+              {lastFetchRun?.runAt ? (
+                <span className="text-[11px] text-muted-foreground">
+                  {t("today.checked", { time: formatTimeAgo(lastFetchRun.runAt) })}
+                </span>
+              ) : null}
+            </>
           ) : null
         }
       />
