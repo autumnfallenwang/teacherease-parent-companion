@@ -13,6 +13,19 @@
  * fallback keeps the UI at baseline before the provider reads settings. */
 html {
   zoom: var(--font-scale, 1);
+  /* Disable WebKit's elastic rubber-band overscroll. Without this, scrolling
+   * past the top of any inner scroller in the Tauri webview drags sticky
+   * headers (page-header.tsx) down with the bounce. `overscroll-behavior` on
+   * the scroller alone isn't enough on macOS WebKit — the propagation has to
+   * be cut at the document root. */
+  overscroll-behavior: none;
+}
+
+html,
+body {
+  /* Belt-and-braces: WebKit historically only respects overscroll-behavior
+   * when applied to both <html> and <body> + neither has overflow:visible. */
+  overscroll-behavior: none;
 }
 
 @theme inline {
