@@ -43,3 +43,6 @@ lettre = { version = "0.11", default-features = false, features = ["smtp-transpo
 
 [dev-dependencies]
 dotenvy = "0.15"
+# B-22 — head-to-head scheduler tests use tokio::time::pause/advance and
+# #[tokio::test(start_paused = true)] which are gated behind test-util.
+tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
