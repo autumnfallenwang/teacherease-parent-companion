@@ -72,9 +72,16 @@ export function Sidebar() {
 
   return (
     <aside
+      // Height compensates for the global `zoom: var(--font-scale)` on <html>
+      // (globals.css). `100vh` is the unzoomed viewport, so when font-scale > 1
+      // the unmodified `h-screen` aside ends up taller than what fits on
+      // screen and `mt-auto`-pinned items at the bottom (Settings/About) get
+      // pushed off the visible area. Dividing by --font-scale keeps the aside
+      // exactly viewport-tall regardless of the user's font-size preference.
       className={`flex shrink-0 flex-col border-r bg-card/60 backdrop-blur-sm transition-[width] duration-200 ${
         collapsed ? "w-14" : "w-48"
       }`}
+      style={{ height: "calc(100vh / var(--font-scale, 1))" }}
     >
       <div className="flex items-center justify-between px-2.5 py-3">
         {!collapsed && (

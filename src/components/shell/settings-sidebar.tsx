@@ -76,9 +76,12 @@ export function SettingsSidebar() {
 
   return (
     <aside
+      // See sidebar.tsx for why we divide 100vh by --font-scale here instead
+      // of using h-screen directly.
       className={`flex shrink-0 flex-col border-r bg-card/60 backdrop-blur-sm transition-[width] duration-200 ${
         collapsed ? "w-14" : "w-48"
       }`}
+      style={{ height: "calc(100vh / var(--font-scale, 1))" }}
     >
       <div className="flex items-center justify-between px-2.5 py-3">
         {!collapsed && (
