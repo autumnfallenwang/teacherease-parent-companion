@@ -188,3 +188,16 @@ Both env vars are baked into `pnpm tauri:dev` so they don't need to be typed man
 1. Never assume files captured independently are from the same scrape. Verify by comparing class names, counts, and timestamps across all fixtures before asserting against "expected" output.
 2. Build the PII scrub mapping from ALL fixtures, not just one JSON summary — different scrapes may have different instructors.
 3. When writing parser tests, assert against values you've VERIFIED from the actual fixture HTML, not against a separate "expected" file that might be from a different session. `full-data.json` is a structural reference (what the output SHAPE should look like), not a ground-truth oracle for specific values.
+
+## 2026-05-22 — Scraper fetch had no timeout; scheduled digests stalled for hours
+
+**Context:** B-22 wall-clock scheduler. The 3:15 PM digest on 2026-05-22 sent at 4:36 PM instead. Log review found `fetch: complete source=teacherease durationMs=4871727` (81 min) — and scanning all retained logs found 25 scrapes that ran 2 min – 18 hours.
+
+**Mistake:** `tauriFetch` in `ipc.ts` was `(url, init) => pluginFetch(url, init)` — no timeout. When TeacherEase accepts the TCP connection but never sends a response (intermittent, ~1-2 days in 10 by the user's account, but the logs show it far more often), the scraper `fetch()` hangs indefinitely. The native Rust scheduler fires on time, but the scrape+diff+send pipeline runs in the webview, so a stalled fetch silently delays the whole digest. App Nap / minimized-window suspension inflates the wall-clock `durationMs` further on the worst cases (>60 min).
+
+**Correction:** Added `src/lib/fetch/with-timeout.ts` — a pure `withTimeout(fetchImpl, ms)` decorator using `AbortController` (60s default). `plugin-http` honors `RequestInit.signal` end-to-end (`fetch_cancel` on the Rust side), so the stalled request is genuinely cancelled. `tauriFetch` is now `withTimeout((url, init) => pluginFetch(url, { connectTimeout, ...init }))`. `connectTimeout` only caps the TCP-connect phase — it does NOT cover the response-wait, which was the actual failure mode, so the AbortController guard is the real fix.
+
+**How to avoid next time:**
+1. Every network call needs an explicit timeout. `connectTimeout` ≠ a request timeout — it only covers connect, not the response body wait.
+2. Wrap injected `FetchImpl`s at the single chokepoint (`tauriFetch`) so login + grades + homework are all covered at once.
+3. When a scheduled job "doesn't fire," check `durationMs` on the preceding fetch before assuming the scheduler failed — the scheduler firing on time tells you nothing about whether the webview-side work completed.

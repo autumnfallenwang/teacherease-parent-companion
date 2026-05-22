@@ -15,6 +15,7 @@ import { fetch as pluginFetch } from "@tauri-apps/plugin-http";
 import Database from "@tauri-apps/plugin-sql";
 import { type AttentionConfig, parseAttentionConfig } from "./core/attention-engine";
 import { hwDateToIso, resolveDueDate } from "./core/homework-date";
+import { DEFAULT_FETCH_TIMEOUT_MS, withTimeout } from "./fetch/with-timeout";
 import type {
   ChildRecord,
   ClassDetails,
@@ -35,8 +36,15 @@ import type {
  * Sites. Signature matches the scraper's `FetchImpl` so existing injection
  * sites (`login()`, `validateHomeworkUrl()`) swap in cleanly and tests
  * stay isolated on Node's native fetch.
+ *
+ * Wrapped in `withTimeout` so a stalled request (TeacherEase accepting the
+ * connection but never responding) aborts after 60s instead of hanging the
+ * scheduled digest indefinitely — see docs/lessons.md. `connectTimeout`
+ * additionally caps the TCP-connect phase on the Rust side.
  */
-export const tauriFetch: FetchImpl = (url, init) => pluginFetch(url, init);
+export const tauriFetch: FetchImpl = withTimeout((url, init) =>
+  pluginFetch(url, { connectTimeout: DEFAULT_FETCH_TIMEOUT_MS, ...init }),
+);
 
 // ---------------------------------------------------------------------------
 // DB singleton
