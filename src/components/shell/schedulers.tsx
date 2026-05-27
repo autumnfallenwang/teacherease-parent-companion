@@ -48,6 +48,10 @@ export const FETCH_NOW_EVENT = "fetch-now";
 
 const STALE_MS = 6 * 60 * 60 * 1000;
 
+const NOTIFY_CATCHUP_KEY = "notify.catchupOnMiss";
+const NOTIFY_LAST_SENT_KEY = "notify.lastSentAt";
+const NOTIFY_NEXT_RUN_KEY = "notify.nextRunAt";
+
 interface FetchCadence {
   runsPerDay: number;
   firstSlotAt: string;
@@ -97,8 +101,41 @@ async function armFetch(): Promise<void> {
 async function armNotify(): Promise<void> {
   const c = await loadNotifyCadence();
   const next = computeNotifyNextRun(new Date(), c.runsPerDay, c.firstSlotAt, c.weekdaysOnly);
-  void setSettingString("notify.nextRunAt", next.toISOString());
+  void setSettingString(NOTIFY_NEXT_RUN_KEY, next.toISOString());
   await scheduleNextTick("notify", next.getTime());
+}
+
+/** Catch-up gate: fire a notify cycle now if the user enabled
+ *  `notify.catchupOnMiss`, we're past the previously-armed slot, and the
+ *  *next* slot hasn't arrived yet (else the next slot supersedes us).
+ *  `lastSentAt` guards against double-firing if we already caught up in
+ *  this gap (e.g. live + boot both detect the miss within one session). */
+async function maybeRunNotifyCatchup(reason: "live" | "boot"): Promise<void> {
+  const enabled = await getSettingBool(NOTIFY_CATCHUP_KEY, true);
+  if (!enabled) return;
+
+  const now = new Date();
+  const c = await loadNotifyCadence();
+  const nextSlot = computeNotifyNextRun(now, c.runsPerDay, c.firstSlotAt, c.weekdaysOnly);
+
+  const lastSentIso = await getSettingString(NOTIFY_LAST_SENT_KEY, "");
+  if (lastSentIso) {
+    const lastSent = new Date(lastSentIso);
+    // If we already sent something more recently than one full cadence,
+    // the gap is already closed — no catch-up needed.
+    if (!Number.isNaN(lastSent.getTime()) && now.getTime() - lastSent.getTime() < STALE_MS) {
+      await log(`notify-catchup: skip (${reason}) — last sent ${lastSentIso}`);
+      return;
+    }
+  }
+
+  if (now >= nextSlot) {
+    // The next slot is already due/past — let the normal tick handle it.
+    return;
+  }
+
+  await log(`notify-catchup: firing (${reason})`);
+  await runNotifyCycle();
 }
 
 async function runNotifyCycle(): Promise<void> {
@@ -129,6 +166,8 @@ async function runNotifyCycle(): Promise<void> {
       : LANGUAGE_SETTING_DEFAULT,
   );
   await buildNotifyRouter().dispatch(digest, locale);
+  // Anchor for the catch-up gate so we don't double-fire across live + boot.
+  void setSettingString(NOTIFY_LAST_SENT_KEY, new Date().toISOString());
 }
 
 async function shouldColdStartFetch(): Promise<boolean> {
@@ -148,6 +187,7 @@ export function Schedulers() {
   useEffect(() => {
     let unlistenFetchTick: (() => void) | null = null;
     let unlistenNotifyTick: (() => void) | null = null;
+    let unlistenNotifyMissed: (() => void) | null = null;
     let unlistenTray: (() => void) | null = null;
     let cancelled = false;
 
@@ -214,6 +254,16 @@ export function Schedulers() {
       })();
     };
 
+    const handleNotifyMissed = (): void => {
+      void (async () => {
+        try {
+          await maybeRunNotifyCatchup("live");
+        } catch (e) {
+          await logErr(`scheduler: notify catch-up failed — ${asMsg(e)}`);
+        }
+      })();
+    };
+
     window.addEventListener(SCHEDULES_CHANGED_EVENT, handleSchedulesChanged);
     window.addEventListener(FETCH_NOW_EVENT, handleFetchNow);
     window.addEventListener(SEND_DIGEST_NOW_EVENT, handleSendDigestNow);
@@ -243,11 +293,33 @@ export function Schedulers() {
         const notifyUnlisten = await listenTauriEvent("scheduler:notify-tick", handleNotifyTick);
         if (cancelled) notifyUnlisten();
         else unlistenNotifyTick = notifyUnlisten;
+        const notifyMissedUnlisten = await listenTauriEvent(
+          "scheduler:notify-missed",
+          handleNotifyMissed,
+        );
+        if (cancelled) notifyMissedUnlisten();
+        else unlistenNotifyMissed = notifyMissedUnlisten;
       } catch (e) {
         await logErr(`scheduler: tick listen failed — ${asMsg(e)}`);
       }
 
       if (!cancelled) {
+        // Boot catch-up — handles the case where the last armed notify slot
+        // is in the past (laptop slept past it, OR the app was closed before
+        // the live Rust miss event could fire). Honors the same setting as
+        // the live path and gives up cleanly if the next slot is already due.
+        try {
+          const lastArmedIso = await getSettingString(NOTIFY_NEXT_RUN_KEY, "");
+          if (lastArmedIso) {
+            const lastArmed = new Date(lastArmedIso);
+            if (!Number.isNaN(lastArmed.getTime()) && lastArmed.getTime() < Date.now()) {
+              await maybeRunNotifyCatchup("boot");
+            }
+          }
+        } catch (e) {
+          await logErr(`scheduler: boot catch-up check failed — ${asMsg(e)}`);
+        }
+
         try {
           await armFetch();
           await armNotify();
@@ -283,6 +355,7 @@ export function Schedulers() {
       window.removeEventListener(SEND_DIGEST_NOW_EVENT, handleSendDigestNow);
       if (unlistenFetchTick) unlistenFetchTick();
       if (unlistenNotifyTick) unlistenNotifyTick();
+      if (unlistenNotifyMissed) unlistenNotifyMissed();
       if (unlistenTray) unlistenTray();
     };
   }, []);

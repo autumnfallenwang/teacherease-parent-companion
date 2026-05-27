@@ -44,6 +44,8 @@ const NOTIFY_FIRST_SLOT_KEY = "notify.firstSlotAt";
 const NOTIFY_WEEKDAYS_ONLY_KEY = "notify.weekdaysOnly";
 const NOTIFY_FETCH_BEFORE_KEY = "notify.fetchBeforeDispatch";
 const NOTIFY_FETCH_BEFORE_DEFAULT = true;
+const NOTIFY_CATCHUP_KEY = "notify.catchupOnMiss";
+const NOTIFY_CATCHUP_DEFAULT = true;
 const NOTIFY_NEXT_RUN_KEY = "notify.nextRunAt";
 
 function formatLocal(iso: string | null, locale: Locale): string {
@@ -64,6 +66,7 @@ export function SettingsNotifications() {
   const [firstSlotDraft, setFirstSlotDraft] = useState<string>(NOTIFY_FIRST_SLOT_DEFAULT);
   const [weekdaysOnly, setWeekdaysOnly] = useState<boolean>(false);
   const [fetchBefore, setFetchBefore] = useState<boolean>(NOTIFY_FETCH_BEFORE_DEFAULT);
+  const [catchup, setCatchup] = useState<boolean>(NOTIFY_CATCHUP_DEFAULT);
   const [notifyNextRunAt, setNotifyNextRunAt] = useState<string | null>(null);
 
   const [sendingDigest, setSendingDigest] = useState(false);
@@ -78,12 +81,13 @@ export function SettingsNotifications() {
 
   useEffect(() => {
     void (async () => {
-      const [os, rawRuns, rawSlot, wd, fb] = await Promise.all([
+      const [os, rawRuns, rawSlot, wd, fb, cu] = await Promise.all([
         getSettingBool(OS_KEY, OS_DEFAULT_ENABLED),
         getSettingString(NOTIFY_RUNS_PER_DAY_KEY, String(NOTIFY_RUNS_PER_DAY_DEFAULT)),
         getSettingString(NOTIFY_FIRST_SLOT_KEY, NOTIFY_FIRST_SLOT_DEFAULT),
         getSettingBool(NOTIFY_WEEKDAYS_ONLY_KEY, false),
         getSettingBool(NOTIFY_FETCH_BEFORE_KEY, NOTIFY_FETCH_BEFORE_DEFAULT),
+        getSettingBool(NOTIFY_CATCHUP_KEY, NOTIFY_CATCHUP_DEFAULT),
       ]);
       setOsEnabled(os);
       const parsedRuns = parseNotifyRunsPerDay(rawRuns);
@@ -94,6 +98,7 @@ export function SettingsNotifications() {
       setFirstSlotDraft(parsedSlot);
       setWeekdaysOnly(wd);
       setFetchBefore(fb);
+      setCatchup(cu);
       await reloadNextRun();
     })();
   }, [reloadNextRun]);
@@ -164,6 +169,18 @@ export function SettingsNotifications() {
     } catch (e) {
       await logErr(
         `settings: notify.fetchBeforeDispatch save failed — ${e instanceof Error ? e.message : "unknown"}`,
+      );
+    }
+  };
+
+  const toggleCatchup = async (next: boolean) => {
+    setCatchup(next);
+    try {
+      await setSettingBool(NOTIFY_CATCHUP_KEY, next);
+      await log(`settings: ${NOTIFY_CATCHUP_KEY}=${next ? 1 : 0}`);
+    } catch (e) {
+      await logErr(
+        `settings: notify.catchupOnMiss save failed — ${e instanceof Error ? e.message : "unknown"}`,
       );
     }
   };
@@ -345,6 +362,22 @@ export function SettingsNotifications() {
               aria-label={t("settings.notifications.schedule.fetchFreshAria")}
             />
             <span className="text-[13px]">{t("settings.notifications.schedule.fetchFresh")}</span>
+          </div>
+
+          <div className="flex items-start gap-3 pt-1">
+            <Switch
+              checked={catchup}
+              onChange={(next) => {
+                void toggleCatchup(next);
+              }}
+              aria-label={t("settings.notifications.schedule.catchupAria")}
+            />
+            <div className="flex-1">
+              <p className="text-[13px]">{t("settings.notifications.schedule.catchup")}</p>
+              <p className="text-[12px] text-muted-foreground">
+                {t("settings.notifications.schedule.catchupHelp")}
+              </p>
+            </div>
           </div>
 
           <p className="text-[12px] text-muted-foreground">

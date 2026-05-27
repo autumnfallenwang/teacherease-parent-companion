@@ -20,12 +20,25 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{Mutex, Notify};
 
 const FETCH_TICK_EVENT: &str = "scheduler:fetch-tick";
 const NOTIFY_TICK_EVENT: &str = "scheduler:notify-tick";
+/// Emitted only for the notify scheduler when the wall-clock target was
+/// missed (system slept past it). The TS layer decides whether to honor it
+/// based on the `notify.catchupOnMiss` setting and whether we're still
+/// before the next armed slot. Fetch never emits this — a missed fetch is
+/// covered by the next fetch.
+const NOTIFY_MISSED_EVENT: &str = "scheduler:notify-missed";
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct NotifyMissedPayload {
+    target_ms: i64,
+    late_ms: i64,
+}
 
 /// Cap on each individual sleep chunk so a tokio sleep that gets paused
 /// across system suspend can't keep the worker stranded for hours. After
@@ -187,10 +200,19 @@ fn spawn_worker(app: AppHandle, kind: &'static str, slot: SchedulerSlot) {
                         log::warn!(
                             "scheduler-rust: {kind} missed (woke {late_min}min late) target_ms={target_ms} — skipping to next slot"
                         );
-                        // Clear without emitting. Webview re-arms next slot
-                        // when its event listener — or its periodic
-                        // settings-driven recompute — runs next.
+                        // Clear the slot so the webview can re-arm cleanly.
+                        // For notify, also emit a miss event so the TS layer
+                        // can run catch-up if the user opted in. Fetch never
+                        // emits — a missed fetch is covered by the next one.
                         *slot.fire_at_ms.lock().await = None;
+                        if kind == "notify" {
+                            let payload = NotifyMissedPayload { target_ms, late_ms };
+                            if let Err(e) = app.emit(NOTIFY_MISSED_EVENT, payload) {
+                                log::error!(
+                                    "scheduler-rust: emit {NOTIFY_MISSED_EVENT} failed — {e}"
+                                );
+                            }
+                        }
                     }
                     WaitOutcome::Cancelled => {
                         log::debug!("scheduler-rust: {kind} sleep cancelled — re-reading target");
